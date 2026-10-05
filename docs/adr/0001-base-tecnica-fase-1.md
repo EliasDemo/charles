@@ -28,4 +28,4 @@ En la Fase 1 se fija el stack de CLAUDE.md §2 con versiones concretas. Algunas 
 
 - El guard global de autenticación (denegar por defecto) llega en la Fase 3; `@Public()` ya existe.
 - Los perfiles de límite `auth`, `payments` y `search` (`@RateLimit(...)`) se aplican en sus fases.
-- Fijar las GitHub Actions por SHA en lugar de por versión mayor.
+- ~~Fijar las GitHub Actions por SHA~~: hecho (checkout v5.1.0, pnpm/action-setup v4.4.0, setup-node v5.0.0). Existen versiones mayores nuevas (checkout v7, action-setup v6, setup-node v7); se evaluarán cuando el CI pueda ejecutarse.

@@ -17,6 +17,7 @@ Este archivo es la fuente de verdad técnica. Los requerimientos funcionales (55
 7. Código, nombres de tablas, columnas y endpoints en **inglés**. Mensajes al usuario final y documentación en **español**.
 8. Cita el ID del RF (por ejemplo `RF-RES-007`) en el nombre de las pruebas y en los commits.
 9. Al terminar una fase, resume: qué se hizo, qué RF cubre, qué quedó pendiente.
+10. Nunca modifiques ni borres datos de la base directamente (incluida `_prisma_migrations`) sin pedir autorización antes.
 
 ---
 
