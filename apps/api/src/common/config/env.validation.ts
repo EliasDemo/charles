@@ -1,4 +1,5 @@
 import { isIP } from 'node:net';
+import { type JwtKeys, parseJwtPrivateKey } from '../auth/jwt-keys';
 import { type CryptoKeys, parseCryptoKeys } from '../crypto/crypto-keys';
 import { plainToInstance, Transform } from 'class-transformer';
 import {
@@ -16,6 +17,11 @@ export enum NodeEnv {
   Development = 'development',
   Test = 'test',
   Production = 'production',
+}
+
+export enum MailerDriver {
+  /** Simulado: guarda los correos en Redis. Prohibido en producción (proveedor real: Fase 10). */
+  Fake = 'fake',
 }
 
 export enum LogLevel {
@@ -94,6 +100,29 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(1)
   THROTTLE_LIMIT = 100;
+
+  @IsString()
+  JWT_ISSUER = 'charles-api';
+
+  @IsString()
+  JWT_AUDIENCE = 'charles-clients';
+
+  /** Vida del token de acceso (CLAUDE.md §6.3: 15 minutos). */
+  @Transform(toInt)
+  @IsInt()
+  @Min(60)
+  @Max(3600)
+  ACCESS_TOKEN_TTL_SECONDS = 900;
+
+  /** Vida de la sesión (token de renovación), renovada con el uso (CLAUDE.md §4.1: 30 días). */
+  @Transform(toInt)
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  REFRESH_TOKEN_TTL_DAYS = 30;
+
+  @IsEnum(MailerDriver)
+  MAILER_DRIVER: MailerDriver = MailerDriver.Fake;
 }
 
 /** Configuración ya validada e interpretada que consume la aplicación. */
@@ -111,6 +140,15 @@ export interface AppConfig {
   throttle: { ttlMs: number; limit: number };
   /** Claves de cifrado de campos e índice ciego. Nunca registrar este objeto en logs. */
   crypto: CryptoKeys;
+  auth: {
+    /** Claves ES256 del token de acceso. Nunca registrar en logs. */
+    jwtKeys: JwtKeys;
+    issuer: string;
+    audience: string;
+    accessTokenTtlSeconds: number;
+    refreshTokenTtlDays: number;
+  };
+  mail: { driver: MailerDriver };
 }
 
 interface Parsed<T> {
@@ -192,6 +230,9 @@ function productionErrors(env: EnvironmentVariables, corsOrigins: string[]): str
   if (env.SWAGGER_ENABLED) {
     errors.push('SWAGGER_ENABLED: debe estar deshabilitado en producción');
   }
+  if (env.MAILER_DRIVER === MailerDriver.Fake) {
+    errors.push('MAILER_DRIVER: el correo simulado no se permite en producción');
+  }
   if (corsOrigins.some((o) => !o.startsWith('https://'))) {
     errors.push('CORS_ORIGINS: en producción todos los orígenes deben usar https');
   }
@@ -217,14 +258,15 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
       ? parseTrustProxy(env.TRUST_PROXY)
       : { value: false, errors: [] };
   const crypto = parseCryptoKeys(raw);
-  errors.push(...cors.errors, ...trustProxy.errors, ...crypto.errors);
+  const jwtKeys = parseJwtPrivateKey(raw.JWT_PRIVATE_KEY);
+  errors.push(...cors.errors, ...trustProxy.errors, ...crypto.errors, ...jwtKeys.errors);
 
   // Las reglas de producción solo se evalúan si los campos básicos son válidos.
   if (errors.length === 0 && env.NODE_ENV === NodeEnv.Production) {
     errors.push(...productionErrors(env, cors.value));
   }
 
-  if (errors.length > 0 || !crypto.value) {
+  if (errors.length > 0 || !crypto.value || !jwtKeys.value) {
     throw new Error(`Configuración de entorno inválida:\n - ${errors.join('\n - ')}`);
   }
 
@@ -241,5 +283,13 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
     bodyLimit: env.BODY_LIMIT,
     throttle: { ttlMs: env.THROTTLE_TTL_MS, limit: env.THROTTLE_LIMIT },
     crypto: crypto.value,
+    auth: {
+      jwtKeys: jwtKeys.value,
+      issuer: env.JWT_ISSUER,
+      audience: env.JWT_AUDIENCE,
+      accessTokenTtlSeconds: env.ACCESS_TOKEN_TTL_SECONDS,
+      refreshTokenTtlDays: env.REFRESH_TOKEN_TTL_DAYS,
+    },
+    mail: { driver: env.MAILER_DRIVER },
   };
 }

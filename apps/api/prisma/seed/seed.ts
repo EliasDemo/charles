@@ -156,6 +156,13 @@ export const SEED_SETTINGS: {
     description: 'Anticipación mínima para reservar, en minutos.',
   },
   {
+    key: 'legal.terms_version',
+    // Valor provisional: reemplazar por la versión publicada de los términos (no está definida).
+    value: 'borrador-2026-10',
+    description:
+      'Versión vigente de los términos y condiciones. El registro exige aceptar exactamente esta versión.',
+  },
+  {
     key: 'payments.provider',
     value: 'FAKE',
     description: 'Proveedor de pagos activo. Izipay se integra en la Fase 8 (ADR 0002).',
@@ -220,6 +227,8 @@ export async function seed({ prisma, encryption, password, jsonNull }: SeedDeps)
         birthDateEnc: encryption.encrypt(user.birthDate, EncryptedField.USER_BIRTH_DATE),
         termsAcceptedAt: new Date(),
         termsVersion: 'seed',
+        adultDeclaredAt: new Date(),
+        emailVerifiedAt: new Date(),
       },
     });
     for (const role of user.roles) {

@@ -15,7 +15,7 @@ import { configureApp } from '../configure-app';
 async function exportOpenApi(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
-    logger: false,
+    logger: ['error'],
   });
   configureApp(app);
   const document = buildOpenApiDocument(app);

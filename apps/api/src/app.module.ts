@@ -4,6 +4,8 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import Redis from 'ioredis';
 import { LoggerModule } from 'nestjs-pino';
+import { AuditModule } from './common/audit/audit.module';
+import { AuthCommonModule } from './common/auth/auth-common.module';
 import { AppConfigModule } from './common/config/app-config.module';
 import { APP_CONFIG } from './common/config/app-config.token';
 import type { AppConfig } from './common/config/env.validation';
@@ -11,10 +13,14 @@ import { CryptoModule } from './common/crypto/crypto.module';
 import { AllExceptionsFilter } from './common/errors/all-exceptions.filter';
 import { HealthModule } from './common/health/health.module';
 import { HttpsOnlyMiddleware } from './common/http/https-only.middleware';
+import { MailModule } from './common/mail/mail.module';
 import { buildLoggerParams } from './common/logging/logger.options';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { QueueModule } from './common/queue/queue.module';
 import { REDIS_CLIENT, RedisModule } from './common/redis/redis.module';
 import { ClientIpThrottlerGuard } from './common/throttling/client-ip-throttler.guard';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -33,7 +39,13 @@ import { ClientIpThrottlerGuard } from './common/throttling/client-ip-throttler.
         storage: new ThrottlerStorageRedisService(redis),
       }),
     }),
+    AuditModule,
+    QueueModule,
+    MailModule,
+    AuthCommonModule,
     HealthModule,
+    UsersModule,
+    AuthModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

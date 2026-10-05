@@ -76,8 +76,21 @@ describe('validateEnv', () => {
   });
 
   describe('producción', () => {
-    it('acepta una configuración segura', () => {
-      expect(validateEnv(production).isProduction).toBe(true);
+    it('con TLS, sin Swagger y CORS https, el único bloqueo es el correo simulado (Fase 10)', () => {
+      let message = '';
+      try {
+        validateEnv(production);
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      const problems = message.split('\n').filter((line) => line.startsWith(' - '));
+      expect(problems).toEqual([
+        ' - MAILER_DRIVER: el correo simulado no se permite en producción',
+      ]);
+    });
+
+    it('exige la clave JWT', () => {
+      expect(() => validateEnv({ ...production, JWT_PRIVATE_KEY: '' })).toThrow(/JWT_PRIVATE_KEY/);
     });
 
     it('exige sslmode=verify-full en PostgreSQL', () => {

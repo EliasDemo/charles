@@ -2,7 +2,9 @@ import { Body, Controller, Get, Module, Post, Req } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { IsInt, IsString, Max, MaxLength, Min } from 'class-validator';
 import type { Request } from 'express';
+import { type AuthUser, CurrentUser } from '../../src/common/auth/auth-user';
 import { Public } from '../../src/common/auth/public.decorator';
+import { Roles } from '../../src/common/auth/roles.decorator';
 
 export const PROBE_LIMIT = 3;
 
@@ -38,5 +40,20 @@ class TestProbeController {
   }
 }
 
-@Module({ controllers: [TestProbeController] })
+/** Endpoints privados de prueba: autenticación y roles. */
+@Controller('test-probe/private')
+class PrivateProbeController {
+  @Get('whoami')
+  whoami(@CurrentUser() user: AuthUser): AuthUser {
+    return user;
+  }
+
+  @Roles('SUPPORT')
+  @Get('support-only')
+  supportOnly(): { ok: true } {
+    return { ok: true };
+  }
+}
+
+@Module({ controllers: [TestProbeController, PrivateProbeController] })
 export class TestProbeModule {}

@@ -26,3 +26,11 @@ export const BlindIndexKind = {
 } as const;
 
 export type BlindIndexKind = (typeof BlindIndexKind)[keyof typeof BlindIndexKind];
+
+/** Separadores de dominio estables para el HMAC de códigos de un solo uso (OTP). */
+export const OneTimeCodePurpose = {
+  PASSWORD_RESET: 'charles/otp/password-reset/v1',
+  EMAIL_VERIFICATION: 'charles/otp/email-verification/v1',
+} as const;
+
+export type OneTimeCodePurpose = (typeof OneTimeCodePurpose)[keyof typeof OneTimeCodePurpose];

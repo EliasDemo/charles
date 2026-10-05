@@ -1,6 +1,6 @@
-import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { randomJwtPrivateKey, randomKey } from './random-keys';
 
 /**
  * Carga `apps/api/.env.test` si existe (entorno local). En CI las variables
@@ -12,10 +12,10 @@ export function loadTestEnv(): void {
   process.env.NODE_ENV = 'test';
 
   // Claves efímeras: nunca se escriben claves en archivos de prueba ni en el repositorio.
-  const key = (): string => randomBytes(32).toString('base64');
-  process.env.FIELD_ENCRYPTION_KEYS ??= `1:${key()}`;
+  process.env.FIELD_ENCRYPTION_KEYS ??= `1:${randomKey()}`;
   process.env.FIELD_ENCRYPTION_ACTIVE_KEY_VERSION ??= '1';
-  process.env.BLIND_INDEX_KEY ??= key();
+  process.env.BLIND_INDEX_KEY ??= randomKey();
+  process.env.JWT_PRIVATE_KEY ??= randomJwtPrivateKey();
 
   // Protección: las e2e limpian datos; nunca deben correr contra otra base.
   const url = process.env.DATABASE_URL ?? '';

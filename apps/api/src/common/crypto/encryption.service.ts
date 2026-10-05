@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { BLIND_INDEX_NORMALIZERS } from './blind-index.normalizers';
-import type { BlindIndexKind, EncryptedField } from './encryption-contexts';
+import type { BlindIndexKind, EncryptedField, OneTimeCodePurpose } from './encryption-contexts';
 import { KEY_PROVIDER, type KeyProvider } from './key-provider';
 
 const ALGORITHM = 'aes-256-gcm';
@@ -9,6 +9,8 @@ const IV_LENGTH_BYTES = 12;
 const TAG_LENGTH_BYTES = 16;
 const STORED_FORMAT =
   /^v([1-9]\d{0,3}):([A-Za-z0-9+/]+={0,2}):([A-Za-z0-9+/]+={0,2}):([A-Za-z0-9+/]*={0,2})$/;
+/** Separa los componentes de cada HMAC (no puede aparecer en los valores normalizados). */
+const SEPARATOR = '\u0000';
 
 /** Error genérico de descifrado: no revela si falló la clave, la etiqueta o el formato. */
 export class DecryptionError extends Error {
@@ -93,14 +95,7 @@ export class EncryptionService {
    * Determinista: permite buscar e imponer unicidad sin descifrar.
    */
   blindIndex(value: string, kind: BlindIndexKind): Buffer<ArrayBuffer> {
-    const normalized = BLIND_INDEX_NORMALIZERS[kind](value);
-    const digest = createHmac('sha256', this.keys.blindIndexKey())
-      .update(kind, 'utf8')
-      .update('\u0000')
-      .update(normalized, 'utf8')
-      .digest();
-    // Copia con ArrayBuffer propio: es el tipo que Prisma espera para columnas Bytes.
-    return Buffer.from(digest);
+    return this.hmac(kind, BLIND_INDEX_NORMALIZERS[kind](value));
   }
 
   blindIndexNullable(
@@ -108,6 +103,22 @@ export class EncryptionService {
     kind: BlindIndexKind,
   ): Buffer<ArrayBuffer> | null {
     return value == null ? null : this.blindIndex(value, kind);
+  }
+
+  /**
+   * HMAC de un código de un solo uso, ligado a su propósito y a su usuario: un código de
+   * recuperación no sirve como código de verificación ni para otra cuenta. Un código de 6 dígitos
+   * es adivinable sin clave; por eso se usa HMAC (no un hash simple) y un límite de intentos.
+   */
+  oneTimeCodeHash(code: string, purpose: OneTimeCodePurpose, userId: string): Buffer<ArrayBuffer> {
+    return this.hmac(purpose, userId, code);
+  }
+
+  private hmac(domain: string, ...parts: string[]): Buffer<ArrayBuffer> {
+    const mac = createHmac('sha256', this.keys.blindIndexKey()).update(domain, 'utf8');
+    for (const part of parts) mac.update(SEPARATOR).update(part, 'utf8');
+    // Copia con ArrayBuffer propio: es el tipo que Prisma espera para columnas Bytes.
+    return Buffer.from(mac.digest());
   }
 
   private parse(stored: string): ParsedValue | undefined {

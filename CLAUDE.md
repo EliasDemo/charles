@@ -100,6 +100,23 @@ pnpm test | pnpm test:e2e | pnpm lint | pnpm typecheck
 - **Identificadores únicos:** `email_hash` único; `document_hash` único solo cuando no es nulo (índice único parcial); `phone_hash` solo indexado, no único.
 - **Idempotencia:** `bookings` es única por `(client_id, idempotency_key)`; `payments` tiene su propia `idempotency_key`, única por `(booking_id, idempotency_key)`.
 
+#### Cuentas y autenticación (Fase 3)
+
+- **Inicio de sesión solo con correo.** Se compara por índice ciego (sin distinguir mayúsculas ni espacios).
+- **Registro:** obligatorios nombre completo, correo, contraseña y aceptación de términos; opcional el teléfono. No se piden documento ni fecha de nacimiento en el MVP (las columnas quedan para uso futuro).
+- **Edad mínima 18 años**, autodeclarada con una casilla obligatoria al aceptar los términos (`users.adult_declared_at`). ⚠️ Pendiente de validación legal (ADR 0003).
+- **Correo ya registrado:** el registro responde exactamente igual (código, cuerpo y tiempo comparable) y se avisa por correo al dueño. Se aparta del texto de RF-AUT-001 por seguridad (ADR 0003). El registro no devuelve tokens: después se inicia sesión.
+- **Verificación de correo:** el usuario puede entrar sin verificar; el correo verificado se exige para reservar (Fase 7).
+- **Roles:** todo registro crea `CLIENT`. `OWNER` se obtiene automáticamente al registrar una barbería (Fase 4). `BARBER` lo asigna el responsable (Fase 4). `SUPPORT` solo por seed o administrador. Nadie elige su rol al registrarse.
+- **Términos:** la versión vigente está en `app_settings` (`legal.terms_version`) y el registro exige aceptar exactamente esa versión. La re-aceptación obligatoria al cambiar la versión queda para una fase posterior.
+- **Contraseñas:** de 10 a 128 caracteres, sin reglas de composición, rechazando las de una lista local de contraseñas comunes (`modules/auth/password/common-passwords.txt`). Sin HIBP en el MVP.
+- **Bloqueo:** tras 5 fallos, bloqueo progresivo de 1, 5 y 15 minutos, por cuenta y por IP. Al bloquearse la cuenta se avisa por correo. Los fallos de códigos (recuperación y verificación) también cuentan.
+- **Cuenta deshabilitada:** el mensaje específico solo se muestra después de validar la contraseña; antes, error genérico.
+- **Sesión:** 30 días, renovándose con el uso; sin límite de dispositivos. Cierre de sesión en el dispositivo actual o en todos.
+- **Recuperación de acceso:** por correo, con código de 6 dígitos, 15 minutos y un solo uso. Solo se guarda su HMAC y se invalida tras 5 intentos fallidos. Lo mismo aplica al código de verificación de correo. Al cambiar la contraseña se cierran todas las sesiones y se envía un correo de aviso.
+- **Correo:** interfaz `Mailer` con `FakeMailer` (guarda los correos en Redis; prohibido en producción). El proveedor real se elige en la Fase 10. Los correos se envían desde una cola BullMQ y los trabajos nunca llevan datos personales en claro.
+- **Perfil (RF-CLI-002):** editables nombre, teléfono y preferencias (por ahora solo canales de notificación; por defecto todos activos). El correo no se puede cambiar en el MVP.
+
 ### 4.2 Pendientes (NO las inventes; deja el punto configurable y pregunta)
 
 - Medios de pago (la pasarela ya está decidida: Izipay).
@@ -154,6 +171,8 @@ El objetivo es agregar funciones nuevas **sin modificar los módulos existentes*
 - Token de acceso JWT de vida corta (15 min) firmado con algoritmo asimétrico (ES256 o RS256).
 - Token de renovación opaco y aleatorio, guardado **solo como hash**, con **rotación en cada uso** y detección de reutilización (si se reutiliza uno ya rotado, se revoca toda la familia de sesiones).
 - Web: tokens en cookies `HttpOnly`, `Secure`, `SameSite`, con protección CSRF. Móvil: almacenamiento seguro del sistema (Keychain / Keystore).
+  - **Pendiente (fase del frontend web):** hoy los tokens viajan solo en el cuerpo (móvil). Las cookies y el CSRF se agregarán sin cambiar los endpoints: el cliente web se identificará con una cabecera, y `login`/`refresh` escribirán los tokens en cookies en vez del cuerpo. `refresh` y `logout` los leerán de la cookie cuando no vengan en el cuerpo, y los métodos que cambian estado exigirán el token CSRF (_double submit_).
+- Revocación inmediata: al cerrar sesión, el ID de sesión (`sid` del JWT = `refresh_tokens.family_id`) se marca en Redis durante la vida del token de acceso, y el guard lo rechaza en cada petición. Si Redis no responde, el guard falla de forma cerrada (503).
 - Cerrar sesión (RF-AUT-003) revoca el token de renovación en el servidor.
 - Límite de intentos y bloqueo temporal progresivo en inicio de sesión y recuperación.
 - Recuperación de acceso (RF-AUT-004): token de un solo uso, de vida corta, guardado como hash. La respuesta es **idéntica exista o no la cuenta**.
@@ -202,13 +221,14 @@ El objetivo es agregar funciones nuevas **sin modificar los módulos existentes*
 
 **Cuentas**
 
-| Tabla                   | Columnas clave                                                                                                                                                                                                                                                                                              |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`                 | `email_enc`, `email_hash` (único), `password_hash`, `full_name`, `phone_enc`, `phone_hash` (indexado, no único), `document_number_enc`, `document_hash` (único si no es nulo, índice parcial), `birth_date_enc`, `status` (`ACTIVE`, `DISABLED`), `terms_accepted_at`, `terms_version`, `preferences` JSONB |
-| `user_roles`            | `user_id`, `role` — único por par                                                                                                                                                                                                                                                                           |
-| `refresh_tokens`        | `user_id`, `token_hash`, `family_id`, `expires_at`, `revoked_at`, `replaced_by`, `device_info`                                                                                                                                                                                                              |
-| `password_reset_tokens` | `user_id`, `token_hash`, `expires_at`, `used_at`                                                                                                                                                                                                                                                            |
-| `device_tokens`         | `user_id`, `platform` (`IOS`, `ANDROID`, `WEB`), `push_token`, `last_seen_at`                                                                                                                                                                                                                               |
+| Tabla                      | Columnas clave                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`                    | `email_enc`, `email_hash` (único), `password_hash`, `full_name`, `phone_enc`, `phone_hash` (indexado, no único), `document_number_enc`, `document_hash` (único si no es nulo, índice parcial), `birth_date_enc`, `status` (`ACTIVE`, `DISABLED`), `email_verified_at`, `adult_declared_at`, `terms_accepted_at`, `terms_version`, `preferences` JSONB |
+| `user_roles`               | `user_id`, `role` — único por par                                                                                                                                                                                                                                                                                                                     |
+| `refresh_tokens`           | `user_id`, `token_hash`, `family_id`, `expires_at`, `revoked_at`, `replaced_by`, `device_info`                                                                                                                                                                                                                                                        |
+| `password_reset_tokens`    | `user_id`, `token_hash` (HMAC del código), `attempts` (máx. 5), `expires_at`, `used_at`                                                                                                                                                                                                                                                               |
+| `email_verification_codes` | `user_id`, `code_hash` (HMAC del código), `attempts` (máx. 5), `expires_at`, `used_at`                                                                                                                                                                                                                                                                |
+| `device_tokens`            | `user_id`, `platform` (`IOS`, `ANDROID`, `WEB`), `push_token`, `last_seen_at`                                                                                                                                                                                                                                                                         |
 
 **Barberías, barberos y servicios**
 

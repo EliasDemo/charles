@@ -21,6 +21,8 @@ pnpm --filter api prisma db seed
 pnpm --filter api start:dev              # http://localhost:3000/api/v1/health
 ```
 
+Los correos (verificación, recuperación, avisos) se simulan con `FakeMailer` hasta la Fase 10: quedan en Redis, en la lista `fake-mailer:inbox` (`docker compose exec redis redis-cli LRANGE fake-mailer:inbox 0 4`).
+
 Swagger se publica en `http://localhost:3000/api/docs` si `SWAGGER_ENABLED=true`. En producción está prohibido.
 
 ## Comandos

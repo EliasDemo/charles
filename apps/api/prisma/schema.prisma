@@ -168,6 +168,11 @@ model User {
   documentHash      Bytes?     @map("document_hash")
   birthDateEnc      String?    @map("birth_date_enc")
   status            UserStatus @default(ACTIVE)
+  /// Nulo = correo sin verificar (se exige verificado para reservar, Fase 7).
+  emailVerifiedAt   DateTime?  @map("email_verified_at") @db.Timestamptz(3)
+  /// Declaración de mayoría de edad (18+) al aceptar los términos (ADR 0003). El registro siempre la
+  /// exige; nulo solo en cuentas creadas antes de esta regla.
+  adultDeclaredAt   DateTime?  @map("adult_declared_at") @db.Timestamptz(3)
   termsAcceptedAt   DateTime   @map("terms_accepted_at") @db.Timestamptz(3)
   termsVersion      String     @map("terms_version")
   preferences       Json       @default("{}")
@@ -176,25 +181,26 @@ model User {
   updatedAt         DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt         DateTime?  @map("deleted_at") @db.Timestamptz(3)
 
-  roles                UserRole[]
-  refreshTokens        RefreshToken[]
-  passwordResetTokens  PasswordResetToken[]
-  deviceTokens         DeviceToken[]
-  memberships          BarbershopMember[]
-  barberProfiles       Barber[]
-  bookings             Booking[]              @relation("BookingClient")
-  cancelledBookings    Booking[]              @relation("BookingCancelledBy")
-  bookingStatusChanges BookingStatusHistory[]
-  favorites            Favorite[]
-  reviews              Review[]
-  reviewReports        ReviewReport[]
-  notifications        Notification[]
-  supportTickets       SupportTicket[]        @relation("TicketRequester")
-  assignedTickets      SupportTicket[]        @relation("TicketAssignee")
-  ticketMessages       TicketMessage[]
-  barbershopReports    BarbershopReport[]
-  couponRedemptions    CouponRedemption[]
-  sponsorEvents        SponsorEvent[]
+  roles                  UserRole[]
+  refreshTokens          RefreshToken[]
+  passwordResetTokens    PasswordResetToken[]
+  emailVerificationCodes EmailVerificationCode[]
+  deviceTokens           DeviceToken[]
+  memberships            BarbershopMember[]
+  barberProfiles         Barber[]
+  bookings               Booking[]               @relation("BookingClient")
+  cancelledBookings      Booking[]               @relation("BookingCancelledBy")
+  bookingStatusChanges   BookingStatusHistory[]
+  favorites              Favorite[]
+  reviews                Review[]
+  reviewReports          ReviewReport[]
+  notifications          Notification[]
+  supportTickets         SupportTicket[]         @relation("TicketRequester")
+  assignedTickets        SupportTicket[]         @relation("TicketAssignee")
+  ticketMessages         TicketMessage[]
+  barbershopReports      BarbershopReport[]
+  couponRedemptions      CouponRedemption[]
+  sponsorEvents          SponsorEvent[]
 
   @@index([phoneHash])
   @@map("users")
@@ -232,10 +238,12 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
+/// Código de recuperación de 6 dígitos: solo su HMAC; inválido tras 5 intentos fallidos.
 model PasswordResetToken {
   id        String    @id @default(uuid(7)) @db.Uuid
   userId    String    @map("user_id") @db.Uuid
-  tokenHash Bytes     @unique @map("token_hash")
+  tokenHash Bytes     @map("token_hash")
+  attempts  Int       @default(0)
   expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
   usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -260,6 +268,23 @@ model DeviceToken {
 
   @@index([userId])
   @@map("device_tokens")
+}
+
+/// Código de verificación de correo de 6 dígitos: solo su HMAC; inválido tras 5 intentos fallidos.
+model EmailVerificationCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  Bytes     @map("code_hash")
+  attempts  Int       @default(0)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_codes")
 }
 
 // ─────────────────── Barberías, barberos y servicios ───────────────────

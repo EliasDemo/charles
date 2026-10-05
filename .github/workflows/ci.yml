@@ -63,14 +63,17 @@ jobs:
           ENC=$(openssl rand -base64 32)
           IDX=$(openssl rand -base64 32)
           SEED=$(openssl rand -base64 24)
+          JWT=$(openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 | base64 -w0)
           echo "::add-mask::$ENC"
           echo "::add-mask::$IDX"
           echo "::add-mask::$SEED"
+          echo "::add-mask::$JWT"
           {
             echo "FIELD_ENCRYPTION_KEYS=1:$ENC"
             echo "FIELD_ENCRYPTION_ACTIVE_KEY_VERSION=1"
             echo "BLIND_INDEX_KEY=$IDX"
             echo "SEED_USER_PASSWORD=$SEED"
+            echo "JWT_PRIVATE_KEY=$JWT"
           } >> "$GITHUB_ENV"
 
       - name: Instalar dependencias
