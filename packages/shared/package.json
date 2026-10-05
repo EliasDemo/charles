@@ -1,0 +1,16 @@
+{
+  "name": "@charles/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Tipos y cliente de la API de Charles, generados desde OpenAPI (no editar a mano).",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "generate": "pnpm --filter api openapi:export && openapi-typescript ../../apps/api/openapi.json -o src/generated/api.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "6.0.3"
+  }
+}

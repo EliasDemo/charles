@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.5
+        env:
+          POSTGRES_USER: charles
+          POSTGRES_PASSWORD: charles_ci_only
+          POSTGRES_DB: charles
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U charles -d charles"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    # Credenciales desechables del contenedor de CI (no son secretos).
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://charles:charles_ci_only@127.0.0.1:5432/charles_test?schema=public
+      REDIS_URL: redis://127.0.0.1:6379/1
+      CORS_ORIGINS: http://localhost:3001
+      TRUST_PROXY: loopback
+      SWAGGER_ENABLED: 'false'
+      LOG_LEVEL: silent
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Auditoría de dependencias
+        run: pnpm audit --audit-level=high
+
+      - name: Formato
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Pruebas unitarias
+        run: pnpm test
+
+      # El script de Docker Compose no se ejecuta en CI: la base de pruebas se crea aquí.
+      # Las extensiones las crea la primera migración (prisma migrate deploy en el globalSetup).
+      - name: Crear base de datos de pruebas
+        env:
+          PGPASSWORD: charles_ci_only
+        run: psql -h 127.0.0.1 -U charles -d charles -v ON_ERROR_STOP=1 -c 'CREATE DATABASE charles_test'
+
+      - name: Pruebas e2e
+        run: pnpm test:e2e
+
+      - name: Verificar que OpenAPI y el cliente generado están al día
+        run: |
+          pnpm --filter @charles/shared generate
+          git diff --exit-code -- apps/api/openapi.json packages/shared/src/generated
+
+      - name: Build
+        run: pnpm build

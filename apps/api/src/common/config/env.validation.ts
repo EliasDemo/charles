@@ -1,0 +1,240 @@
+import { isIP } from 'node:net';
+import { plainToInstance, Transform } from 'class-transformer';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsString,
+  Matches,
+  Max,
+  Min,
+  validateSync,
+} from 'class-validator';
+
+export enum NodeEnv {
+  Development = 'development',
+  Test = 'test',
+  Production = 'production',
+}
+
+export enum LogLevel {
+  Fatal = 'fatal',
+  Error = 'error',
+  Warn = 'warn',
+  Info = 'info',
+  Debug = 'debug',
+  Trace = 'trace',
+  Silent = 'silent',
+}
+
+/**
+ * Valor de `trust proxy` de Express:
+ * - `false`: no se confía en ningún proxy (se ignora X-Forwarded-For).
+ * - número: cantidad de saltos de proxy de confianza.
+ * - lista: IPs, CIDR o los alias `loopback`, `linklocal`, `uniquelocal`.
+ * `true` (confiar en cualquiera) está prohibido: permitiría falsificar la IP del cliente.
+ */
+export type TrustProxySetting = false | number | string[];
+
+const TRUST_PROXY_ALIASES = new Set(['loopback', 'linklocal', 'uniquelocal']);
+
+const toBoolean = ({ value }: { value: unknown }): unknown => {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return value;
+};
+
+const toInt = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
+
+export class EnvironmentVariables {
+  @IsEnum(NodeEnv)
+  NODE_ENV!: NodeEnv;
+
+  @Transform(toInt)
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  PORT = 3000;
+
+  @IsString()
+  @Matches(/^postgres(ql)?:\/\/\S+$/, { message: 'debe ser una URL postgresql://' })
+  DATABASE_URL!: string;
+
+  @IsString()
+  @Matches(/^rediss?:\/\/\S+$/, { message: 'debe ser una URL redis:// o rediss://' })
+  REDIS_URL!: string;
+
+  /** Orígenes permitidos para CORS, separados por coma. */
+  @IsString()
+  CORS_ORIGINS!: string;
+
+  /** Ver {@link TrustProxySetting}. */
+  @IsString()
+  TRUST_PROXY!: string;
+
+  @Transform(toBoolean)
+  @IsBoolean()
+  SWAGGER_ENABLED = false;
+
+  @IsEnum(LogLevel)
+  LOG_LEVEL: LogLevel = LogLevel.Info;
+
+  @IsString()
+  @Matches(/^\d+(b|kb|mb)$/, { message: 'debe tener el formato <número>(b|kb|mb)' })
+  BODY_LIMIT = '100kb';
+
+  @Transform(toInt)
+  @IsInt()
+  @Min(1000)
+  THROTTLE_TTL_MS = 60_000;
+
+  @Transform(toInt)
+  @IsInt()
+  @Min(1)
+  THROTTLE_LIMIT = 100;
+}
+
+/** Configuración ya validada e interpretada que consume la aplicación. */
+export interface AppConfig {
+  nodeEnv: NodeEnv;
+  isProduction: boolean;
+  port: number;
+  databaseUrl: string;
+  redisUrl: string;
+  corsOrigins: string[];
+  trustProxy: TrustProxySetting;
+  swaggerEnabled: boolean;
+  logLevel: LogLevel;
+  bodyLimit: string;
+  throttle: { ttlMs: number; limit: number };
+}
+
+interface Parsed<T> {
+  value: T;
+  errors: string[];
+}
+
+export function parseCorsOrigins(raw: string): Parsed<string[]> {
+  const errors: string[] = [];
+  const origins = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  if (origins.length === 0) errors.push('CORS_ORIGINS: debe contener al menos un origen');
+
+  for (const origin of origins) {
+    if (origin.includes('*')) {
+      errors.push('CORS_ORIGINS: no se permiten comodines (*)');
+      continue;
+    }
+    let url: URL;
+    try {
+      url = new URL(origin);
+    } catch {
+      errors.push(`CORS_ORIGINS: origen inválido "${origin}"`);
+      continue;
+    }
+    if (!['http:', 'https:'].includes(url.protocol) || url.origin !== origin) {
+      errors.push(`CORS_ORIGINS: "${origin}" debe ser un origen exacto (esquema://host[:puerto])`);
+    }
+  }
+  return { value: origins, errors };
+}
+
+function isIpOrCidr(entry: string): boolean {
+  const [address, prefix, ...rest] = entry.split('/');
+  if (rest.length > 0 || address === undefined) return false;
+  const family = isIP(address);
+  if (family === 0) return false;
+  if (prefix === undefined) return true;
+  if (!/^\d+$/.test(prefix)) return false;
+  return Number(prefix) <= (family === 4 ? 32 : 128);
+}
+
+export function parseTrustProxy(raw: string): Parsed<TrustProxySetting> {
+  const value = raw.trim();
+  if (value === 'false') return { value: false, errors: [] };
+  if (value === 'true') {
+    return {
+      value: false,
+      errors: ['TRUST_PROXY: "true" no está permitido; indica saltos, IPs o rangos de confianza'],
+    };
+  }
+  if (/^\d+$/.test(value)) return { value: Number(value), errors: [] };
+
+  const entries = value
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  const invalid = entries.filter((e) => !TRUST_PROXY_ALIASES.has(e) && !isIpOrCidr(e));
+  if (entries.length === 0 || invalid.length > 0) {
+    return {
+      value: false,
+      errors: [`TRUST_PROXY: valores inválidos (${invalid.join(', ') || 'vacío'})`],
+    };
+  }
+  return { value: entries, errors: [] };
+}
+
+function productionErrors(env: EnvironmentVariables, corsOrigins: string[]): string[] {
+  const errors: string[] = [];
+  if (!/[?&]sslmode=verify-full(&|$)/.test(env.DATABASE_URL)) {
+    errors.push('DATABASE_URL: en producción debe incluir sslmode=verify-full');
+  }
+  if (!env.REDIS_URL.startsWith('rediss://')) {
+    errors.push('REDIS_URL: en producción debe usar TLS (rediss://)');
+  }
+  if (env.SWAGGER_ENABLED) {
+    errors.push('SWAGGER_ENABLED: debe estar deshabilitado en producción');
+  }
+  if (corsOrigins.some((o) => !o.startsWith('https://'))) {
+    errors.push('CORS_ORIGINS: en producción todos los orígenes deben usar https');
+  }
+  return errors;
+}
+
+/**
+ * Valida las variables de entorno al arrancar. Si algo falta o es inválido,
+ * lanza un error y la aplicación no inicia. Nunca incluye valores en el mensaje.
+ */
+export function validateEnv(raw: Record<string, unknown>): AppConfig {
+  const env = plainToInstance(EnvironmentVariables, raw, { exposeDefaultValues: true });
+  const errors: string[] = validateSync(env).map(
+    (e) => `${e.property}: ${Object.values(e.constraints ?? {}).join('; ') || 'inválido'}`,
+  );
+
+  const cors: Parsed<string[]> =
+    typeof env.CORS_ORIGINS === 'string'
+      ? parseCorsOrigins(env.CORS_ORIGINS)
+      : { value: [], errors: [] };
+  const trustProxy: Parsed<TrustProxySetting> =
+    typeof env.TRUST_PROXY === 'string'
+      ? parseTrustProxy(env.TRUST_PROXY)
+      : { value: false, errors: [] };
+  errors.push(...cors.errors, ...trustProxy.errors);
+
+  // Las reglas de producción solo se evalúan si los campos básicos son válidos.
+  if (errors.length === 0 && env.NODE_ENV === NodeEnv.Production) {
+    errors.push(...productionErrors(env, cors.value));
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Configuración de entorno inválida:\n - ${errors.join('\n - ')}`);
+  }
+
+  return {
+    nodeEnv: env.NODE_ENV,
+    isProduction: env.NODE_ENV === NodeEnv.Production,
+    port: env.PORT,
+    databaseUrl: env.DATABASE_URL,
+    redisUrl: env.REDIS_URL,
+    corsOrigins: cors.value,
+    trustProxy: trustProxy.value,
+    swaggerEnabled: env.SWAGGER_ENABLED,
+    logLevel: env.LOG_LEVEL,
+    bodyLimit: env.BODY_LIMIT,
+    throttle: { ttlMs: env.THROTTLE_TTL_MS, limit: env.THROTTLE_LIMIT },
+  };
+}

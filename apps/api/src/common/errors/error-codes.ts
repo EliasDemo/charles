@@ -1,0 +1,79 @@
+import { HttpStatus } from '@nestjs/common';
+
+/** Códigos de error estables expuestos por la API. Agregar valores nunca rompe clientes. */
+export const ErrorCode = {
+  BAD_REQUEST: 'BAD_REQUEST',
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  MALFORMED_JSON: 'MALFORMED_JSON',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  FORBIDDEN: 'FORBIDDEN',
+  HTTPS_REQUIRED: 'HTTPS_REQUIRED',
+  NOT_FOUND: 'NOT_FOUND',
+  METHOD_NOT_ALLOWED: 'METHOD_NOT_ALLOWED',
+  CONFLICT: 'CONFLICT',
+  PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
+  UNSUPPORTED_MEDIA_TYPE: 'UNSUPPORTED_MEDIA_TYPE',
+  TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
+} as const;
+
+export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode] | (string & {});
+
+interface DefaultError {
+  code: ErrorCode;
+  message: string;
+}
+
+/** Código y mensaje genéricos por estado HTTP, para errores que no son `AppException`. */
+const DEFAULTS_BY_STATUS: Partial<Record<number, DefaultError>> = {
+  [HttpStatus.BAD_REQUEST]: {
+    code: ErrorCode.BAD_REQUEST,
+    message: 'La solicitud no es válida.',
+  },
+  [HttpStatus.UNAUTHORIZED]: {
+    code: ErrorCode.UNAUTHORIZED,
+    message: 'Debes iniciar sesión para continuar.',
+  },
+  [HttpStatus.FORBIDDEN]: {
+    code: ErrorCode.FORBIDDEN,
+    message: 'No tienes permiso para realizar esta acción.',
+  },
+  [HttpStatus.NOT_FOUND]: {
+    code: ErrorCode.NOT_FOUND,
+    message: 'El recurso solicitado no existe.',
+  },
+  [HttpStatus.METHOD_NOT_ALLOWED]: {
+    code: ErrorCode.METHOD_NOT_ALLOWED,
+    message: 'Método no permitido para este recurso.',
+  },
+  [HttpStatus.CONFLICT]: {
+    code: ErrorCode.CONFLICT,
+    message: 'La solicitud entra en conflicto con el estado actual del recurso.',
+  },
+  [HttpStatus.PAYLOAD_TOO_LARGE]: {
+    code: ErrorCode.PAYLOAD_TOO_LARGE,
+    message: 'El contenido enviado supera el tamaño permitido.',
+  },
+  [HttpStatus.UNSUPPORTED_MEDIA_TYPE]: {
+    code: ErrorCode.UNSUPPORTED_MEDIA_TYPE,
+    message: 'El tipo de contenido no está soportado.',
+  },
+  [HttpStatus.TOO_MANY_REQUESTS]: {
+    code: ErrorCode.TOO_MANY_REQUESTS,
+    message: 'Demasiadas solicitudes. Intenta nuevamente en unos momentos.',
+  },
+  [HttpStatus.SERVICE_UNAVAILABLE]: {
+    code: ErrorCode.SERVICE_UNAVAILABLE,
+    message: 'El servicio no está disponible temporalmente.',
+  },
+};
+
+const INTERNAL: DefaultError = {
+  code: ErrorCode.INTERNAL_ERROR,
+  message: 'Ocurrió un error inesperado. Intenta nuevamente más tarde.',
+};
+
+export function defaultErrorFor(status: number): DefaultError {
+  return DEFAULTS_BY_STATUS[status] ?? (status >= 500 ? INTERNAL : DEFAULTS_BY_STATUS[400]!);
+}

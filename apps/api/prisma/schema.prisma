@@ -1,0 +1,13 @@
+// Esquema de Charles. Las tablas de negocio se agregan en la Fase 2.
+// Todo cambio de esquema va por migración (`prisma migrate dev`).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}

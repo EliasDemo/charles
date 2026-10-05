@@ -1,0 +1,28 @@
+# Dependencias y compilados
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Secretos y entorno local (nunca al repositorio)
+.env
+.env.*
+!.env.example
+!.env.test.example
+*.pem
+*.key
+
+# Cliente Prisma generado
+apps/api/src/generated/
+
+# Editor / SO
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
