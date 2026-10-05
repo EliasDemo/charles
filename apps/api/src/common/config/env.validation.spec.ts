@@ -1,3 +1,4 @@
+import { randomCryptoEnv } from '../../../test/support/random-keys';
 import { NodeEnv, parseCorsOrigins, parseTrustProxy, validateEnv } from './env.validation';
 
 const base = {
@@ -6,6 +7,7 @@ const base = {
   REDIS_URL: 'redis://localhost:6379/0',
   CORS_ORIGINS: 'http://localhost:3001',
   TRUST_PROXY: 'loopback',
+  ...randomCryptoEnv(),
 };
 
 const production = {
@@ -30,6 +32,8 @@ describe('validateEnv', () => {
       bodyLimit: '100kb',
       throttle: { ttlMs: 60_000, limit: 100 },
     });
+    expect(config.crypto.activeKeyVersion).toBe(1);
+    expect(config.crypto.blindIndexKey).toHaveLength(32);
   });
 
   it('convierte números y booleanos desde texto', () => {
@@ -44,14 +48,20 @@ describe('validateEnv', () => {
     expect(config.throttle.limit).toBe(5);
   });
 
-  it.each(['NODE_ENV', 'DATABASE_URL', 'REDIS_URL', 'CORS_ORIGINS', 'TRUST_PROXY'])(
-    'no arranca si falta %s',
-    (key) => {
-      const env: Record<string, string> = { ...base };
-      delete env[key];
-      expect(() => validateEnv(env)).toThrow(new RegExp(key));
-    },
-  );
+  it.each([
+    'NODE_ENV',
+    'DATABASE_URL',
+    'REDIS_URL',
+    'CORS_ORIGINS',
+    'TRUST_PROXY',
+    'FIELD_ENCRYPTION_KEYS',
+    'FIELD_ENCRYPTION_ACTIVE_KEY_VERSION',
+    'BLIND_INDEX_KEY',
+  ])('no arranca si falta %s', (key) => {
+    const env: Record<string, string> = { ...base };
+    delete env[key];
+    expect(() => validateEnv(env)).toThrow(new RegExp(key));
+  });
 
   it('no incluye valores de las variables en el mensaje de error', () => {
     const secret = 'postgresql-sin-esquema-secreto';

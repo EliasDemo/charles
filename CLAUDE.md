@@ -93,16 +93,22 @@ pnpm test | pnpm test:e2e | pnpm lint | pnpm typecheck
 - Estados de reserva: `PENDING_PAYMENT`, `CONFIRMED`, `ATTENDED`, `CANCELLED`, `NO_SHOW`, `EXPIRED`.
 - Una reserva en `PENDING_PAYMENT` bloquea el horario durante un tiempo configurable (por defecto 10 minutos) y luego pasa a `EXPIRED`.
 - Una reserva solo pasa a `CONFIRMED` por un aviso verificado de la pasarela de pago, nunca por lo que diga el cliente.
+- **Pasarela de pago: Izipay (Perú)** (ADR 0002). No se integra hasta la Fase 8; mientras tanto se usa `FakeGateway`. El esquema de `payments` es independiente del proveedor (`provider` es texto, no un enum ni columnas específicas de Izipay). Referencias y pendientes en `docs/pagos-izipay.md`. Las credenciales, incluso las de prueba, nunca van en el repositorio.
+- **Los precios incluyen impuestos.** `bookings.total_amount = subtotal_amount − discount_total_amount + fee_total_amount` (restricción `CHECK`). Las líneas `TAX` de `booking_price_lines` son informativas y no suman al total. Se revisa antes de la Fase 8 (ADR 0002).
+- **Horarios:** no se admiten horarios que crucen la medianoche en el MVP (`close_time > open_time`, `end_time > start_time`).
+- **Valores iniciales de `app_settings`:** intervalo entre turnos 15 minutos (`availability.slot_interval_minutes`), anticipación mínima 0 minutos (`availability.min_lead_time_minutes`), bloqueo de `PENDING_PAYMENT` 10 minutos (`booking.pending_payment_ttl_minutes`). Todos configurables.
+- **Identificadores únicos:** `email_hash` único; `document_hash` único solo cuando no es nulo (índice único parcial); `phone_hash` solo indexado, no único.
+- **Idempotencia:** `bookings` es única por `(client_id, idempotency_key)`; `payments` tiene su propia `idempotency_key`, única por `(booking_id, idempotency_key)`.
 
 ### 4.2 Pendientes (NO las inventes; deja el punto configurable y pregunta)
 
-- Medios de pago y pasarela definitiva.
+- Medios de pago (la pasarela ya está decidida: Izipay).
 - Política de devolución, retención y comisión al cancelar.
 - Quién asume la comisión y cuándo recibe el dinero la barbería.
 - Tratamiento del pago ante un no-show.
 - Plazo límite para cancelar.
 
-Hasta que se definan: la pasarela se implementa detrás de la interfaz `PaymentGateway` con una implementación simulada (`FakeGateway`), y las políticas se leen desde `app_settings`.
+Hasta que se definan: la pasarela se implementa detrás de la interfaz `PaymentGateway` con una implementación simulada (`FakeGateway`, luego Izipay), y las políticas se leen desde `app_settings` (claves sembradas con valor `null` hasta su definición).
 
 ---
 
@@ -138,6 +144,7 @@ El objetivo es agregar funciones nuevas **sin modificar los módulos existentes*
 - **Cifrado a nivel de campo** con AES-256-GCM (IV aleatorio por valor, etiqueta de autenticación) para datos personales sensibles. Campos mínimos: `users.email`, `users.phone`, `users.document_number`, `users.birth_date`, `barbers.phone`, y el contenido de `ticket_messages`.
 - Para buscar por un campo cifrado se guarda además un **índice ciego**: `HMAC-SHA256(valor_normalizado, clave_de_indice)` en una columna `*_hash` con índice único cuando aplique (por ejemplo `email_hash` para el inicio de sesión).
 - Implementa esto en un único `EncryptionService` en `common/crypto`. Formato almacenado: `v{versión}:{iv}:{tag}:{cifrado}` en base64, para permitir **rotación de claves**.
+- El **contexto (AAD)** de cada campo cifrado es una **constante estable definida en código** (por ejemplo `charles/user.email/v1`), nunca derivada del nombre real de la tabla o columna: un renombrado futuro no debe impedir descifrar datos existentes. Esas constantes no se modifican jamás. Lo mismo aplica al separador de dominio de cada índice ciego.
 - Las claves viven en un gestor de secretos / KMS, separadas de la base de datos. La clave de cifrado y la de índice son distintas.
 - **Contraseñas:** hash con **Argon2id**. Jamás cifrado reversible, jamás en logs.
 - **Tarjetas:** Charles **nunca** almacena ni procesa número de tarjeta, CVV ni vencimiento. Solo se guardan identificadores/tokens entregados por la pasarela.
@@ -195,23 +202,23 @@ El objetivo es agregar funciones nuevas **sin modificar los módulos existentes*
 
 **Cuentas**
 
-| Tabla                   | Columnas clave                                                                                                                                                                                                                                   |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `users`                 | `email_enc`, `email_hash` (único), `password_hash`, `full_name`, `phone_enc`, `phone_hash`, `document_number_enc`, `document_hash`, `birth_date_enc`, `status` (`ACTIVE`, `DISABLED`), `terms_accepted_at`, `terms_version`, `preferences` JSONB |
-| `user_roles`            | `user_id`, `role` — único por par                                                                                                                                                                                                                |
-| `refresh_tokens`        | `user_id`, `token_hash`, `family_id`, `expires_at`, `revoked_at`, `replaced_by`, `device_info`                                                                                                                                                   |
-| `password_reset_tokens` | `user_id`, `token_hash`, `expires_at`, `used_at`                                                                                                                                                                                                 |
-| `device_tokens`         | `user_id`, `platform` (`IOS`, `ANDROID`, `WEB`), `push_token`, `last_seen_at`                                                                                                                                                                    |
+| Tabla                   | Columnas clave                                                                                                                                                                                                                                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`                 | `email_enc`, `email_hash` (único), `password_hash`, `full_name`, `phone_enc`, `phone_hash` (indexado, no único), `document_number_enc`, `document_hash` (único si no es nulo, índice parcial), `birth_date_enc`, `status` (`ACTIVE`, `DISABLED`), `terms_accepted_at`, `terms_version`, `preferences` JSONB |
+| `user_roles`            | `user_id`, `role` — único por par                                                                                                                                                                                                                                                                           |
+| `refresh_tokens`        | `user_id`, `token_hash`, `family_id`, `expires_at`, `revoked_at`, `replaced_by`, `device_info`                                                                                                                                                                                                              |
+| `password_reset_tokens` | `user_id`, `token_hash`, `expires_at`, `used_at`                                                                                                                                                                                                                                                            |
+| `device_tokens`         | `user_id`, `platform` (`IOS`, `ANDROID`, `WEB`), `push_token`, `last_seen_at`                                                                                                                                                                                                                               |
 
 **Barberías, barberos y servicios**
 
-| Tabla                | Columnas clave                                                                                                                                                                                           |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `barbershops`        | `name`, `description`, `address`, `location` (`geography(Point,4326)`, índice GiST), `timezone`, `phone`, `status` (`OPEN`, `TEMPORARILY_CLOSED`, `SUSPENDED`), `rating_avg`, `rating_count`, `metadata` |
-| `barbershop_members` | `barbershop_id`, `user_id`, `role` (`OWNER`, `MANAGER`) — único por par                                                                                                                                  |
-| `barbers`            | `barbershop_id`, `user_id` (opcional), `display_name`, `phone_enc`, `bio`, `photo_url`, `is_active`                                                                                                      |
-| `services`           | `barbershop_id`, `name`, `description`, `price_amount`, `currency`, `duration_minutes`, `is_available`                                                                                                   |
-| `barber_services`    | `barber_id`, `service_id` — qué barbero realiza qué servicio                                                                                                                                             |
+| Tabla                | Columnas clave                                                                                                                                                                                                                                                        |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `barbershops`        | `name`, `description`, `address`, `latitude`, `longitude`, `location` (`geography(Point,4326)` **generada** desde latitud/longitud, índice GiST), `timezone`, `phone`, `status` (`OPEN`, `TEMPORARILY_CLOSED`, `SUSPENDED`), `rating_avg`, `rating_count`, `metadata` |
+| `barbershop_members` | `barbershop_id`, `user_id`, `role` (`OWNER`, `MANAGER`) — único por par                                                                                                                                                                                               |
+| `barbers`            | `barbershop_id`, `user_id` (opcional), `display_name`, `phone_enc`, `bio`, `photo_url`, `is_active`                                                                                                                                                                   |
+| `services`           | `barbershop_id`, `name`, `description`, `price_amount`, `currency`, `duration_minutes`, `is_available`                                                                                                                                                                |
+| `barber_services`    | `barber_id`, `service_id` — qué barbero realiza qué servicio                                                                                                                                                                                                          |
 
 **Horarios y disponibilidad**
 
@@ -223,19 +230,19 @@ El objetivo es agregar funciones nuevas **sin modificar los módulos existentes*
 
 **Reservas**
 
-| Tabla                    | Columnas clave                                                                                                                                                                                                                                                                                                                                        |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bookings`               | `client_id`, `barbershop_id`, `barber_id`, `service_id`, `start_at`, `end_at`, `status`, `barber_chosen_by_client` (bool), `service_name_snapshot`, `duration_minutes_snapshot`, `subtotal_amount`, `discount_total_amount`, `fee_total_amount`, `total_amount`, `currency`, `expires_at`, `cancelled_by`, `cancel_reason`, `idempotency_key` (único) |
-| `booking_price_lines`    | `booking_id`, `type` (`SERVICE`, `DISCOUNT`, `FEE`, `TAX`), `description`, `amount`, `source_type`, `source_id`                                                                                                                                                                                                                                       |
-| `booking_status_history` | `booking_id`, `from_status`, `to_status`, `changed_by`, `reason`, `created_at`                                                                                                                                                                                                                                                                        |
+| Tabla                    | Columnas clave                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bookings`               | `client_id`, `barbershop_id`, `barber_id`, `service_id`, `start_at`, `end_at`, `status`, `barber_chosen_by_client` (bool), `service_name_snapshot`, `duration_minutes_snapshot`, `subtotal_amount`, `discount_total_amount`, `fee_total_amount`, `total_amount`, `currency`, `expires_at`, `cancelled_by`, `cancel_reason`, `idempotency_key` (único por `client_id`) |
+| `booking_price_lines`    | `booking_id`, `type` (`SERVICE`, `DISCOUNT`, `FEE`, `TAX`), `description`, `amount`, `source_type`, `source_id`                                                                                                                                                                                                                                                       |
+| `booking_status_history` | `booking_id`, `from_status`, `to_status`, `changed_by`, `reason`, `created_at`                                                                                                                                                                                                                                                                                        |
 
 **Pagos**
 
-| Tabla            | Columnas clave                                                                                                                                                                                                      |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `payments`       | `booking_id`, `provider`, `provider_payment_id` (único por proveedor), `status` (`PENDING`, `SUCCEEDED`, `REJECTED`, `CANCELLED`, `REFUNDED`, `PARTIALLY_REFUNDED`), `amount`, `currency`, `method`, `confirmed_at` |
-| `payment_events` | `provider`, `provider_event_id` (único), `payment_id`, `type`, `payload` JSONB (sin datos de tarjeta), `processed_at`                                                                                               |
-| `refunds`        | `payment_id`, `amount`, `reason`, `status`, `provider_refund_id`                                                                                                                                                    |
+| Tabla            | Columnas clave                                                                                                                                                                                                                                                  |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `payments`       | `booking_id`, `provider`, `provider_payment_id` (único por proveedor), `status` (`PENDING`, `SUCCEEDED`, `REJECTED`, `CANCELLED`, `REFUNDED`, `PARTIALLY_REFUNDED`), `amount`, `currency`, `method`, `idempotency_key` (único por `booking_id`), `confirmed_at` |
+| `payment_events` | `provider`, `provider_event_id` (único), `payment_id`, `type`, `payload` JSONB (sin datos de tarjeta), `processed_at`                                                                                                                                           |
+| `refunds`        | `payment_id`, `amount`, `reason`, `status`, `provider_refund_id`                                                                                                                                                                                                |
 
 **Experiencia del cliente**
 
@@ -253,7 +260,7 @@ El objetivo es agregar funciones nuevas **sin modificar los módulos existentes*
 | `support_tickets`    | `user_id`, `category` (`ACCOUNT`, `BOOKING`, `PAYMENT`, `BARBERSHOP`, `REVIEW`, `APP`, `OTHER`), `subject`, `status` (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`), `assigned_to`, `related_type`, `related_id` |
 | `ticket_messages`    | `ticket_id`, `author_id`, `body_enc`, `is_internal`                                                                                                                                                             |
 | `barbershop_reports` | `barbershop_id`, `reported_by`, `reason`, `status`, `resolution`                                                                                                                                                |
-| `audit_log`          | `actor_id`, `action`, `entity_type`, `entity_id`, `changes` JSONB (sin datos sensibles), `ip`, `created_at` — solo inserción                                                                                    |
+| `audit_log`          | `actor_id`, `action`, `entity_type`, `entity_id`, `changes` JSONB (sin datos sensibles), `ip`, `created_at` — solo inserción (trigger que rechaza `UPDATE`, `DELETE` y `TRUNCATE`; sin FK a `users`)            |
 
 **Crecimiento**
 
@@ -267,7 +274,7 @@ El objetivo es agregar funciones nuevas **sin modificar los módulos existentes*
 | `sponsor_placements` | `campaign_id`, `slot_key`, `title`, `image_url`, `action_url`, `priority`                                                                                                 |
 | `sponsor_events`     | `placement_id`, `user_id` (opcional), `type` (`IMPRESSION`, `CLICK`), `created_at`                                                                                        |
 | `featured_listings`  | `barbershop_id`, `starts_at`, `ends_at`, `priority`                                                                                                                       |
-| `app_settings`       | `key` (único), `value` JSONB, `description`                                                                                                                               |
+| `app_settings`       | `key` (único), `value` JSONB (`null` = política pendiente), `description`                                                                                                 |
 | `feature_flags`      | `key` (único), `enabled`, `rules` JSONB                                                                                                                                   |
 | `outbox_events`      | `type`, `payload` JSONB, `status`, `attempts`, `available_at`, `processed_at`                                                                                             |
 
@@ -291,6 +298,8 @@ ALTER TABLE reviews  ADD CONSTRAINT reviews_rating_check CHECK (rating BETWEEN 1
 
 CREATE INDEX barbershops_location_idx ON barbershops USING gist (location);
 ```
+
+Además, la migración `core_schema` incluye en SQL manual: `CHECK` de moneda ISO 4217, montos no negativos, `total = subtotal − discount_total + fee_total` (ADR 0002), `expires_at` obligatorio en `PENDING_PAYMENT`, horarios sin cruzar la medianoche, `day_of_week` 0–6 (0 = domingo), rangos de coordenadas, reglas de promociones; los índices únicos parciales `users_document_hash_key` y `barbers_user_id_active_key` (un barbero activo en una sola barbería, MVP); y el trigger de solo inserción de `audit_log`. Prisma no detecta _drift_ por estos objetos; una prueba de integración lo verifica (`prisma migrate diff`).
 
 Si la restricción de exclusión rechaza una inserción, el backend responde `409 Conflict` con código `SLOT_NOT_AVAILABLE`.
 

@@ -7,6 +7,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { AppConfigModule } from './common/config/app-config.module';
 import { APP_CONFIG } from './common/config/app-config.token';
 import type { AppConfig } from './common/config/env.validation';
+import { CryptoModule } from './common/crypto/crypto.module';
 import { AllExceptionsFilter } from './common/errors/all-exceptions.filter';
 import { HealthModule } from './common/health/health.module';
 import { HttpsOnlyMiddleware } from './common/http/https-only.middleware';
@@ -23,6 +24,7 @@ import { ClientIpThrottlerGuard } from './common/throttling/client-ip-throttler.
       useFactory: (config: AppConfig) => buildLoggerParams(config),
     }),
     PrismaModule,
+    CryptoModule,
     RedisModule,
     ThrottlerModule.forRootAsync({
       inject: [APP_CONFIG, REDIS_CLIENT],

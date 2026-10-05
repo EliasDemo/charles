@@ -15,6 +15,7 @@ pnpm install
 docker compose up -d                     # PostgreSQL/PostGIS + Redis (solo en 127.0.0.1)
 cp apps/api/.env.example apps/api/.env
 cp apps/api/.env.test.example apps/api/.env.test
+# Completa en apps/api/.env las claves de cifrado y SEED_USER_PASSWORD (ver comentarios del archivo)
 pnpm --filter api prisma migrate dev
 pnpm --filter api prisma db seed
 pnpm --filter api start:dev              # http://localhost:3000/api/v1/health

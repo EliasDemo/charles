@@ -1,5 +1,12 @@
-// Esquema de Charles. Las tablas de negocio se agregan en la Fase 2.
-// Todo cambio de esquema va por migración (`prisma migrate dev`).
+// Esquema de Charles (CLAUDE.md §7). Todo cambio va por migración (`prisma migrate dev`).
+//
+// Convenciones:
+// - Modelos en PascalCase y campos en camelCase, mapeados a tablas/columnas snake_case.
+// - `id` UUID v7 generado por Prisma (PostgreSQL 16 no tiene uuidv7()).
+// - Dinero en enteros (céntimos) + `currency` ISO 4217. Fechas en UTC (timestamptz).
+// - Columnas cifradas `*_enc` (texto `v{n}:{iv}:{tag}:{cifrado}`) e índices ciegos `*_hash` (bytea).
+// - Restricciones que Prisma no expresa (CHECK, EXCLUDE, índices parciales, triggers) están
+//   en SQL manual dentro de las migraciones; ver CLAUDE.md §7.3.
 
 generator client {
   provider            = "prisma-client"
@@ -10,4 +17,908 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum Role {
+  CLIENT
+  BARBER
+  OWNER
+  SUPPORT
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+  WEB
+}
+
+enum BarbershopStatus {
+  OPEN
+  TEMPORARILY_CLOSED
+  SUSPENDED
+}
+
+enum BarbershopMemberRole {
+  OWNER
+  MANAGER
+}
+
+enum TimeBlockType {
+  BREAK
+  ABSENCE
+  HOLIDAY
+  MANUAL
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  ATTENDED
+  CANCELLED
+  NO_SHOW
+  EXPIRED
+}
+
+enum PriceLineType {
+  SERVICE
+  DISCOUNT
+  FEE
+  TAX
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  REJECTED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum RefundStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum ReviewStatus {
+  VISIBLE
+  HIDDEN
+  UNDER_REVIEW
+}
+
+enum NotificationChannel {
+  PUSH
+  EMAIL
+  IN_APP
+}
+
+enum TicketCategory {
+  ACCOUNT
+  BOOKING
+  PAYMENT
+  BARBERSHOP
+  REVIEW
+  APP
+  OTHER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ReportStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+}
+
+enum PromotionScope {
+  PLATFORM
+  BARBERSHOP
+  SERVICE
+}
+
+enum PromotionType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum SponsorCampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum SponsorEventType {
+  IMPRESSION
+  CLICK
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+// ───────────────────────────── Cuentas ─────────────────────────────
+
+model User {
+  id                String     @id @default(uuid(7)) @db.Uuid
+  emailEnc          String     @map("email_enc")
+  emailHash         Bytes      @unique @map("email_hash")
+  passwordHash      String     @map("password_hash")
+  fullName          String     @map("full_name")
+  phoneEnc          String?    @map("phone_enc")
+  phoneHash         Bytes?     @map("phone_hash")
+  documentNumberEnc String?    @map("document_number_enc")
+  /// Único solo cuando no es nulo: índice único parcial en SQL manual (users_document_hash_key).
+  documentHash      Bytes?     @map("document_hash")
+  birthDateEnc      String?    @map("birth_date_enc")
+  status            UserStatus @default(ACTIVE)
+  termsAcceptedAt   DateTime   @map("terms_accepted_at") @db.Timestamptz(3)
+  termsVersion      String     @map("terms_version")
+  preferences       Json       @default("{}")
+  metadata          Json       @default("{}")
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt         DateTime?  @map("deleted_at") @db.Timestamptz(3)
+
+  roles                UserRole[]
+  refreshTokens        RefreshToken[]
+  passwordResetTokens  PasswordResetToken[]
+  deviceTokens         DeviceToken[]
+  memberships          BarbershopMember[]
+  barberProfiles       Barber[]
+  bookings             Booking[]              @relation("BookingClient")
+  cancelledBookings    Booking[]              @relation("BookingCancelledBy")
+  bookingStatusChanges BookingStatusHistory[]
+  favorites            Favorite[]
+  reviews              Review[]
+  reviewReports        ReviewReport[]
+  notifications        Notification[]
+  supportTickets       SupportTicket[]        @relation("TicketRequester")
+  assignedTickets      SupportTicket[]        @relation("TicketAssignee")
+  ticketMessages       TicketMessage[]
+  barbershopReports    BarbershopReport[]
+  couponRedemptions    CouponRedemption[]
+  sponsorEvents        SponsorEvent[]
+
+  @@index([phoneHash])
+  @@map("users")
+}
+
+model UserRole {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      Role
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  Bytes     @unique @map("token_hash")
+  familyId   String    @map("family_id") @db.Uuid
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
+  replacedBy String?   @map("replaced_by") @db.Uuid
+  deviceInfo Json?     @map("device_info")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash Bytes     @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model DeviceToken {
+  id         String         @id @default(uuid(7)) @db.Uuid
+  userId     String         @map("user_id") @db.Uuid
+  platform   DevicePlatform
+  pushToken  String         @unique @map("push_token")
+  lastSeenAt DateTime       @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+// ─────────────────── Barberías, barberos y servicios ───────────────────
+
+model Barbershop {
+  id          String                                @id @default(uuid(7)) @db.Uuid
+  name        String
+  description String?
+  address     String
+  latitude    Float
+  longitude   Float
+  /// Columna generada en SQL: ST_MakePoint(longitude, latitude)::geography. Índice GiST.
+  location    Unsupported("geography(Point,4326)")? @default(dbgenerated("(st_setsrid(st_makepoint(longitude, latitude), 4326))::geography"))
+  timezone    String
+  phone       String?
+  status      BarbershopStatus                      @default(OPEN)
+  ratingAvg   Decimal                               @default(0) @map("rating_avg") @db.Decimal(3, 2)
+  ratingCount Int                                   @default(0) @map("rating_count")
+  metadata    Json                                  @default("{}")
+  createdAt   DateTime                              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime                              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime?                             @map("deleted_at") @db.Timestamptz(3)
+
+  members          BarbershopMember[]
+  barbers          Barber[]
+  services         Service[]
+  businessHours    BusinessHour[]
+  timeBlocks       TimeBlock[]
+  bookings         Booking[]
+  favorites        Favorite[]
+  reviews          Review[]
+  reports          BarbershopReport[]
+  featuredListings FeaturedListing[]
+
+  @@index([location], type: Gist)
+  @@map("barbershops")
+}
+
+model BarbershopMember {
+  id           String               @id @default(uuid(7)) @db.Uuid
+  barbershopId String               @map("barbershop_id") @db.Uuid
+  userId       String               @map("user_id") @db.Uuid
+  role         BarbershopMemberRole
+  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop Barbershop @relation(fields: [barbershopId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@unique([barbershopId, userId])
+  @@index([userId])
+  @@map("barbershop_members")
+}
+
+/// Un barbero pertenece a una sola barbería en el MVP: índice único parcial
+/// `barbers_user_id_active_key` en SQL manual (se elimina para permitir varias barberías).
+model Barber {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  barbershopId String    @map("barbershop_id") @db.Uuid
+  userId       String?   @map("user_id") @db.Uuid
+  displayName  String    @map("display_name")
+  phoneEnc     String?   @map("phone_enc")
+  bio          String?
+  photoUrl     String?   @map("photo_url")
+  isActive     Boolean   @default(true) @map("is_active")
+  metadata     Json      @default("{}")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  barbershop Barbershop       @relation(fields: [barbershopId], references: [id])
+  user       User?            @relation(fields: [userId], references: [id])
+  services   BarberService[]
+  schedules  BarberSchedule[]
+  timeBlocks TimeBlock[]
+  bookings   Booking[]
+  reviews    Review[]
+
+  @@index([barbershopId])
+  @@index([userId])
+  @@map("barbers")
+}
+
+model Service {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  barbershopId    String    @map("barbershop_id") @db.Uuid
+  name            String
+  description     String?
+  priceAmount     Int       @map("price_amount")
+  currency        String    @db.Char(3)
+  durationMinutes Int       @map("duration_minutes")
+  isAvailable     Boolean   @default(true) @map("is_available")
+  metadata        Json      @default("{}")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  barbershop Barbershop      @relation(fields: [barbershopId], references: [id])
+  barbers    BarberService[]
+  bookings   Booking[]
+
+  @@index([barbershopId])
+  @@map("services")
+}
+
+model BarberService {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  barberId  String   @map("barber_id") @db.Uuid
+  serviceId String   @map("service_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barber  Barber  @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([barberId, serviceId])
+  @@index([serviceId])
+  @@map("barber_services")
+}
+
+// ─────────────────── Horarios y disponibilidad ───────────────────
+
+/// `day_of_week`: 0 = domingo … 6 = sábado. Horas locales en la zona de la barbería.
+model BusinessHour {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  barbershopId String   @map("barbershop_id") @db.Uuid
+  dayOfWeek    Int      @map("day_of_week") @db.SmallInt
+  openTime     DateTime @map("open_time") @db.Time(0)
+  closeTime    DateTime @map("close_time") @db.Time(0)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+
+  @@index([barbershopId, dayOfWeek])
+  @@map("business_hours")
+}
+
+/// Varias filas por día permiten descansos. `day_of_week`: 0 = domingo … 6 = sábado.
+model BarberSchedule {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  barberId  String   @map("barber_id") @db.Uuid
+  dayOfWeek Int      @map("day_of_week") @db.SmallInt
+  startTime DateTime @map("start_time") @db.Time(0)
+  endTime   DateTime @map("end_time") @db.Time(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([barberId, dayOfWeek])
+  @@map("barber_schedules")
+}
+
+/// `barber_id` nulo = bloqueo de toda la barbería.
+model TimeBlock {
+  id           String        @id @default(uuid(7)) @db.Uuid
+  barbershopId String        @map("barbershop_id") @db.Uuid
+  barberId     String?       @map("barber_id") @db.Uuid
+  startAt      DateTime      @map("start_at") @db.Timestamptz(3)
+  endAt        DateTime      @map("end_at") @db.Timestamptz(3)
+  type         TimeBlockType
+  reason       String?
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  barber     Barber?    @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([barbershopId, startAt])
+  @@index([barberId, startAt])
+  @@map("time_blocks")
+}
+
+// ───────────────────────────── Reservas ─────────────────────────────
+
+/// Solapamiento imposible para reservas activas del mismo barbero: EXCLUDE `bookings_no_overlap` (§7.3).
+model Booking {
+  id                      String        @id @default(uuid(7)) @db.Uuid
+  clientId                String        @map("client_id") @db.Uuid
+  barbershopId            String        @map("barbershop_id") @db.Uuid
+  barberId                String        @map("barber_id") @db.Uuid
+  serviceId               String        @map("service_id") @db.Uuid
+  startAt                 DateTime      @map("start_at") @db.Timestamptz(3)
+  endAt                   DateTime      @map("end_at") @db.Timestamptz(3)
+  status                  BookingStatus @default(PENDING_PAYMENT)
+  barberChosenByClient    Boolean       @map("barber_chosen_by_client")
+  serviceNameSnapshot     String        @map("service_name_snapshot")
+  durationMinutesSnapshot Int           @map("duration_minutes_snapshot")
+  subtotalAmount          Int           @map("subtotal_amount")
+  discountTotalAmount     Int           @default(0) @map("discount_total_amount")
+  feeTotalAmount          Int           @default(0) @map("fee_total_amount")
+  totalAmount             Int           @map("total_amount")
+  currency                String        @db.Char(3)
+  expiresAt               DateTime?     @map("expires_at") @db.Timestamptz(3)
+  cancelledById           String?       @map("cancelled_by") @db.Uuid
+  cancelReason            String?       @map("cancel_reason")
+  idempotencyKey          String        @map("idempotency_key")
+  metadata                Json          @default("{}")
+  createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  client            User                   @relation("BookingClient", fields: [clientId], references: [id])
+  barbershop        Barbershop             @relation(fields: [barbershopId], references: [id])
+  barber            Barber                 @relation(fields: [barberId], references: [id])
+  service           Service                @relation(fields: [serviceId], references: [id])
+  cancelledBy       User?                  @relation("BookingCancelledBy", fields: [cancelledById], references: [id])
+  priceLines        BookingPriceLine[]
+  statusHistory     BookingStatusHistory[]
+  payments          Payment[]
+  review            Review?
+  couponRedemptions CouponRedemption[]
+
+  @@unique([clientId, idempotencyKey])
+  @@index([clientId, startAt])
+  @@index([barbershopId, startAt])
+  @@index([barberId, startAt])
+  @@index([serviceId])
+  @@index([cancelledById])
+  @@index([status, expiresAt])
+  @@map("bookings")
+}
+
+/// `amount` siempre ≥ 0; el tipo define cómo cuenta. Las líneas TAX son informativas (ADR 0002).
+model BookingPriceLine {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  bookingId   String        @map("booking_id") @db.Uuid
+  type        PriceLineType
+  description String
+  amount      Int
+  sourceType  String?       @map("source_type")
+  sourceId    String?       @map("source_id") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_price_lines")
+}
+
+/// `changed_by` nulo = cambio hecho por el sistema.
+model BookingStatusHistory {
+  id          String         @id @default(uuid(7)) @db.Uuid
+  bookingId   String         @map("booking_id") @db.Uuid
+  fromStatus  BookingStatus? @map("from_status")
+  toStatus    BookingStatus  @map("to_status")
+  changedById String?        @map("changed_by") @db.Uuid
+  reason      String?
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  changedBy User?   @relation(fields: [changedById], references: [id])
+
+  @@index([bookingId, createdAt])
+  @@index([changedById])
+  @@map("booking_status_history")
+}
+
+// ───────────────────────────── Pagos ─────────────────────────────
+// Independiente del proveedor (ADR 0002): `provider` es texto (FAKE, IZIPAY, ...).
+
+model Payment {
+  id                String        @id @default(uuid(7)) @db.Uuid
+  bookingId         String        @map("booking_id") @db.Uuid
+  provider          String
+  providerPaymentId String?       @map("provider_payment_id")
+  status            PaymentStatus @default(PENDING)
+  amount            Int
+  currency          String        @db.Char(3)
+  method            String?
+  idempotencyKey    String        @map("idempotency_key")
+  confirmedAt       DateTime?     @map("confirmed_at") @db.Timestamptz(3)
+  metadata          Json          @default("{}")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking Booking        @relation(fields: [bookingId], references: [id])
+  events  PaymentEvent[]
+  refunds Refund[]
+
+  @@unique([provider, providerPaymentId])
+  @@unique([bookingId, idempotencyKey])
+  @@map("payments")
+}
+
+/// `payload` nunca contiene datos de tarjeta.
+model PaymentEvent {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  provider        String
+  providerEventId String    @map("provider_event_id")
+  paymentId       String?   @map("payment_id") @db.Uuid
+  type            String
+  payload         Json
+  processedAt     DateTime? @map("processed_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  payment Payment? @relation(fields: [paymentId], references: [id])
+
+  @@unique([provider, providerEventId])
+  @@index([paymentId])
+  @@map("payment_events")
+}
+
+model Refund {
+  id               String       @id @default(uuid(7)) @db.Uuid
+  paymentId        String       @map("payment_id") @db.Uuid
+  amount           Int
+  reason           String?
+  status           RefundStatus @default(PENDING)
+  providerRefundId String?      @map("provider_refund_id")
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId])
+  @@map("refunds")
+}
+
+// ─────────────────────── Experiencia del cliente ───────────────────────
+
+model Favorite {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  clientId     String   @map("client_id") @db.Uuid
+  barbershopId String   @map("barbershop_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  client     User       @relation(fields: [clientId], references: [id])
+  barbershop Barbershop @relation(fields: [barbershopId], references: [id])
+
+  @@unique([clientId, barbershopId])
+  @@index([barbershopId])
+  @@map("favorites")
+}
+
+model Review {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  bookingId    String       @unique @map("booking_id") @db.Uuid
+  clientId     String       @map("client_id") @db.Uuid
+  barbershopId String       @map("barbershop_id") @db.Uuid
+  barberId     String       @map("barber_id") @db.Uuid
+  rating       Int          @db.SmallInt
+  comment      String?
+  status       ReviewStatus @default(VISIBLE)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz(3)
+
+  booking    Booking        @relation(fields: [bookingId], references: [id])
+  client     User           @relation(fields: [clientId], references: [id])
+  barbershop Barbershop     @relation(fields: [barbershopId], references: [id])
+  barber     Barber         @relation(fields: [barberId], references: [id])
+  reports    ReviewReport[]
+
+  @@index([clientId])
+  @@index([barbershopId, createdAt])
+  @@index([barberId])
+  @@map("reviews")
+}
+
+model ReviewReport {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  reviewId     String    @map("review_id") @db.Uuid
+  reportedById String    @map("reported_by") @db.Uuid
+  reason       String
+  resolvedAt   DateTime? @map("resolved_at") @db.Timestamptz(3)
+  resolution   String?
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  review     Review @relation(fields: [reviewId], references: [id])
+  reportedBy User   @relation(fields: [reportedById], references: [id])
+
+  @@index([reviewId])
+  @@index([reportedById])
+  @@map("review_reports")
+}
+
+model Notification {
+  id        String              @id @default(uuid(7)) @db.Uuid
+  userId    String              @map("user_id") @db.Uuid
+  type      String
+  title     String
+  body      String
+  data      Json                @default("{}")
+  channel   NotificationChannel
+  sentAt    DateTime?           @map("sent_at") @db.Timestamptz(3)
+  readAt    DateTime?           @map("read_at") @db.Timestamptz(3)
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+// ─────────────────────── Soporte y operación ───────────────────────
+
+/// `related_type` / `related_id`: referencia polimórfica sin FK (reserva, pago, barbería, ...).
+model SupportTicket {
+  id           String         @id @default(uuid(7)) @db.Uuid
+  userId       String         @map("user_id") @db.Uuid
+  category     TicketCategory
+  subject      String
+  status       TicketStatus   @default(OPEN)
+  assignedToId String?        @map("assigned_to") @db.Uuid
+  relatedType  String?        @map("related_type")
+  relatedId    String?        @map("related_id") @db.Uuid
+  metadata     Json           @default("{}")
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user       User            @relation("TicketRequester", fields: [userId], references: [id])
+  assignedTo User?           @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  messages   TicketMessage[]
+
+  @@index([userId])
+  @@index([assignedToId, status])
+  @@map("support_tickets")
+}
+
+model TicketMessage {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  ticketId   String   @map("ticket_id") @db.Uuid
+  authorId   String   @map("author_id") @db.Uuid
+  bodyEnc    String   @map("body_enc")
+  isInternal Boolean  @default(false) @map("is_internal")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User          @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@index([authorId])
+  @@map("ticket_messages")
+}
+
+model BarbershopReport {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  barbershopId String       @map("barbershop_id") @db.Uuid
+  reportedById String       @map("reported_by") @db.Uuid
+  reason       String
+  status       ReportStatus @default(OPEN)
+  resolution   String?
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop Barbershop @relation(fields: [barbershopId], references: [id])
+  reportedBy User       @relation(fields: [reportedById], references: [id])
+
+  @@index([barbershopId])
+  @@index([reportedById])
+  @@map("barbershop_reports")
+}
+
+/// Solo inserción (trigger `audit_log_immutable`). Sin FK a users: el registro sobrevive a la cuenta.
+/// `changes` nunca contiene datos sensibles.
+model AuditLog {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  changes    Json?
+  ip         String?  @db.Inet
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_log")
+}
+
+// ───────────────────────────── Crecimiento ─────────────────────────────
+
+/// `scope_id` nulo solo con alcance PLATFORM. `value`: porcentaje (1–100) o monto en céntimos.
+model Promotion {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  scope          PromotionScope
+  scopeId        String?        @map("scope_id") @db.Uuid
+  name           String
+  type           PromotionType
+  value          Int
+  currency       String?        @db.Char(3)
+  startsAt       DateTime       @map("starts_at") @db.Timestamptz(3)
+  endsAt         DateTime?      @map("ends_at") @db.Timestamptz(3)
+  maxRedemptions Int?           @map("max_redemptions")
+  maxPerUser     Int?           @map("max_per_user")
+  rules          Json           @default("{}")
+  isActive       Boolean        @default(true) @map("is_active")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(3)
+
+  coupons Coupon[]
+
+  @@index([scope, scopeId])
+  @@map("promotions")
+}
+
+model Coupon {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  promotionId String    @map("promotion_id") @db.Uuid
+  code        String    @unique @db.Citext
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  promotion   Promotion          @relation(fields: [promotionId], references: [id])
+  redemptions CouponRedemption[]
+
+  @@index([promotionId])
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  couponId  String   @map("coupon_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  bookingId String   @map("booking_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  coupon  Coupon  @relation(fields: [couponId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@unique([couponId, bookingId])
+  @@index([userId])
+  @@index([bookingId])
+  @@map("coupon_redemptions")
+}
+
+model Sponsor {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  name       String
+  logoUrl    String?   @map("logo_url")
+  contactEnc String?   @map("contact_enc")
+  isActive   Boolean   @default(true) @map("is_active")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  campaigns SponsorCampaign[]
+
+  @@map("sponsors")
+}
+
+model SponsorCampaign {
+  id        String                @id @default(uuid(7)) @db.Uuid
+  sponsorId String                @map("sponsor_id") @db.Uuid
+  name      String
+  startsAt  DateTime              @map("starts_at") @db.Timestamptz(3)
+  endsAt    DateTime              @map("ends_at") @db.Timestamptz(3)
+  target    Json                  @default("{}")
+  status    SponsorCampaignStatus @default(DRAFT)
+  createdAt DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime?             @map("deleted_at") @db.Timestamptz(3)
+
+  sponsor    Sponsor            @relation(fields: [sponsorId], references: [id])
+  placements SponsorPlacement[]
+
+  @@index([sponsorId])
+  @@index([status, startsAt, endsAt])
+  @@map("sponsor_campaigns")
+}
+
+model SponsorPlacement {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  campaignId String   @map("campaign_id") @db.Uuid
+  slotKey    String   @map("slot_key")
+  title      String
+  imageUrl   String?  @map("image_url")
+  actionUrl  String?  @map("action_url")
+  priority   Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  campaign SponsorCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  events   SponsorEvent[]
+
+  @@index([campaignId])
+  @@index([slotKey, priority])
+  @@map("sponsor_placements")
+}
+
+model SponsorEvent {
+  id          String           @id @default(uuid(7)) @db.Uuid
+  placementId String           @map("placement_id") @db.Uuid
+  userId      String?          @map("user_id") @db.Uuid
+  type        SponsorEventType
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  placement SponsorPlacement @relation(fields: [placementId], references: [id])
+  user      User?            @relation(fields: [userId], references: [id])
+
+  @@index([placementId, createdAt])
+  @@index([userId])
+  @@map("sponsor_events")
+}
+
+model FeaturedListing {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  barbershopId String   @map("barbershop_id") @db.Uuid
+  startsAt     DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt       DateTime @map("ends_at") @db.Timestamptz(3)
+  priority     Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop Barbershop @relation(fields: [barbershopId], references: [id])
+
+  @@index([barbershopId])
+  @@index([startsAt, endsAt])
+  @@map("featured_listings")
+}
+
+/// Clave/valor tipado. `value` puede ser JSON `null` para políticas aún no definidas (§4.2).
+model AppSetting {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  key         String   @unique
+  value       Json
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("app_settings")
+}
+
+model FeatureFlag {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  key       String   @unique
+  enabled   Boolean  @default(false)
+  rules     Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("feature_flags")
+}
+
+model OutboxEvent {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  type        String
+  payload     Json
+  status      OutboxStatus @default(PENDING)
+  attempts    Int          @default(0)
+  availableAt DateTime     @default(now()) @map("available_at") @db.Timestamptz(3)
+  processedAt DateTime?    @map("processed_at") @db.Timestamptz(3)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status, availableAt])
+  @@map("outbox_events")
 }

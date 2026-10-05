@@ -57,6 +57,22 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      - name: Generar claves efímeras de cifrado
+        # Claves aleatorias por ejecución: nunca se guardan claves en el repositorio.
+        run: |
+          ENC=$(openssl rand -base64 32)
+          IDX=$(openssl rand -base64 32)
+          SEED=$(openssl rand -base64 24)
+          echo "::add-mask::$ENC"
+          echo "::add-mask::$IDX"
+          echo "::add-mask::$SEED"
+          {
+            echo "FIELD_ENCRYPTION_KEYS=1:$ENC"
+            echo "FIELD_ENCRYPTION_ACTIVE_KEY_VERSION=1"
+            echo "BLIND_INDEX_KEY=$IDX"
+            echo "SEED_USER_PASSWORD=$SEED"
+          } >> "$GITHUB_ENV"
+
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
 

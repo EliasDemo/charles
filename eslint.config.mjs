@@ -49,6 +49,8 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/unbound-method': 'off',
+      // Las fábricas de datos de prueba se apoyan en tipos inferidos.
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
     },
   },
   {

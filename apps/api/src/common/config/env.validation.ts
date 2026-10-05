@@ -1,4 +1,5 @@
 import { isIP } from 'node:net';
+import { type CryptoKeys, parseCryptoKeys } from '../crypto/crypto-keys';
 import { plainToInstance, Transform } from 'class-transformer';
 import {
   IsBoolean,
@@ -108,6 +109,8 @@ export interface AppConfig {
   logLevel: LogLevel;
   bodyLimit: string;
   throttle: { ttlMs: number; limit: number };
+  /** Claves de cifrado de campos e índice ciego. Nunca registrar este objeto en logs. */
+  crypto: CryptoKeys;
 }
 
 interface Parsed<T> {
@@ -213,14 +216,15 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
     typeof env.TRUST_PROXY === 'string'
       ? parseTrustProxy(env.TRUST_PROXY)
       : { value: false, errors: [] };
-  errors.push(...cors.errors, ...trustProxy.errors);
+  const crypto = parseCryptoKeys(raw);
+  errors.push(...cors.errors, ...trustProxy.errors, ...crypto.errors);
 
   // Las reglas de producción solo se evalúan si los campos básicos son válidos.
   if (errors.length === 0 && env.NODE_ENV === NodeEnv.Production) {
     errors.push(...productionErrors(env, cors.value));
   }
 
-  if (errors.length > 0) {
+  if (errors.length > 0 || !crypto.value) {
     throw new Error(`Configuración de entorno inválida:\n - ${errors.join('\n - ')}`);
   }
 
@@ -236,5 +240,6 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
     logLevel: env.LOG_LEVEL,
     bodyLimit: env.BODY_LIMIT,
     throttle: { ttlMs: env.THROTTLE_TTL_MS, limit: env.THROTTLE_LIMIT },
+    crypto: crypto.value,
   };
 }
