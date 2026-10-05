@@ -60,6 +60,16 @@ export class AuthClient {
     return token ? req.set('Authorization', `Bearer ${token}`) : req;
   }
 
+  put(path: string, body: object, token?: string) {
+    const req = this.http.put(path).set('X-Forwarded-For', this.ip).send(body);
+    return token ? req.set('Authorization', `Bearer ${token}`) : req;
+  }
+
+  delete(path: string, token?: string) {
+    const req = this.http.delete(path).set('X-Forwarded-For', this.ip);
+    return token ? req.set('Authorization', `Bearer ${token}`) : req;
+  }
+
   register(overrides: Record<string, unknown> = {}) {
     return this.post('/api/v1/auth/register', {
       fullName: 'Persona de Prueba',

@@ -173,6 +173,17 @@ export const SEED_SETTINGS: {
     description: 'Fallos de acceso por IP antes del bloqueo progresivo (mayor: redes compartidas).',
   },
   {
+    key: 'barbershops.require_review',
+    value: false,
+    description:
+      'true: las barberías nuevas quedan en PENDING_REVIEW hasta que soporte las apruebe.',
+  },
+  {
+    key: 'barbershops.invitation_ttl_minutes',
+    value: 15,
+    description: 'Vigencia del código de invitación a responsables y barberos, en minutos.',
+  },
+  {
     key: 'payments.provider',
     value: 'FAKE',
     description: 'Proveedor de pagos activo. Izipay se integra en la Fase 8 (ADR 0002).',

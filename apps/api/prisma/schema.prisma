@@ -39,10 +39,18 @@ enum DevicePlatform {
   WEB
 }
 
+/// PENDING_REVIEW: barbería nueva a la espera de aprobación de soporte (si `barbershops.require_review`).
+/// PENDING_REVIEW y SUSPENDED no son visibles públicamente.
 enum BarbershopStatus {
   OPEN
   TEMPORARILY_CLOSED
   SUSPENDED
+  PENDING_REVIEW
+}
+
+enum InvitationKind {
+  MEMBER
+  BARBER
 }
 
 enum BarbershopMemberRole {
@@ -187,6 +195,8 @@ model User {
   emailVerificationCodes EmailVerificationCode[]
   deviceTokens           DeviceToken[]
   memberships            BarbershopMember[]
+  invitationsReceived    BarbershopInvitation[]  @relation("InvitationInvitee")
+  invitationsSent        BarbershopInvitation[]  @relation("InvitationInviter")
   barberProfiles         Barber[]
   bookings               Booking[]               @relation("BookingClient")
   cancelledBookings      Booking[]               @relation("BookingCancelledBy")
@@ -290,23 +300,31 @@ model EmailVerificationCode {
 // ─────────────────── Barberías, barberos y servicios ───────────────────
 
 model Barbershop {
-  id          String                                @id @default(uuid(7)) @db.Uuid
-  name        String
-  description String?
-  address     String
-  latitude    Float
-  longitude   Float
+  id               String                                @id @default(uuid(7)) @db.Uuid
+  name             String
+  description      String?
+  address          String
+  latitude         Float
+  longitude        Float
   /// Columna generada en SQL: ST_MakePoint(longitude, latitude)::geography. Índice GiST.
-  location    Unsupported("geography(Point,4326)")? @default(dbgenerated("(st_setsrid(st_makepoint(longitude, latitude), 4326))::geography"))
-  timezone    String
-  phone       String?
-  status      BarbershopStatus                      @default(OPEN)
-  ratingAvg   Decimal                               @default(0) @map("rating_avg") @db.Decimal(3, 2)
-  ratingCount Int                                   @default(0) @map("rating_count")
-  metadata    Json                                  @default("{}")
-  createdAt   DateTime                              @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime                              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt   DateTime?                             @map("deleted_at") @db.Timestamptz(3)
+  location         Unsupported("geography(Point,4326)")? @default(dbgenerated("(st_setsrid(st_makepoint(longitude, latitude), 4326))::geography"))
+  timezone         String
+  phone            String?
+  /// RUC (11 dígitos), opcional. Podría ser obligatorio antes de recibir pagos (Fase 8).
+  ruc              String?
+  websiteUrl       String?                               @map("website_url")
+  instagramUrl     String?                               @map("instagram_url")
+  facebookUrl      String?                               @map("facebook_url")
+  status           BarbershopStatus                      @default(OPEN)
+  /// Solo con TEMPORARILY_CLOSED (CHECK en SQL manual).
+  closureReason    String?                               @map("closure_reason")
+  expectedReopenAt DateTime?                             @map("expected_reopen_at") @db.Timestamptz(3)
+  ratingAvg        Decimal                               @default(0) @map("rating_avg") @db.Decimal(3, 2)
+  ratingCount      Int                                   @default(0) @map("rating_count")
+  metadata         Json                                  @default("{}")
+  createdAt        DateTime                              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime                              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?                             @map("deleted_at") @db.Timestamptz(3)
 
   members          BarbershopMember[]
   barbers          Barber[]
@@ -318,6 +336,7 @@ model Barbershop {
   reviews          Review[]
   reports          BarbershopReport[]
   featuredListings FeaturedListing[]
+  invitations      BarbershopInvitation[]
 
   @@index([location], type: Gist)
   @@map("barbershops")
@@ -339,6 +358,37 @@ model BarbershopMember {
   @@map("barbershop_members")
 }
 
+/// Invitación con código de 6 dígitos (solo su HMAC; 1 uso; vence; inválida tras 5 intentos) para:
+/// - MEMBER: ser responsable (OWNER o MANAGER) de la barbería;
+/// - BARBER: vincular una cuenta a un perfil de barbero.
+model BarbershopInvitation {
+  id            String                @id @default(uuid(7)) @db.Uuid
+  barbershopId  String                @map("barbershop_id") @db.Uuid
+  kind          InvitationKind
+  memberRole    BarbershopMemberRole? @map("member_role")
+  barberId      String?               @map("barber_id") @db.Uuid
+  invitedUserId String                @map("invited_user_id") @db.Uuid
+  invitedById   String                @map("invited_by") @db.Uuid
+  codeHash      Bytes                 @map("code_hash")
+  attempts      Int                   @default(0)
+  expiresAt     DateTime              @map("expires_at") @db.Timestamptz(3)
+  acceptedAt    DateTime?             @map("accepted_at") @db.Timestamptz(3)
+  revokedAt     DateTime?             @map("revoked_at") @db.Timestamptz(3)
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop  Barbershop @relation(fields: [barbershopId], references: [id])
+  barber      Barber?    @relation(fields: [barberId], references: [id])
+  invitedUser User       @relation("InvitationInvitee", fields: [invitedUserId], references: [id])
+  invitedBy   User       @relation("InvitationInviter", fields: [invitedById], references: [id])
+
+  @@index([barbershopId])
+  @@index([barberId])
+  @@index([invitedUserId])
+  @@index([invitedById])
+  @@map("barbershop_invitations")
+}
+
 /// Un barbero pertenece a una sola barbería en el MVP: índice único parcial
 /// `barbers_user_id_active_key` en SQL manual (se elimina para permitir varias barberías).
 model Barber {
@@ -355,13 +405,14 @@ model Barber {
   updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  barbershop Barbershop       @relation(fields: [barbershopId], references: [id])
-  user       User?            @relation(fields: [userId], references: [id])
-  services   BarberService[]
-  schedules  BarberSchedule[]
-  timeBlocks TimeBlock[]
-  bookings   Booking[]
-  reviews    Review[]
+  barbershop  Barbershop             @relation(fields: [barbershopId], references: [id])
+  user        User?                  @relation(fields: [userId], references: [id])
+  services    BarberService[]
+  schedules   BarberSchedule[]
+  timeBlocks  TimeBlock[]
+  bookings    Booking[]
+  reviews     Review[]
+  invitations BarbershopInvitation[]
 
   @@index([barbershopId])
   @@index([userId])

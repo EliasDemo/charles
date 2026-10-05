@@ -7,6 +7,8 @@ export const SettingKey = {
   TERMS_VERSION: 'legal.terms_version',
   LOCKOUT_ACCOUNT_MAX_FAILURES: 'auth.lockout.account_max_failures',
   LOCKOUT_IP_MAX_FAILURES: 'auth.lockout.ip_max_failures',
+  BARBERSHOPS_REQUIRE_REVIEW: 'barbershops.require_review',
+  INVITATION_TTL_MINUTES: 'barbershops.invitation_ttl_minutes',
 } as const;
 
 /** Lectura de `app_settings` (clave/valor). Las políticas pendientes valen JSON `null`. */
@@ -28,6 +30,14 @@ export class SettingsService {
   async positiveInt(key: string, fallback: number): Promise<number> {
     const value = await this.get(key);
     if (typeof value === 'number' && Number.isInteger(value) && value > 0) return value;
+    if (value !== null) this.logger.warn(`Valor inválido en ${key}; se usa ${fallback}`);
+    return fallback;
+  }
+
+  /** Booleano configurable; `fallback` si la clave no existe o no es booleana. */
+  async boolean(key: string, fallback: boolean): Promise<boolean> {
+    const value = await this.get(key);
+    if (typeof value === 'boolean') return value;
     if (value !== null) this.logger.warn(`Valor inválido en ${key}; se usa ${fallback}`);
     return fallback;
   }

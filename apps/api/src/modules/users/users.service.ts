@@ -121,6 +121,28 @@ export class UsersService {
     return user ? Buffer.from(user.emailHash) : null;
   }
 
+  /** Agrega un rol global (idempotente). */
+  async addRole(userId: string, role: Role, tx: Tx = this.prisma): Promise<void> {
+    await tx.userRole.upsert({
+      where: { userId_role: { userId, role } },
+      update: {},
+      create: { userId, role },
+    });
+  }
+
+  async removeRole(userId: string, role: Role, tx: Tx = this.prisma): Promise<void> {
+    await tx.userRole.deleteMany({ where: { userId, role } });
+  }
+
+  /** Nombres visibles (no son datos sensibles cifrados) para listas de miembros. */
+  async fullNames(ids: string[]): Promise<Map<string, string>> {
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, fullName: true },
+    });
+    return new Map(users.map((u) => [u.id, u.fullName]));
+  }
+
   async markEmailVerified(id: string, tx: Tx = this.prisma): Promise<void> {
     await tx.user.update({ where: { id }, data: { emailVerifiedAt: new Date() } });
   }

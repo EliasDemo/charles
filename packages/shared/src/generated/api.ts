@@ -192,6 +192,335 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/barbershops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-BAR-001: registrar una barbería (quien la registra queda como OWNER) */
+        post: operations["BarbershopsController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-BAR-002: información pública de una barbería */
+        get: operations["BarbershopsController_findPublic_v1"];
+        put?: never;
+        post?: never;
+        /** Eliminar (borrado lógico; solo OWNER, sin reservas futuras) */
+        delete: operations["BarbershopsController_remove_v1"];
+        options?: never;
+        head?: never;
+        /** RF-BAR-003: actualizar la información (OWNER o MANAGER) */
+        patch: operations["BarbershopsController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** RF-BAR-004: atendiendo o cerrada temporalmente (solo OWNER) */
+        patch: operations["BarbershopsController_updateStatus_v1"];
+        trace?: never;
+    };
+    "/api/v1/me/barbershops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Barberías que administro */
+        get: operations["BarbershopsController_listMine_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/barbershops/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detalle de gestión de una barbería que administro */
+        get: operations["BarbershopsController_findManaged_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Responsables de la barbería */
+        get: operations["BarbershopsController_listMembers_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/members/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Quitar un responsable o retirarse (nunca el último OWNER) */
+        delete: operations["BarbershopsController_removeMember_v1"];
+        options?: never;
+        head?: never;
+        /** Cambiar el rol de un responsable (solo OWNER; nunca sin OWNER) */
+        patch: operations["BarbershopsController_changeRole_v1"];
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-SER-003: servicios disponibles con precio y duración */
+        get: operations["ServicesController_listPublic_v1"];
+        put?: never;
+        /** RF-SER-001: registrar un servicio (precio > 0, 5–480 min en múltiplos de 5) */
+        post: operations["ServicesController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/barbershops/{id}/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Servicios de una barbería que administro (incluye no disponibles) */
+        get: operations["ServicesController_listManaged_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/services/{serviceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Eliminar un servicio (borrado lógico) */
+        delete: operations["ServicesController_remove_v1"];
+        options?: never;
+        head?: never;
+        /** RF-SER-002: actualizar un servicio */
+        patch: operations["ServicesController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/barbers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Barberos activos de una barbería (solo datos públicos) */
+        get: operations["BarbersController_listPublic_v1"];
+        put?: never;
+        /** RF-BRB-001: registrar un barbero (perfil sin cuenta vinculada) */
+        post: operations["BarbersController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/barbershops/{id}/barbers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Barberos de una barbería que administro (incluye inactivos) */
+        get: operations["BarbersController_listManaged_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/barbers/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-BRB-001: el responsable se registra como barbero (sin invitación) */
+        post: operations["BarbersController_linkSelf_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/barbers/{barberId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** RF-BRB-002: actualizar un barbero (o desactivarlo) */
+        patch: operations["BarbersController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/barbers/{barberId}/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** RF-BRB-002: servicios que realiza el barbero */
+        put: operations["BarbersController_setServices_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/members/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Invitar a una cuenta existente como responsable (solo OWNER; respuesta idéntica) */
+        post: operations["InvitationsController_inviteMember_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/barbers/{barberId}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-BRB-001: invitar a una cuenta a vincularse con un barbero */
+        post: operations["InvitationsController_inviteBarber_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/barbershop-invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mis invitaciones pendientes */
+        get: operations["InvitationsController_listMine_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/barbershop-invitations/{invitationId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Aceptar una invitación con su código */
+        post: operations["InvitationsController_accept_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -322,6 +651,350 @@ export interface components {
             newPassword: string;
         };
         EmailVerificationConfirmDto: {
+            /** @example 123456 */
+            code: string;
+        };
+        CreateBarbershopDto: {
+            /** @example Barbería Central */
+            name: string;
+            description?: string | null;
+            /** @example Av. Larco 123, Miraflores, Lima */
+            address: string;
+            /**
+             * @description Dentro de Perú (MVP).
+             * @example -12.1211
+             */
+            latitude: number;
+            /**
+             * @description Dentro de Perú (MVP).
+             * @example -77.0297
+             */
+            longitude: number;
+            /**
+             * @description Zona horaria IANA.
+             * @example America/Lima
+             */
+            timezone?: string;
+            /** @example +51 1 234 5678 */
+            phone: string;
+            /** @example 20123456789 */
+            ruc?: string | null;
+            websiteUrl?: string | null;
+            instagramUrl?: string | null;
+            facebookUrl?: string | null;
+        };
+        /** @enum {string} */
+        BarbershopStatus: "OPEN" | "TEMPORARILY_CLOSED" | "SUSPENDED" | "PENDING_REVIEW";
+        ClosureDto: {
+            reason: string | null;
+            /** Format: date-time */
+            expectedReopenAt: string | null;
+        };
+        LinksDto: {
+            website: string | null;
+            instagram: string | null;
+            facebook: string | null;
+        };
+        RatingDto: {
+            /** @example 4.5 */
+            average: number;
+            /** @example 12 */
+            count: number;
+        };
+        /** @enum {string} */
+        BarbershopMemberRole: "OWNER" | "MANAGER";
+        CreatedBarbershopDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string | null;
+            address: string;
+            latitude: number;
+            longitude: number;
+            /** @example America/Lima */
+            timezone: string;
+            /** @description Teléfono del negocio. */
+            phone: string | null;
+            status: components["schemas"]["BarbershopStatus"];
+            closure: components["schemas"]["ClosureDto"] | null;
+            links: components["schemas"]["LinksDto"];
+            rating: components["schemas"]["RatingDto"];
+            ruc: string | null;
+            myRole: components["schemas"]["BarbershopMemberRole"];
+            /** Format: date-time */
+            createdAt: string;
+            /** @description true si se agregó el rol OWNER a la cuenta: renueva el token para verlo reflejado en él. */
+            ownerRoleGranted: boolean;
+        };
+        BarbershopPublicDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string | null;
+            address: string;
+            latitude: number;
+            longitude: number;
+            /** @example America/Lima */
+            timezone: string;
+            /** @description Teléfono del negocio. */
+            phone: string | null;
+            status: components["schemas"]["BarbershopStatus"];
+            closure: components["schemas"]["ClosureDto"] | null;
+            links: components["schemas"]["LinksDto"];
+            rating: components["schemas"]["RatingDto"];
+        };
+        UpdateBarbershopDto: {
+            /** @example Barbería Central */
+            name?: string;
+            description?: string | null;
+            /** @example Av. Larco 123, Miraflores, Lima */
+            address?: string;
+            /**
+             * @description Dentro de Perú (MVP).
+             * @example -12.1211
+             */
+            latitude?: number;
+            /**
+             * @description Dentro de Perú (MVP).
+             * @example -77.0297
+             */
+            longitude?: number;
+            /**
+             * @description Zona horaria IANA.
+             * @example America/Lima
+             */
+            timezone?: string;
+            /** @example +51 1 234 5678 */
+            phone?: string;
+            /** @example 20123456789 */
+            ruc?: string | null;
+            websiteUrl?: string | null;
+            instagramUrl?: string | null;
+            facebookUrl?: string | null;
+        };
+        BarbershopManageDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string | null;
+            address: string;
+            latitude: number;
+            longitude: number;
+            /** @example America/Lima */
+            timezone: string;
+            /** @description Teléfono del negocio. */
+            phone: string | null;
+            status: components["schemas"]["BarbershopStatus"];
+            closure: components["schemas"]["ClosureDto"] | null;
+            links: components["schemas"]["LinksDto"];
+            rating: components["schemas"]["RatingDto"];
+            ruc: string | null;
+            myRole: components["schemas"]["BarbershopMemberRole"];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        UpdateBarbershopStatusDto: {
+            /** @enum {string} */
+            status: "OPEN" | "TEMPORARILY_CLOSED";
+            /** @description Solo con TEMPORARILY_CLOSED. */
+            reason?: string;
+            /**
+             * Format: date-time
+             * @description Fecha estimada de reapertura (futura). Solo con TEMPORARILY_CLOSED.
+             */
+            expectedReopenAt?: string;
+        };
+        MyBarbershopDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            status: components["schemas"]["BarbershopStatus"];
+            myRole: components["schemas"]["BarbershopMemberRole"];
+        };
+        MyBarbershopPageDto: {
+            items: components["schemas"]["MyBarbershopDto"][];
+            nextCursor: string | null;
+        };
+        MemberDto: {
+            /** Format: uuid */
+            userId: string;
+            fullName: string;
+            role: components["schemas"]["BarbershopMemberRole"];
+            /** Format: date-time */
+            since: string;
+        };
+        MemberPageDto: {
+            items: components["schemas"]["MemberDto"][];
+            nextCursor: string | null;
+        };
+        ChangeMemberRoleDto: {
+            role: components["schemas"]["BarbershopMemberRole"];
+        };
+        MoneyDto: {
+            /**
+             * @description Céntimos.
+             * @example 2500
+             */
+            amount: number;
+            /** @example PEN */
+            currency: string;
+        };
+        ServicePublicDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string | null;
+            price: components["schemas"]["MoneyDto"];
+            durationMinutes: number;
+        };
+        ServicePublicPageDto: {
+            items: components["schemas"]["ServicePublicDto"][];
+            nextCursor: string | null;
+        };
+        ServiceManageDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string | null;
+            price: components["schemas"]["MoneyDto"];
+            durationMinutes: number;
+            isAvailable: boolean;
+            /** @description Barberos que realizan el servicio. */
+            barberIds: string[];
+        };
+        ServiceManagePageDto: {
+            items: components["schemas"]["ServiceManageDto"][];
+            nextCursor: string | null;
+        };
+        CreateServiceDto: {
+            /** @example Corte clásico */
+            name: string;
+            description?: string | null;
+            /**
+             * @description Precio en céntimos de PEN (mayor que 0).
+             * @example 2500
+             */
+            priceAmount: number;
+            /**
+             * @description De 5 a 480 minutos, en múltiplos de 5.
+             * @example 30
+             */
+            durationMinutes: number;
+            /** @default true */
+            isAvailable: boolean;
+        };
+        UpdateServiceDto: {
+            /** @example Corte clásico */
+            name?: string;
+            description?: string | null;
+            /**
+             * @description Precio en céntimos de PEN (mayor que 0).
+             * @example 2500
+             */
+            priceAmount?: number;
+            /**
+             * @description De 5 a 480 minutos, en múltiplos de 5.
+             * @example 30
+             */
+            durationMinutes?: number;
+            /** @default true */
+            isAvailable: boolean;
+        };
+        BarberPublicDto: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            bio: string | null;
+            photoUrl: string | null;
+            serviceIds: string[];
+        };
+        BarberPublicPageDto: {
+            items: components["schemas"]["BarberPublicDto"][];
+            nextCursor: string | null;
+        };
+        LinkedUserDto: {
+            /** Format: uuid */
+            id: string;
+            fullName: string;
+        };
+        BarberManageDto: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            bio: string | null;
+            photoUrl: string | null;
+            serviceIds: string[];
+            phone: string | null;
+            isActive: boolean;
+            linkedUser: components["schemas"]["LinkedUserDto"] | null;
+        };
+        BarberManagePageDto: {
+            items: components["schemas"]["BarberManageDto"][];
+            nextCursor: string | null;
+        };
+        CreateBarberDto: {
+            bio?: string | null;
+            /** @description Dato personal: se guarda cifrado y nunca es público. */
+            phone?: string | null;
+            /** @description Servicios de la barbería que realiza. */
+            serviceIds?: string[];
+            /** @example Carlos */
+            displayName: string;
+        };
+        LinkSelfAsBarberDto: {
+            bio?: string | null;
+            /** @description Dato personal: se guarda cifrado y nunca es público. */
+            phone?: string | null;
+            /** @description Servicios de la barbería que realiza. */
+            serviceIds?: string[];
+            /** @description Por defecto, el nombre de la cuenta. */
+            displayName?: string;
+        };
+        UpdateBarberDto: {
+            displayName?: string;
+            bio?: string | null;
+            phone?: string | null;
+            /** @description false lo desactiva (rechazado si tiene reservas futuras). */
+            isActive?: boolean;
+        };
+        SetBarberServicesDto: {
+            serviceIds: string[];
+        };
+        InviteMemberDto: {
+            /**
+             * @description Correo de una cuenta existente.
+             * @example socia@example.com
+             */
+            email: string;
+            role: components["schemas"]["BarbershopMemberRole"];
+        };
+        InviteBarberDto: {
+            /**
+             * @description Correo de una cuenta existente.
+             * @example barbero@example.com
+             */
+            email: string;
+        };
+        /** @enum {string} */
+        InvitationKind: "MEMBER" | "BARBER";
+        InvitationDto: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["InvitationKind"];
+            /** Format: uuid */
+            barbershopId: string;
+            barbershopName: string;
+            memberRole: components["schemas"]["BarbershopMemberRole"] | null;
+            /** @description Perfil de barbero a vincular. */
+            barberDisplayName: string | null;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        InvitationPageDto: {
+            items: components["schemas"]["InvitationDto"][];
+            nextCursor: string | null;
+        };
+        AcceptInvitationDto: {
             /** @example 123456 */
             code: string;
         };
@@ -732,6 +1405,866 @@ export interface operations {
                 };
             };
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbershopsController_create_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBarbershopDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedBarbershopDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbershopsController_findPublic_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarbershopPublicDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbershopsController_remove_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbershopsController_update_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBarbershopDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarbershopManageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbershopsController_updateStatus_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBarbershopStatusDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarbershopManageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbershopsController_listMine_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyBarbershopPageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbershopsController_findManaged_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarbershopManageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbershopsController_listMembers_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberPageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbershopsController_removeMember_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbershopsController_changeRole_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeMemberRoleDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ServicesController_listPublic_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicePublicPageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ServicesController_create_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateServiceDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceManageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ServicesController_listManaged_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceManagePageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ServicesController_remove_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                serviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ServicesController_update_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                serviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateServiceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceManageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbersController_listPublic_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarberPublicPageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbersController_create_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBarberDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarberManageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbersController_listManaged_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarberManagePageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbersController_linkSelf_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkSelfAsBarberDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarberManageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbersController_update_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                barberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBarberDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarberManageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbersController_setServices_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                barberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetBarberServicesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarberManageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    InvitationsController_inviteMember_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteMemberDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptedResponseDto"];
+                };
+            };
+        };
+    };
+    InvitationsController_inviteBarber_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                barberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteBarberDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptedResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    InvitationsController_listMine_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationPageDto"];
+                };
+            };
+        };
+    };
+    InvitationsController_accept_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptInvitationDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

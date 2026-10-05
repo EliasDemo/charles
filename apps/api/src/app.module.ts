@@ -20,6 +20,10 @@ import { QueueModule } from './common/queue/queue.module';
 import { REDIS_CLIENT, RedisModule } from './common/redis/redis.module';
 import { ClientIpThrottlerGuard } from './common/throttling/client-ip-throttler.guard';
 import { AuthModule } from './modules/auth/auth.module';
+import { BarbersModule } from './modules/barbers/barbers.module';
+import { BarbershopsModule } from './modules/barbershops/barbershops.module';
+import { InvitationsModule } from './modules/invitations/invitations.module';
+import { ServicesModule } from './modules/services/services.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -46,6 +50,10 @@ import { UsersModule } from './modules/users/users.module';
     HealthModule,
     UsersModule,
     AuthModule,
+    BarbershopsModule,
+    ServicesModule,
+    BarbersModule,
+    InvitationsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

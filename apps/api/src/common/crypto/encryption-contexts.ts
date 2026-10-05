@@ -31,6 +31,7 @@ export type BlindIndexKind = (typeof BlindIndexKind)[keyof typeof BlindIndexKind
 export const OneTimeCodePurpose = {
   PASSWORD_RESET: 'charles/otp/password-reset/v1',
   EMAIL_VERIFICATION: 'charles/otp/email-verification/v1',
+  BARBERSHOP_INVITATION: 'charles/otp/barbershop-invitation/v1',
 } as const;
 
 export type OneTimeCodePurpose = (typeof OneTimeCodePurpose)[keyof typeof OneTimeCodePurpose];
