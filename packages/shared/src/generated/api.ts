@@ -314,59 +314,6 @@ export interface paths {
         patch: operations["BarbershopsController_changeRole_v1"];
         trace?: never;
     };
-    "/api/v1/barbershops/{id}/services": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** RF-SER-003: servicios disponibles con precio y duración */
-        get: operations["ServicesController_listPublic_v1"];
-        put?: never;
-        /** RF-SER-001: registrar un servicio (precio > 0, 5–480 min en múltiplos de 5) */
-        post: operations["ServicesController_create_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/me/barbershops/{id}/services": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Servicios de una barbería que administro (incluye no disponibles) */
-        get: operations["ServicesController_listManaged_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/barbershops/{id}/services/{serviceId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Eliminar un servicio (borrado lógico) */
-        delete: operations["ServicesController_remove_v1"];
-        options?: never;
-        head?: never;
-        /** RF-SER-002: actualizar un servicio */
-        patch: operations["ServicesController_update_v1"];
-        trace?: never;
-    };
     "/api/v1/barbershops/{id}/barbers": {
         parameters: {
             query?: never;
@@ -451,6 +398,59 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-SER-003: servicios disponibles con precio y duración */
+        get: operations["ServicesController_listPublic_v1"];
+        put?: never;
+        /** RF-SER-001: registrar un servicio (precio > 0, 5–480 min en múltiplos de 5) */
+        post: operations["ServicesController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/barbershops/{id}/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Servicios de una barbería que administro (incluye no disponibles) */
+        get: operations["ServicesController_listManaged_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/services/{serviceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Eliminar un servicio (borrado lógico) */
+        delete: operations["ServicesController_remove_v1"];
+        options?: never;
+        head?: never;
+        /** RF-SER-002: actualizar un servicio */
+        patch: operations["ServicesController_update_v1"];
         trace?: never;
     };
     "/api/v1/barbershops/{id}/members/invitations": {
@@ -830,6 +830,66 @@ export interface components {
         ChangeMemberRoleDto: {
             role: components["schemas"]["BarbershopMemberRole"];
         };
+        BarberPublicDto: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            bio: string | null;
+            photoUrl: string | null;
+            serviceIds: string[];
+        };
+        BarberPublicPageDto: {
+            items: components["schemas"]["BarberPublicDto"][];
+            nextCursor: string | null;
+        };
+        LinkedUserDto: {
+            /** Format: uuid */
+            id: string;
+            fullName: string;
+        };
+        BarberManageDto: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            bio: string | null;
+            photoUrl: string | null;
+            serviceIds: string[];
+            phone: string | null;
+            isActive: boolean;
+            linkedUser: components["schemas"]["LinkedUserDto"] | null;
+        };
+        BarberManagePageDto: {
+            items: components["schemas"]["BarberManageDto"][];
+            nextCursor: string | null;
+        };
+        CreateBarberDto: {
+            bio?: string | null;
+            /** @description Dato personal: se guarda cifrado y nunca es público. */
+            phone?: string | null;
+            /** @description Servicios de la barbería que realiza. */
+            serviceIds?: string[];
+            /** @example Carlos */
+            displayName: string;
+        };
+        LinkSelfAsBarberDto: {
+            bio?: string | null;
+            /** @description Dato personal: se guarda cifrado y nunca es público. */
+            phone?: string | null;
+            /** @description Servicios de la barbería que realiza. */
+            serviceIds?: string[];
+            /** @description Por defecto, el nombre de la cuenta. */
+            displayName?: string;
+        };
+        UpdateBarberDto: {
+            displayName?: string;
+            bio?: string | null;
+            phone?: string | null;
+            /** @description false lo desactiva (rechazado si tiene reservas futuras). */
+            isActive?: boolean;
+        };
+        SetBarberServicesDto: {
+            serviceIds: string[];
+        };
         MoneyDto: {
             /**
              * @description Céntimos.
@@ -899,66 +959,6 @@ export interface components {
             durationMinutes?: number;
             /** @default true */
             isAvailable: boolean;
-        };
-        BarberPublicDto: {
-            /** Format: uuid */
-            id: string;
-            displayName: string;
-            bio: string | null;
-            photoUrl: string | null;
-            serviceIds: string[];
-        };
-        BarberPublicPageDto: {
-            items: components["schemas"]["BarberPublicDto"][];
-            nextCursor: string | null;
-        };
-        LinkedUserDto: {
-            /** Format: uuid */
-            id: string;
-            fullName: string;
-        };
-        BarberManageDto: {
-            /** Format: uuid */
-            id: string;
-            displayName: string;
-            bio: string | null;
-            photoUrl: string | null;
-            serviceIds: string[];
-            phone: string | null;
-            isActive: boolean;
-            linkedUser: components["schemas"]["LinkedUserDto"] | null;
-        };
-        BarberManagePageDto: {
-            items: components["schemas"]["BarberManageDto"][];
-            nextCursor: string | null;
-        };
-        CreateBarberDto: {
-            bio?: string | null;
-            /** @description Dato personal: se guarda cifrado y nunca es público. */
-            phone?: string | null;
-            /** @description Servicios de la barbería que realiza. */
-            serviceIds?: string[];
-            /** @example Carlos */
-            displayName: string;
-        };
-        LinkSelfAsBarberDto: {
-            bio?: string | null;
-            /** @description Dato personal: se guarda cifrado y nunca es público. */
-            phone?: string | null;
-            /** @description Servicios de la barbería que realiza. */
-            serviceIds?: string[];
-            /** @description Por defecto, el nombre de la cuenta. */
-            displayName?: string;
-        };
-        UpdateBarberDto: {
-            displayName?: string;
-            bio?: string | null;
-            phone?: string | null;
-            /** @description false lo desactiva (rechazado si tiene reservas futuras). */
-            isActive?: boolean;
-        };
-        SetBarberServicesDto: {
-            serviceIds: string[];
         };
         InviteMemberDto: {
             /**
@@ -1776,167 +1776,6 @@ export interface operations {
             };
         };
     };
-    ServicesController_listPublic_v1: {
-        parameters: {
-            query?: {
-                limit?: number;
-                /** @description Valor de nextCursor de la página anterior. */
-                cursor?: string;
-            };
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ServicePublicPageDto"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDto"];
-                };
-            };
-        };
-    };
-    ServicesController_create_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateServiceDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ServiceManageDto"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDto"];
-                };
-            };
-        };
-    };
-    ServicesController_listManaged_v1: {
-        parameters: {
-            query?: {
-                limit?: number;
-                /** @description Valor de nextCursor de la página anterior. */
-                cursor?: string;
-            };
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ServiceManagePageDto"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDto"];
-                };
-            };
-        };
-    };
-    ServicesController_remove_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                serviceId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDto"];
-                };
-            };
-        };
-    };
-    ServicesController_update_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                serviceId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateServiceDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ServiceManageDto"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDto"];
-                };
-            };
-        };
-    };
     BarbersController_listPublic_v1: {
         parameters: {
             query?: {
@@ -2141,6 +1980,167 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BarberManageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ServicesController_listPublic_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicePublicPageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ServicesController_create_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateServiceDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceManageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ServicesController_listManaged_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceManagePageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ServicesController_remove_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                serviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ServicesController_update_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                serviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateServiceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceManageDto"];
                 };
             };
             404: {

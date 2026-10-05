@@ -117,9 +117,7 @@ export class MembersService {
         throw lastOwner();
 
       await tx.barbershopMember.delete({ where: { id: target.id } });
-      // El rol global OWNER ("responsable de barbería") se retira si ya no administra ninguna.
-      const remaining = await tx.barbershopMember.count({ where: { userId: targetUserId } });
-      if (remaining === 0) await this.users.removeRole(targetUserId, 'OWNER', tx);
+      await this.syncOwnerRole(targetUserId, tx);
       await this.audit.record(
         {
           actorId,
@@ -165,6 +163,27 @@ export class MembersService {
       },
       tx,
     );
+  }
+
+  /**
+   * Rol global OWNER ("responsable de barbería"): lo tiene quien es miembro (OWNER o MANAGER) de
+   * al menos una barbería no eliminada; si deja de serlo, se retira.
+   */
+  async syncOwnerRole(userId: string, tx: Prisma.TransactionClient): Promise<void> {
+    const memberships = await tx.barbershopMember.count({
+      where: { userId, barbershop: { deletedAt: null } },
+    });
+    if (memberships > 0) await this.users.addRole(userId, 'OWNER', tx);
+    else await this.users.removeRole(userId, 'OWNER', tx);
+  }
+
+  /** Al eliminar una barbería: recalcula el rol de todos sus responsables. */
+  async syncOwnerRolesOf(barbershopId: string, tx: Prisma.TransactionClient): Promise<void> {
+    const members = await tx.barbershopMember.findMany({
+      where: { barbershopId },
+      select: { userId: true },
+    });
+    for (const { userId } of members) await this.syncOwnerRole(userId, tx);
   }
 
   private async lockBarbershop(tx: Prisma.TransactionClient, barbershopId: string): Promise<void> {

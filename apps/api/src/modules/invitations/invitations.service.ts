@@ -28,10 +28,14 @@ import { UsersService } from '../users/users.service';
 import type { InvitationDto } from './dto/invitation.dto';
 import { INVITATIONS_QUEUE, type InvitationJob } from './invitations.jobs';
 
-/** Mismas reglas que los códigos de la Fase 3: 6 dígitos, un uso, vencimiento, máx. 5 intentos. */
+/**
+ * Mismas reglas que los códigos de la Fase 3 (6 dígitos, un uso, máx. 5 intentos), pero con
+ * vigencia de 48 h: una invitación necesita más tiempo que un código de recuperación (15 min).
+ */
 export const INVITATION_POLICY = {
   digits: 6,
-  defaultTtlMinutes: 15,
+  /** 48 horas (CLAUDE.md §4.1). Configurable en barbershops.invitation_ttl_minutes. */
+  defaultTtlMinutes: 2880,
   maxAttempts: 5,
 } as const;
 

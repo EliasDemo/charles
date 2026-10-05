@@ -173,6 +173,23 @@ describe('RF-BAR-001 Varios responsables e invitaciones (e2e)', () => {
       expect(stored.acceptedAt).toBeNull();
     });
 
+    it('vigencia por defecto de 48 horas (2880 minutos)', async () => {
+      const { owner, invitee } = await setup();
+      await owner.client
+        .post(
+          `${SHOPS}/${owner.shopId}/members/invitations`,
+          { email: invitee.email, role: 'MANAGER' },
+          owner.token,
+        )
+        .expect(202);
+      await waitForMail(app, invitee.email, 'member-invitation');
+      const row = await prisma.barbershopInvitation.findFirstOrThrow({
+        where: { invitedUserId: invitee.userId },
+      });
+      const minutes = (row.expiresAt.getTime() - row.createdAt.getTime()) / 60_000;
+      expect(Math.round(minutes)).toBe(2880);
+    });
+
     it('vence: una invitación vencida no se puede aceptar', async () => {
       const { owner, invitee } = await setup();
       await owner.client

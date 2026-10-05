@@ -179,6 +179,9 @@ export class BarbersService {
         data,
         include: barberWithServices,
       });
+      if (barber.userId && dto.isActive !== undefined && dto.isActive !== before.isActive) {
+        await this.syncBarberRole(barber.userId, tx);
+      }
       if (changes) {
         await this.audit.record(
           {
@@ -259,6 +262,32 @@ export class BarbersService {
       this.prisma.barber.count({ where: { userId, deletedAt: null } }),
     ]);
     return barber !== null && activeProfiles === 0;
+  }
+
+  /**
+   * Rol global BARBER: lo tiene quien está vinculado a al menos un perfil de barbero activo y no
+   * eliminado; si deja de estarlo (desactivado o eliminado), se retira.
+   */
+  async syncBarberRole(userId: string, tx: Prisma.TransactionClient = this.prisma): Promise<void> {
+    const active = await tx.barber.count({ where: { userId, isActive: true, deletedAt: null } });
+    if (active > 0) await this.users.addRole(userId, 'BARBER', tx);
+    else await this.users.removeRole(userId, 'BARBER', tx);
+  }
+
+  /**
+   * Al eliminar una barbería, sus barberos se eliminan con ella (borrado lógico): sus cuentas
+   * quedan libres para vincularse a otra barbería y pierden el rol BARBER si no tienen otro perfil.
+   */
+  async removeAllOfBarbershop(barbershopId: string, tx: Prisma.TransactionClient): Promise<void> {
+    const linked = await tx.barber.findMany({
+      where: { barbershopId, deletedAt: null, userId: { not: null } },
+      select: { userId: true },
+    });
+    await tx.barber.updateMany({
+      where: { barbershopId, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    for (const { userId } of linked) if (userId) await this.syncBarberRole(userId, tx);
   }
 
   async displayNames(ids: string[]): Promise<Map<string, string>> {

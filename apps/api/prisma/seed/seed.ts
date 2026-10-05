@@ -180,8 +180,9 @@ export const SEED_SETTINGS: {
   },
   {
     key: 'barbershops.invitation_ttl_minutes',
-    value: 15,
-    description: 'Vigencia del código de invitación a responsables y barberos, en minutos.',
+    value: 2880,
+    description:
+      'Vigencia del código de invitación a responsables y barberos, en minutos (2880 = 48 h).',
   },
   {
     key: 'payments.provider',

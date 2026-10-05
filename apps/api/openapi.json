@@ -1116,298 +1116,6 @@
         ]
       }
     },
-    "/api/v1/barbershops/{id}/services": {
-      "get": {
-        "operationId": "ServicesController_listPublic_v1",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20,
-              "type": "number"
-            }
-          },
-          {
-            "name": "cursor",
-            "required": false,
-            "in": "query",
-            "description": "Valor de nextCursor de la página anterior.",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ServicePublicPageDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "RF-SER-003: servicios disponibles con precio y duración",
-        "tags": [
-          "services"
-        ]
-      },
-      "post": {
-        "operationId": "ServicesController_create_v1",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateServiceDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ServiceManageDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "RF-SER-001: registrar un servicio (precio > 0, 5–480 min en múltiplos de 5)",
-        "tags": [
-          "services"
-        ]
-      }
-    },
-    "/api/v1/me/barbershops/{id}/services": {
-      "get": {
-        "operationId": "ServicesController_listManaged_v1",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20,
-              "type": "number"
-            }
-          },
-          {
-            "name": "cursor",
-            "required": false,
-            "in": "query",
-            "description": "Valor de nextCursor de la página anterior.",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ServiceManagePageDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Servicios de una barbería que administro (incluye no disponibles)",
-        "tags": [
-          "services"
-        ]
-      }
-    },
-    "/api/v1/barbershops/{id}/services/{serviceId}": {
-      "patch": {
-        "operationId": "ServicesController_update_v1",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "serviceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateServiceDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ServiceManageDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "RF-SER-002: actualizar un servicio",
-        "tags": [
-          "services"
-        ]
-      },
-      "delete": {
-        "operationId": "ServicesController_remove_v1",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "serviceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Eliminar un servicio (borrado lógico)",
-        "tags": [
-          "services"
-        ]
-      }
-    },
     "/api/v1/barbershops/{id}/barbers": {
       "get": {
         "operationId": "BarbersController_listPublic_v1",
@@ -1792,6 +1500,298 @@
         "summary": "RF-BRB-002: servicios que realiza el barbero",
         "tags": [
           "barbers"
+        ]
+      }
+    },
+    "/api/v1/barbershops/{id}/services": {
+      "get": {
+        "operationId": "ServicesController_listPublic_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Valor de nextCursor de la página anterior.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicePublicPageDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "RF-SER-003: servicios disponibles con precio y duración",
+        "tags": [
+          "services"
+        ]
+      },
+      "post": {
+        "operationId": "ServicesController_create_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateServiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceManageDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-SER-001: registrar un servicio (precio > 0, 5–480 min en múltiplos de 5)",
+        "tags": [
+          "services"
+        ]
+      }
+    },
+    "/api/v1/me/barbershops/{id}/services": {
+      "get": {
+        "operationId": "ServicesController_listManaged_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Valor de nextCursor de la página anterior.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceManagePageDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Servicios de una barbería que administro (incluye no disponibles)",
+        "tags": [
+          "services"
+        ]
+      }
+    },
+    "/api/v1/barbershops/{id}/services/{serviceId}": {
+      "patch": {
+        "operationId": "ServicesController_update_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateServiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceManageDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-SER-002: actualizar un servicio",
+        "tags": [
+          "services"
+        ]
+      },
+      "delete": {
+        "operationId": "ServicesController_remove_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Eliminar un servicio (borrado lógico)",
+        "tags": [
+          "services"
         ]
       }
     },
@@ -2993,191 +2993,6 @@
           "role"
         ]
       },
-      "MoneyDto": {
-        "type": "object",
-        "properties": {
-          "amount": {
-            "type": "number",
-            "example": 2500,
-            "description": "Céntimos."
-          },
-          "currency": {
-            "type": "string",
-            "example": "PEN"
-          }
-        },
-        "required": [
-          "amount",
-          "currency"
-        ]
-      },
-      "ServicePublicDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string",
-            "nullable": true
-          },
-          "price": {
-            "$ref": "#/components/schemas/MoneyDto"
-          },
-          "durationMinutes": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "description",
-          "price",
-          "durationMinutes"
-        ]
-      },
-      "ServicePublicPageDto": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ServicePublicDto"
-            }
-          },
-          "nextCursor": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
-      },
-      "ServiceManageDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string",
-            "nullable": true
-          },
-          "price": {
-            "$ref": "#/components/schemas/MoneyDto"
-          },
-          "durationMinutes": {
-            "type": "number"
-          },
-          "isAvailable": {
-            "type": "boolean"
-          },
-          "barberIds": {
-            "description": "Barberos que realizan el servicio.",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "description",
-          "price",
-          "durationMinutes",
-          "isAvailable",
-          "barberIds"
-        ]
-      },
-      "ServiceManagePageDto": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ServiceManageDto"
-            }
-          },
-          "nextCursor": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
-      },
-      "CreateServiceDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "example": "Corte clásico"
-          },
-          "description": {
-            "type": "string",
-            "nullable": true
-          },
-          "priceAmount": {
-            "type": "number",
-            "example": 2500,
-            "description": "Precio en céntimos de PEN (mayor que 0)."
-          },
-          "durationMinutes": {
-            "type": "number",
-            "example": 30,
-            "description": "De 5 a 480 minutos, en múltiplos de 5."
-          },
-          "isAvailable": {
-            "type": "boolean",
-            "default": true
-          }
-        },
-        "required": [
-          "name",
-          "priceAmount",
-          "durationMinutes"
-        ]
-      },
-      "UpdateServiceDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "example": "Corte clásico"
-          },
-          "description": {
-            "type": "string",
-            "nullable": true
-          },
-          "priceAmount": {
-            "type": "number",
-            "example": 2500,
-            "description": "Precio en céntimos de PEN (mayor que 0)."
-          },
-          "durationMinutes": {
-            "type": "number",
-            "example": 30,
-            "description": "De 5 a 480 minutos, en múltiplos de 5."
-          },
-          "isAvailable": {
-            "type": "boolean",
-            "default": true
-          }
-        }
-      },
       "BarberPublicDto": {
         "type": "object",
         "properties": {
@@ -3403,6 +3218,191 @@
         "required": [
           "serviceIds"
         ]
+      },
+      "MoneyDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "example": 2500,
+            "description": "Céntimos."
+          },
+          "currency": {
+            "type": "string",
+            "example": "PEN"
+          }
+        },
+        "required": [
+          "amount",
+          "currency"
+        ]
+      },
+      "ServicePublicDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "$ref": "#/components/schemas/MoneyDto"
+          },
+          "durationMinutes": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "price",
+          "durationMinutes"
+        ]
+      },
+      "ServicePublicPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServicePublicDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "ServiceManageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "$ref": "#/components/schemas/MoneyDto"
+          },
+          "durationMinutes": {
+            "type": "number"
+          },
+          "isAvailable": {
+            "type": "boolean"
+          },
+          "barberIds": {
+            "description": "Barberos que realizan el servicio.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "price",
+          "durationMinutes",
+          "isAvailable",
+          "barberIds"
+        ]
+      },
+      "ServiceManagePageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceManageDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "CreateServiceDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Corte clásico"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "priceAmount": {
+            "type": "number",
+            "example": 2500,
+            "description": "Precio en céntimos de PEN (mayor que 0)."
+          },
+          "durationMinutes": {
+            "type": "number",
+            "example": 30,
+            "description": "De 5 a 480 minutos, en múltiplos de 5."
+          },
+          "isAvailable": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "name",
+          "priceAmount",
+          "durationMinutes"
+        ]
+      },
+      "UpdateServiceDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Corte clásico"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "priceAmount": {
+            "type": "number",
+            "example": 2500,
+            "description": "Precio en céntimos de PEN (mayor que 0)."
+          },
+          "durationMinutes": {
+            "type": "number",
+            "example": 30,
+            "description": "De 5 a 480 minutos, en múltiplos de 5."
+          },
+          "isAvailable": {
+            "type": "boolean",
+            "default": true
+          }
+        }
       },
       "InviteMemberDto": {
         "type": "object",

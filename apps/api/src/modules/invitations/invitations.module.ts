@@ -2,6 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { BarbersModule } from '../barbers/barbers.module';
+import { BarbershopAccessModule } from '../barbershops/barbershop-access.module';
 import { BarbershopsModule } from '../barbershops/barbershops.module';
 import { SettingsModule } from '../settings/settings.module';
 import { UsersModule } from '../users/users.module';
@@ -15,6 +16,7 @@ import { InvitationsService } from './invitations.service';
   imports: [
     AuthModule,
     BarbershopsModule,
+    BarbershopAccessModule,
     BarbersModule,
     UsersModule,
     SettingsModule,

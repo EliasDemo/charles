@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { BarbershopsModule } from '../barbershops/barbershops.module';
+import { BarbershopAccessModule } from '../barbershops/barbershop-access.module';
 import { ServicesController } from './services.controller';
 import { ServicesService } from './services.service';
 
 @Module({
-  imports: [BarbershopsModule],
+  imports: [BarbershopAccessModule],
   controllers: [ServicesController],
   providers: [ServicesService],
   exports: [ServicesService],

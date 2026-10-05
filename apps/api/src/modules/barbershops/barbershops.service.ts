@@ -12,10 +12,12 @@ import {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { Barbershop, Prisma } from '../../generated/prisma/client';
 import type { BarbershopMemberRole } from '../../generated/prisma/enums';
+import { BarbersService } from '../barbers/barbers.service';
 import { BookingsReadService } from '../bookings/bookings-read.service';
 import { SettingKey, SettingsService } from '../settings/settings.service';
 import { UsersService } from '../users/users.service';
 import { BarbershopAccessService, publicBarbershopWhere } from './barbershop-access.service';
+import { MembersService } from './members.service';
 import {
   type BarbershopManageDto,
   type BarbershopPublicDto,
@@ -82,6 +84,8 @@ export class BarbershopsService {
     private readonly settings: SettingsService,
     private readonly bookings: BookingsReadService,
     private readonly audit: AuditService,
+    private readonly members: MembersService,
+    private readonly barbers: BarbersService,
   ) {}
 
   /**
@@ -289,6 +293,10 @@ export class BarbershopsService {
         );
       }
       await tx.barbershop.update({ where: { id }, data: { deletedAt: new Date() } });
+      // Roles derivados: quien deja de administrar barberías pierde OWNER; quien deja de ser
+      // barbero activo pierde BARBER.
+      await this.barbers.removeAllOfBarbershop(id, tx);
+      await this.members.syncOwnerRolesOf(id, tx);
       await this.audit.record(
         {
           actorId: userId,
