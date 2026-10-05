@@ -163,6 +163,16 @@ export const SEED_SETTINGS: {
       'Versión vigente de los términos y condiciones. El registro exige aceptar exactamente esta versión.',
   },
   {
+    key: 'auth.lockout.account_max_failures',
+    value: 5,
+    description: 'Fallos de acceso por cuenta antes del bloqueo progresivo (1, 5 y 15 min).',
+  },
+  {
+    key: 'auth.lockout.ip_max_failures',
+    value: 20,
+    description: 'Fallos de acceso por IP antes del bloqueo progresivo (mayor: redes compartidas).',
+  },
+  {
     key: 'payments.provider',
     value: 'FAKE',
     description: 'Proveedor de pagos activo. Izipay se integra en la Fase 8 (ADR 0002).',
@@ -227,9 +237,14 @@ export async function seed({ prisma, encryption, password, jsonNull }: SeedDeps)
         birthDateEnc: encryption.encrypt(user.birthDate, EncryptedField.USER_BIRTH_DATE),
         termsAcceptedAt: new Date(),
         termsVersion: 'seed',
-        adultDeclaredAt: new Date(),
+        // Sin adultDeclaredAt: la declaración de mayoría de edad no se inventa (ADR 0003).
         emailVerifiedAt: new Date(),
       },
+    });
+    // Correo verificado solo para estos usuarios de prueba (autorizado), para usarlos al reservar.
+    await prisma.user.updateMany({
+      where: { id: user.id, emailVerifiedAt: null },
+      data: { emailVerifiedAt: new Date() },
     });
     for (const role of user.roles) {
       await prisma.userRole.upsert({

@@ -128,15 +128,62 @@ describe('RF-AUT-002 Inicio de sesión (e2e)', () => {
       await new AuthClient(app).login(email, password).expect(200);
     });
 
-    it('RF-AUT-002 bloquea por IP aunque cada intento use un correo distinto', async () => {
-      const attacker = new AuthClient(app);
-      for (let i = 0; i < 5; i++) await attacker.login(uniqueEmail(), randomPassword()).expect(401);
+    /** Cambia un umbral en app_settings durante una prueba y lo elimina al terminar. */
+    async function withSetting(
+      key: string,
+      value: number,
+      run: () => Promise<void>,
+    ): Promise<void> {
+      await prisma.appSetting.create({ data: { key, value } });
+      try {
+        await run();
+      } finally {
+        await prisma.appSetting.delete({ where: { key } });
+      }
+    }
 
-      const victim = await new AuthClient(app).newUser();
-      const fromAttackerIp = await attacker.login(victim.email, victim.password).expect(429);
-      expect(fromAttackerIp.body.code).toBe('ACCOUNT_LOCKED');
-      // La cuenta en sí no está bloqueada: desde otra IP entra sin problema.
-      await new AuthClient(app).login(victim.email, victim.password).expect(200);
+    it('RF-AUT-002 umbral por IP mayor (20 por defecto): 5 fallos desde una red compartida no la bloquean', async () => {
+      const sharedNetwork = new AuthClient(app);
+      for (let i = 0; i < 5; i++) {
+        await sharedNetwork.login(uniqueEmail(), randomPassword()).expect(401);
+      }
+      const colleague = await new AuthClient(app).newUser();
+      await sharedNetwork.login(colleague.email, colleague.password).expect(200);
+    });
+
+    it('RF-AUT-002 bloquea por IP al alcanzar su umbral (configurable en app_settings)', async () => {
+      // 8 en vez de 20: el límite de peticiones de auth (10/min por IP) impide llegar a 20 en una prueba.
+      await withSetting('auth.lockout.ip_max_failures', 8, async () => {
+        const attacker = new AuthClient(app);
+        for (let i = 0; i < 8; i++) {
+          await attacker.login(uniqueEmail(), randomPassword()).expect(401);
+        }
+        const victim = await new AuthClient(app).newUser();
+        const fromAttackerIp = await attacker.login(victim.email, victim.password).expect(429);
+        expect(fromAttackerIp.body.code).toBe('ACCOUNT_LOCKED');
+        // La cuenta en sí no está bloqueada: desde otra IP entra sin problema.
+        await new AuthClient(app).login(victim.email, victim.password).expect(200);
+      });
+    });
+
+    it('RF-AUT-002 el umbral por cuenta es configurable en app_settings', async () => {
+      await withSetting('auth.lockout.account_max_failures', 3, async () => {
+        const { email, password } = await new AuthClient(app).newUser();
+        for (let i = 0; i < 3; i++) {
+          await new AuthClient(app).login(email, randomPassword()).expect(401);
+        }
+        await new AuthClient(app).login(email, password).expect(429);
+      });
+    });
+
+    it('RF-AUT-002 un umbral inválido en app_settings usa el valor por defecto (5)', async () => {
+      await withSetting('auth.lockout.account_max_failures', 0, async () => {
+        const { email, password } = await new AuthClient(app).newUser();
+        for (let i = 0; i < 4; i++) {
+          await new AuthClient(app).login(email, randomPassword()).expect(401);
+        }
+        await new AuthClient(app).login(email, password).expect(200);
+      });
     });
 
     it('RF-AUT-002 una cuenta inexistente se bloquea igual (no revela si existe)', async () => {

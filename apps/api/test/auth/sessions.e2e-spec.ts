@@ -1,6 +1,8 @@
 import { generateKeyPairSync } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { sign } from 'jsonwebtoken';
+import { APP_CONFIG } from '../../src/common/config/app-config.token';
+import type { AppConfig } from '../../src/common/config/env.validation';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { AuthClient, createAuthTestApp } from '../support/auth';
 
@@ -144,6 +146,72 @@ describe('Sesiones, RF-AUT-003 cierre de sesión y autorización (e2e)', () => {
         subject: tokens.user.id,
       });
       await client.get(WHOAMI, unsigned).expect(401);
+    });
+
+    describe('la verificación del JWT solo acepta ES256 con el emisor y la audiencia de Charles', () => {
+      const claimsFor = (sessionId: string) => ({ sid: sessionId, roles: ['CLIENT'] });
+      const base = {
+        subject: '',
+        issuer: 'charles-api',
+        audience: 'charles-clients',
+        expiresIn: 600,
+      };
+
+      async function sessionUser() {
+        const client = new AuthClient(app);
+        const { tokens } = await client.newUser();
+        const whoami = await client.get(WHOAMI, tokens.accessToken).expect(200);
+        return { client, userId: tokens.user.id, sessionId: whoami.body.sessionId as string };
+      }
+
+      it('rechaza alg "none"', async () => {
+        const { client, userId, sessionId } = await sessionUser();
+        const token = sign(claimsFor(sessionId), '', {
+          ...base,
+          subject: userId,
+          algorithm: 'none',
+        });
+        await client.get(WHOAMI, token).expect(401);
+      });
+
+      it('rechaza HS256 firmado usando la clave pública como secreto (confusión de algoritmo)', async () => {
+        const { client, userId, sessionId } = await sessionUser();
+        const publicPem = app
+          .get<AppConfig>(APP_CONFIG)
+          .auth.jwtKeys.publicKey.export({ type: 'spki', format: 'pem' });
+        const token = sign(claimsFor(sessionId), publicPem, {
+          ...base,
+          subject: userId,
+          algorithm: 'HS256',
+        });
+        await client.get(WHOAMI, token).expect(401);
+      });
+
+      it.each([
+        ['emisor (iss) incorrecto', { issuer: 'otro-emisor' }],
+        ['audiencia (aud) incorrecta', { audience: 'otra-audiencia' }],
+      ])('rechaza un token ES256 válido con %s', async (_case, override) => {
+        const { client, userId, sessionId } = await sessionUser();
+        const { privateKey } = app.get<AppConfig>(APP_CONFIG).auth.jwtKeys;
+        const token = sign(claimsFor(sessionId), privateKey, {
+          ...base,
+          ...override,
+          subject: userId,
+          algorithm: 'ES256',
+        });
+        await client.get(WHOAMI, token).expect(401);
+      });
+
+      it('control: el mismo token con la clave, el emisor y la audiencia correctos sí se acepta', async () => {
+        const { client, userId, sessionId } = await sessionUser();
+        const { privateKey } = app.get<AppConfig>(APP_CONFIG).auth.jwtKeys;
+        const token = sign(claimsFor(sessionId), privateKey, {
+          ...base,
+          subject: userId,
+          algorithm: 'ES256',
+        });
+        await client.get(WHOAMI, token).expect(200);
+      });
     });
 
     it('el token alterado (roles modificados) se rechaza', async () => {

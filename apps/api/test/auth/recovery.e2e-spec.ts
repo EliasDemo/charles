@@ -1,7 +1,9 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import type Redis from 'ioredis';
 import { BlindIndexKind } from '../../src/common/crypto/encryption-contexts';
 import { EncryptionService } from '../../src/common/crypto/encryption.service';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
+import { REDIS_CLIENT } from '../../src/common/redis/redis.module';
 import {
   AuthClient,
   codeFrom,
@@ -85,7 +87,7 @@ describe('RF-AUT-004 Recuperación de acceso y verificación de correo (e2e)', (
     expect(reuse.body.code).toBe('INVALID_CODE');
   });
 
-  it('RF-AUT-004 el código se invalida tras 5 intentos fallidos, y esos fallos bloquean cuenta e IP', async () => {
+  it('RF-AUT-004 el código se invalida tras 5 intentos fallidos, y esos fallos cuentan para el bloqueo por cuenta e IP', async () => {
     const client = new AuthClient(app);
     const { email, password } = await client.newUser();
     const code = await requestCode(client, email);
@@ -96,10 +98,15 @@ describe('RF-AUT-004 Recuperación de acceso y verificación de correo (e2e)', (
         .expect(400);
       expect(res.body.code).toBe('INVALID_CODE');
     }
-    const userId = (await client.login(email, password).expect(429)).body;
-    expect(userId.code).toBe('ACCOUNT_LOCKED');
+    // 5 fallos alcanzan el umbral de la cuenta (5): queda bloqueada.
+    const locked = (await client.login(email, password).expect(429)).body;
+    expect(locked.code).toBe('ACCOUNT_LOCKED');
+    // También sumaron para la IP, que tiene su propio umbral (20): aún no está bloqueada.
+    const redis = app.get<Redis>(REDIS_CLIENT);
+    expect(await redis.get(`auth:attempts:ip:${client.ip}:failures`)).toBe('5');
+    const neighbour = await new AuthClient(app).newUser();
+    await client.login(neighbour.email, neighbour.password).expect(200);
 
-    // Los 5 fallos contaron para el bloqueo por cuenta y por IP.
     const lockedConfirm = await client
       .post(CONFIRM, { email, code, newPassword: randomPassword() })
       .expect(429);

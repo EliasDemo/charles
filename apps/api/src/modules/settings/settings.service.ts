@@ -5,6 +5,8 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 
 export const SettingKey = {
   TERMS_VERSION: 'legal.terms_version',
+  LOCKOUT_ACCOUNT_MAX_FAILURES: 'auth.lockout.account_max_failures',
+  LOCKOUT_IP_MAX_FAILURES: 'auth.lockout.ip_max_failures',
 } as const;
 
 /** Lectura de `app_settings` (clave/valor). Las políticas pendientes valen JSON `null`. */
@@ -17,6 +19,17 @@ export class SettingsService {
   async get(key: string): Promise<unknown> {
     const setting = await this.prisma.appSetting.findUnique({ where: { key } });
     return setting?.value ?? null;
+  }
+
+  /**
+   * Entero positivo configurable. Si la clave no existe o su valor no es válido, se usa
+   * `fallback` (el valor decidido en CLAUDE.md), y un valor inválido queda registrado en el log.
+   */
+  async positiveInt(key: string, fallback: number): Promise<number> {
+    const value = await this.get(key);
+    if (typeof value === 'number' && Number.isInteger(value) && value > 0) return value;
+    if (value !== null) this.logger.warn(`Valor inválido en ${key}; se usa ${fallback}`);
+    return fallback;
   }
 
   /** Versión vigente de los términos y condiciones (CLAUDE.md §4.1). */

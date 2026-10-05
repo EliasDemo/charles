@@ -3,10 +3,16 @@ import Redis from 'ioredis';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { REDIS_CLIENT } from '../../common/redis/redis.module';
+import { SettingKey, SettingsService } from '../settings/settings.service';
 
-/** CLAUDE.md §4.1: tras 5 fallos, bloqueo progresivo de 1, 5 y 15 minutos, por cuenta y por IP. */
+/**
+ * CLAUDE.md §4.1: bloqueo progresivo de 1, 5 y 15 minutos tras 5 fallos por cuenta o 20 por IP.
+ * El umbral por IP es mayor para no bloquear a usuarios que comparten red. Ambos umbrales se
+ * leen de `app_settings`; estos valores se usan si el ajuste no existe.
+ */
 export const LOCKOUT_POLICY = {
-  maxFailures: 5,
+  defaultAccountMaxFailures: 5,
+  defaultIpMaxFailures: 20,
   lockSeconds: [60, 5 * 60, 15 * 60] as const,
   /** Los fallos se olvidan si no se repiten en esta ventana. */
   failureWindowSeconds: 15 * 60,
@@ -45,7 +51,10 @@ export interface FailureResult {
 /** Bloqueo progresivo por intentos fallidos (inicio de sesión y códigos de un solo uso). */
 @Injectable()
 export class LoginAttemptsService {
-  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
+  constructor(
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly settings: SettingsService,
+  ) {}
 
   /** Lanza 429 ACCOUNT_LOCKED si la cuenta o la IP están bloqueadas. */
   async assertNotLocked(subject: AttemptSubject): Promise<void> {
@@ -66,9 +75,19 @@ export class LoginAttemptsService {
   }
 
   async recordFailure(subject: AttemptSubject): Promise<FailureResult> {
+    const [accountMax, ipMax] = await Promise.all([
+      this.settings.positiveInt(
+        SettingKey.LOCKOUT_ACCOUNT_MAX_FAILURES,
+        LOCKOUT_POLICY.defaultAccountMaxFailures,
+      ),
+      this.settings.positiveInt(
+        SettingKey.LOCKOUT_IP_MAX_FAILURES,
+        LOCKOUT_POLICY.defaultIpMaxFailures,
+      ),
+    ]);
     const [accountLockSeconds] = await Promise.all([
-      this.record('account', subject.accountKey),
-      this.record('ip', subject.ip),
+      this.record('account', subject.accountKey, accountMax),
+      this.record('ip', subject.ip, ipMax),
     ]);
     return { accountLockSeconds };
   }
@@ -79,7 +98,7 @@ export class LoginAttemptsService {
     await this.redis.del(keys.failures, keys.level);
   }
 
-  private async record(scope: 'account' | 'ip', id: string): Promise<number> {
+  private async record(scope: 'account' | 'ip', id: string, maxFailures: number): Promise<number> {
     const keys = this.keys(scope, id);
     const result = await this.redis.eval(
       RECORD_FAILURE_SCRIPT,
@@ -88,7 +107,7 @@ export class LoginAttemptsService {
       keys.level,
       keys.lock,
       LOCKOUT_POLICY.failureWindowSeconds,
-      LOCKOUT_POLICY.maxFailures,
+      maxFailures,
       LOCKOUT_POLICY.levelTtlSeconds,
       ...LOCKOUT_POLICY.lockSeconds,
     );
