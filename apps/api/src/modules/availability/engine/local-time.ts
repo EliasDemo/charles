@@ -11,7 +11,6 @@ export interface WeeklyWindow {
   end: string;
 }
 
-const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const LOCAL_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /**
@@ -23,10 +22,6 @@ export function toDayOfWeek(luxonWeekday: number): DayOfWeek {
     throw new RangeError(`Día de semana de luxon inválido: ${luxonWeekday}`);
   }
   return (luxonWeekday % 7) as DayOfWeek;
-}
-
-export function isLocalDate(value: string): boolean {
-  return LOCAL_DATE.test(value) && DateTime.fromISO(value).isValid;
 }
 
 export function isLocalTime(value: string): boolean {

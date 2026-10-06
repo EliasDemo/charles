@@ -53,8 +53,10 @@ export default tseslint.config(
       '@typescript-eslint/explicit-module-boundary-types': 'off',
     },
   },
+  // Scripts de Node en JS (sin tsconfig): reglas sin información de tipos.
+  { files: ['scripts/**/*.mjs'], ...tseslint.configs.disableTypeChecked },
   {
-    files: ['apps/api/prisma/seed.ts', 'apps/api/prisma/seed-reference.ts'],
+    files: ['apps/api/prisma/seed.ts', 'apps/api/prisma/seed-reference.ts', 'scripts/verify.mjs'],
     rules: { 'no-console': 'off' },
   },
 );

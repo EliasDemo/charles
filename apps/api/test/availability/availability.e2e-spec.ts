@@ -685,4 +685,73 @@ describe('RF-DIS-001…004 y RF-BRB-003 Horarios, bloqueos y disponibilidad (e2e
     for (let i = 0; i < 60; i++) await visitor.get(path).expect(200);
     expect((await visitor.get(path).expect(429)).body.code).toBe('TOO_MANY_REQUESTS');
   });
+
+  describe('casos límite de horarios y bloqueos', () => {
+    it('RF-DIS-001 una barbería en revisión puede preparar su horario; "abierta ahora" es false', async () => {
+      const s = await shopReady();
+      await prisma.barbershop.update({
+        where: { id: s.owner.shopId },
+        data: { status: 'PENDING_REVIEW' },
+      });
+      clock.current = lima(MONDAY, '10:00');
+      const res = await s.client
+        .put(
+          `${SHOPS}/${s.owner.shopId}/business-hours`,
+          { days: [{ dayOfWeek: 1, windows: [{ start: '09:00', end: '13:00' }] }] },
+          s.owner.token,
+        )
+        .expect(200);
+      expect(res.body.isOpenNow).toBe(false);
+    });
+
+    it('RF-DIS-001 las ventanas de un día se devuelven ordenadas', async () => {
+      const s = await shopReady();
+      const res = await s.client
+        .put(
+          `${SHOPS}/${s.owner.shopId}/business-hours`,
+          {
+            days: [
+              {
+                dayOfWeek: 1,
+                windows: [
+                  { start: '15:00', end: '19:00' },
+                  { start: '09:00', end: '13:00' },
+                ],
+              },
+            ],
+          },
+          s.owner.token,
+        )
+        .expect(200);
+      expect(res.body.days[0].windows).toEqual([
+        { start: '09:00', end: '13:00' },
+        { start: '15:00', end: '19:00' },
+      ]);
+    });
+
+    it('RF-BRB-003 una semana vacía vuelve a heredar el horario de la barbería', async () => {
+      const s = await shopReady();
+      const path = `${SHOPS}/${s.owner.shopId}/barbers/${s.barberId}/schedule`;
+      await s.client
+        .put(
+          path,
+          { days: [{ dayOfWeek: 1, windows: [{ start: '10:00', end: '11:00' }] }] },
+          s.owner.token,
+        )
+        .expect(200);
+      const res = await s.client.put(path, { days: [] }, s.owner.token).expect(200);
+      expect(res.body).toMatchObject({ inheritsBusinessHours: true, bookingsOutsideSchedule: 0 });
+    });
+
+    it('404: bloqueo inexistente y barbero de otra barbería', async () => {
+      const s = await shopReady();
+      const other = await shopReady();
+      await s.client
+        .delete(`${SHOPS}/${s.owner.shopId}/time-blocks/${randomUUID()}`, s.owner.token)
+        .expect(404);
+      await s.client
+        .get(`${SHOPS}/${s.owner.shopId}/barbers/${other.barberId}/schedule`, s.owner.token)
+        .expect(404);
+    });
+  });
 });

@@ -1,0 +1,5 @@
+#!/bin/sh
+# CLAUDE.md §1: ningún commit sin que `pnpm verify` pase.
+# Se activa con `git config core.hooksPath .githooks` (lo hace `pnpm install` vía "prepare").
+echo "pre-commit: ejecutando pnpm verify..."
+exec pnpm verify

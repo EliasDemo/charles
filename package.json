@@ -13,7 +13,9 @@
     "format:check": "prettier --check .",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
-    "test:e2e": "pnpm -r run test:e2e"
+    "test:e2e": "pnpm -r run test:e2e",
+    "verify": "node scripts/verify.mjs",
+    "prepare": "git config core.hooksPath .githooks || exit 0"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
