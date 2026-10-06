@@ -1,3 +1,4 @@
+import { FavoritesService } from '../reviews/favorites.service';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { auditChanges } from '../../common/audit/audit-diff';
 import { AuditService } from '../../common/audit/audit.service';
@@ -52,6 +53,7 @@ type AuditableBarbershop = Pick<
 
 export function toPublicDto(shop: Barbershop): BarbershopPublicDto {
   return {
+    isFavorite: false,
     id: shop.id,
     name: shop.name,
     description: shop.description,
@@ -89,6 +91,7 @@ export class BarbershopsService {
     private readonly audit: AuditService,
     private readonly members: MembersService,
     private readonly barbers: BarbersService,
+    private readonly favorites: FavoritesService,
   ) {}
 
   /**
@@ -208,10 +211,11 @@ export class BarbershopsService {
   }
 
   /** RF-BAR-002: consulta pública (solo barberías visibles). */
-  async findPublic(id: string): Promise<BarbershopPublicDto> {
+  async findPublic(id: string, viewerId: string | null = null): Promise<BarbershopPublicDto> {
     const shop = await this.prisma.barbershop.findFirst({ where: publicBarbershopWhere(id) });
     if (!shop) throw notFound();
-    return toPublicDto(shop);
+    const favorites = await this.favorites.favoriteIds(viewerId, [shop.id]);
+    return { ...toPublicDto(shop), isFavorite: favorites.has(shop.id) };
   }
 
   async findManaged(userId: string, id: string): Promise<BarbershopManageDto> {

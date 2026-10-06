@@ -1,3 +1,4 @@
+import { type AuthUser, OptionalUser } from '../../common/auth/auth-user';
 import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -36,8 +37,11 @@ export class SearchController {
       'guarda ni se registra.',
   })
   @ApiOkResponse({ type: SearchPageDto })
-  barbershops(@Query() query: SearchQueryDto): Promise<SearchPageDto> {
-    return this.search.search(query);
+  barbershops(
+    @Query() query: SearchQueryDto,
+    @OptionalUser() user: AuthUser | null,
+  ): Promise<SearchPageDto> {
+    return this.search.search(query, user?.id ?? null);
   }
 
   @Get('barbershops/:id/alternatives')

@@ -37,9 +37,15 @@ export class JwtAuthGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) return true;
-
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    if (isPublic) {
+      // Sesión opcional: si llega un token válido, el endpoint público puede personalizar la
+      // respuesta (p. ej. isFavorite). Un token inválido, revocado o restringido no es un error:
+      // la petición sigue como anónima.
+      await this.attachOptionalUser(request);
+      return true;
+    }
+
     const [scheme, token] = (request.headers.authorization ?? '').split(' ');
     if (scheme?.toLowerCase() !== 'bearer' || !token) throw unauthorized();
 
@@ -76,5 +82,18 @@ export class JwtAuthGuard implements CanActivate {
 
     request.user = user;
     return true;
+  }
+
+  private async attachOptionalUser(request: AuthenticatedRequest): Promise<void> {
+    const [scheme, token] = (request.headers.authorization ?? '').split(' ');
+    if (scheme?.toLowerCase() !== 'bearer' || !token) return;
+    const user = this.tokens.verifyAccessToken(token);
+    if (!user || user.restricted) return;
+    try {
+      if (await this.revocations.isRevoked(user.sessionId)) return;
+    } catch {
+      return; // sin Redis no se personaliza, pero el endpoint público responde igual
+    }
+    request.user = user;
   }
 }

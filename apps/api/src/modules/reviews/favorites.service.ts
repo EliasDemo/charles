@@ -34,6 +34,19 @@ export class FavoritesService {
     await this.prisma.favorite.deleteMany({ where: { clientId: userId, barbershopId } });
   }
 
+  /**
+   * Cuáles de estas barberías son favoritas de la cuenta: **una sola consulta** para toda la
+   * página (búsqueda o ficha). Sin cuenta, ninguna.
+   */
+  async favoriteIds(userId: string | null, barbershopIds: string[]): Promise<Set<string>> {
+    if (!userId || barbershopIds.length === 0) return new Set();
+    const rows = await this.prisma.favorite.findMany({
+      where: { clientId: userId, barbershopId: { in: barbershopIds } },
+      select: { barbershopId: true },
+    });
+    return new Set(rows.map((r) => r.barbershopId));
+  }
+
   /** RF-FAV-003: los más recientes primero. */
   async list(userId: string, query: PaginationQueryDto): Promise<Page<FavoriteDto>> {
     const limit = query.limit ?? DEFAULT_PAGE_SIZE;

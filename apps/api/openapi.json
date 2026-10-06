@@ -1984,6 +1984,630 @@
         ]
       }
     },
+    "/api/v1/bookings/{id}/review": {
+      "post": {
+        "description": "Plazo: reviews.window_days (14) desde que la reserva quedó ATTENDED.",
+        "operationId": "ReviewsController_create_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyReviewDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-VAL-001: valorar una reserva atendida (propia, una vez, dentro del plazo)",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/reviews/{id}": {
+      "patch": {
+        "operationId": "ReviewsController_update_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyReviewDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-VAL-001: editar la valoración propia (una vez, dentro del plazo)",
+        "tags": [
+          "reviews"
+        ]
+      },
+      "delete": {
+        "operationId": "ReviewsController_retire_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-VAL-001: retirar la valoración propia",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/me/reviews": {
+      "get": {
+        "operationId": "ReviewsController_listMine_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Valor de nextCursor de la página anterior.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyReviewPageDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-VAL-001: mis valoraciones (las más recientes primero)",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/barbershops/{id}/reviews": {
+      "get": {
+        "description": "Autor como \"Ana R.\". Nunca datos de contacto.",
+        "operationId": "ReviewsController_listPublic_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Valor de nextCursor de la página anterior.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "barberId",
+            "required": false,
+            "in": "query",
+            "description": "Solo las de este barbero.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "rating",
+            "required": false,
+            "in": "query",
+            "description": "Solo esta puntuación.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 5,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicReviewPageDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "RF-VAL-002: valoraciones públicas de una barbería (las más recientes primero)",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/reviews/{id}/response": {
+      "put": {
+        "operationId": "ReviewsController_respond_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewResponseInputDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicReviewDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-VAL-002: responder (o editar la respuesta) como barbería (OWNER o MANAGER)",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/reviews/{id}/reports": {
+      "post": {
+        "description": "Una vez por usuario y objetivo. Con reviews.report_threshold (3) reportes pasa a revisión de soporte y sigue visible.",
+        "operationId": "ReviewsController_report_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewReportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-VAL-002: reportar una valoración o la respuesta de la barbería",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/me/favorites/{barbershopId}": {
+      "put": {
+        "operationId": "FavoritesController_add_v1",
+        "parameters": [
+          {
+            "name": "barbershopId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-FAV-001: marcar una barbería como favorita (idempotente)",
+        "tags": [
+          "favorites"
+        ]
+      },
+      "delete": {
+        "operationId": "FavoritesController_remove_v1",
+        "parameters": [
+          {
+            "name": "barbershopId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-FAV-002: quitar de favoritos (idempotente)",
+        "tags": [
+          "favorites"
+        ]
+      }
+    },
+    "/api/v1/me/favorites": {
+      "get": {
+        "operationId": "FavoritesController_list_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Valor de nextCursor de la página anterior.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FavoritePageDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-FAV-003: mis barberías favoritas (las más recientes primero)",
+        "tags": [
+          "favorites"
+        ]
+      }
+    },
     "/api/v1/barbershops/{id}/members/invitations": {
       "post": {
         "operationId": "InvitationsController_inviteMember_v1",
@@ -4098,630 +4722,6 @@
         "summary": "RF-RES-004/008: reservas de mi barbería (OWNER o MANAGER)",
         "tags": [
           "bookings"
-        ]
-      }
-    },
-    "/api/v1/bookings/{id}/review": {
-      "post": {
-        "description": "Plazo: reviews.window_days (14) desde que la reserva quedó ATTENDED.",
-        "operationId": "ReviewsController_create_v1",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateReviewDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MyReviewDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "RF-VAL-001: valorar una reserva atendida (propia, una vez, dentro del plazo)",
-        "tags": [
-          "reviews"
-        ]
-      }
-    },
-    "/api/v1/reviews/{id}": {
-      "patch": {
-        "operationId": "ReviewsController_update_v1",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateReviewDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MyReviewDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "RF-VAL-001: editar la valoración propia (una vez, dentro del plazo)",
-        "tags": [
-          "reviews"
-        ]
-      },
-      "delete": {
-        "operationId": "ReviewsController_retire_v1",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "RF-VAL-001: retirar la valoración propia",
-        "tags": [
-          "reviews"
-        ]
-      }
-    },
-    "/api/v1/me/reviews": {
-      "get": {
-        "operationId": "ReviewsController_listMine_v1",
-        "parameters": [
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20,
-              "type": "number"
-            }
-          },
-          {
-            "name": "cursor",
-            "required": false,
-            "in": "query",
-            "description": "Valor de nextCursor de la página anterior.",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MyReviewPageDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "RF-VAL-001: mis valoraciones (las más recientes primero)",
-        "tags": [
-          "reviews"
-        ]
-      }
-    },
-    "/api/v1/barbershops/{id}/reviews": {
-      "get": {
-        "description": "Autor como \"Ana R.\". Nunca datos de contacto.",
-        "operationId": "ReviewsController_listPublic_v1",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20,
-              "type": "number"
-            }
-          },
-          {
-            "name": "cursor",
-            "required": false,
-            "in": "query",
-            "description": "Valor de nextCursor de la página anterior.",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "name": "barberId",
-            "required": false,
-            "in": "query",
-            "description": "Solo las de este barbero.",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "name": "rating",
-            "required": false,
-            "in": "query",
-            "description": "Solo esta puntuación.",
-            "schema": {
-              "minimum": 1,
-              "maximum": 5,
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicReviewPageDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "RF-VAL-002: valoraciones públicas de una barbería (las más recientes primero)",
-        "tags": [
-          "reviews"
-        ]
-      }
-    },
-    "/api/v1/reviews/{id}/response": {
-      "put": {
-        "operationId": "ReviewsController_respond_v1",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReviewResponseInputDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicReviewDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "RF-VAL-002: responder (o editar la respuesta) como barbería (OWNER o MANAGER)",
-        "tags": [
-          "reviews"
-        ]
-      }
-    },
-    "/api/v1/reviews/{id}/reports": {
-      "post": {
-        "description": "Una vez por usuario y objetivo. Con reviews.report_threshold (3) reportes pasa a revisión de soporte y sigue visible.",
-        "operationId": "ReviewsController_report_v1",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateReviewReportDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": ""
-          },
-          "400": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "RF-VAL-002: reportar una valoración o la respuesta de la barbería",
-        "tags": [
-          "reviews"
-        ]
-      }
-    },
-    "/api/v1/me/favorites/{barbershopId}": {
-      "put": {
-        "operationId": "FavoritesController_add_v1",
-        "parameters": [
-          {
-            "name": "barbershopId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "RF-FAV-001: marcar una barbería como favorita (idempotente)",
-        "tags": [
-          "favorites"
-        ]
-      },
-      "delete": {
-        "operationId": "FavoritesController_remove_v1",
-        "parameters": [
-          {
-            "name": "barbershopId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "RF-FAV-002: quitar de favoritos (idempotente)",
-        "tags": [
-          "favorites"
-        ]
-      }
-    },
-    "/api/v1/me/favorites": {
-      "get": {
-        "operationId": "FavoritesController_list_v1",
-        "parameters": [
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20,
-              "type": "number"
-            }
-          },
-          {
-            "name": "cursor",
-            "required": false,
-            "in": "query",
-            "description": "Valor de nextCursor de la página anterior.",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FavoritePageDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "RF-FAV-003: mis barberías favoritas (las más recientes primero)",
-        "tags": [
-          "favorites"
         ]
       }
     },
@@ -8244,6 +8244,10 @@
           "rating": {
             "$ref": "#/components/schemas/RatingDto"
           },
+          "isFavorite": {
+            "type": "boolean",
+            "description": "Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false."
+          },
           "ruc": {
             "type": "string",
             "nullable": true
@@ -8278,6 +8282,7 @@
           "closure",
           "links",
           "rating",
+          "isFavorite",
           "ruc",
           "myRole",
           "createdAt",
@@ -8414,6 +8419,10 @@
           "rating": {
             "$ref": "#/components/schemas/RatingDto"
           },
+          "isFavorite": {
+            "type": "boolean",
+            "description": "Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false."
+          },
           "ruc": {
             "type": "string",
             "nullable": true
@@ -8457,6 +8466,7 @@
           "closure",
           "links",
           "rating",
+          "isFavorite",
           "ruc",
           "myRole",
           "createdAt",
@@ -8526,6 +8536,10 @@
           },
           "rating": {
             "$ref": "#/components/schemas/RatingDto"
+          },
+          "isFavorite": {
+            "type": "boolean",
+            "description": "Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false."
           }
         },
         "required": [
@@ -8541,7 +8555,8 @@
           "status",
           "closure",
           "links",
-          "rating"
+          "rating",
+          "isFavorite"
         ]
       },
       "UpdateBarbershopDto": {
@@ -8659,6 +8674,10 @@
           "rating": {
             "$ref": "#/components/schemas/RatingDto"
           },
+          "isFavorite": {
+            "type": "boolean",
+            "description": "Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false."
+          },
           "ruc": {
             "type": "string",
             "nullable": true
@@ -8689,6 +8708,7 @@
           "closure",
           "links",
           "rating",
+          "isFavorite",
           "ruc",
           "myRole",
           "createdAt"
@@ -9397,6 +9417,383 @@
           }
         }
       },
+      "CreateReviewDto": {
+        "type": "object",
+        "properties": {
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Puntuación entera de 1 a 5."
+          },
+          "comment": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500,
+            "nullable": true,
+            "description": "Texto plano: se recortan los espacios y no se interpreta HTML."
+          }
+        },
+        "required": [
+          "rating"
+        ]
+      },
+      "ReviewBarberDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "displayName"
+        ]
+      },
+      "ReviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "respondedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "text",
+          "respondedAt"
+        ]
+      },
+      "ReviewBarbershopDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "MyReviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          },
+          "authorName": {
+            "type": "string",
+            "example": "Ana R.",
+            "description": "Nombre e inicial del apellido."
+          },
+          "serviceName": {
+            "type": "string",
+            "description": "Servicio tal como se reservó."
+          },
+          "barber": {
+            "$ref": "#/components/schemas/ReviewBarberDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "editedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "response": {
+            "nullable": true,
+            "description": "Respuesta de la barbería (null si no hay o la ocultó soporte).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReviewResponseDto"
+              }
+            ]
+          },
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barbershop": {
+            "$ref": "#/components/schemas/ReviewBarbershopDto"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "VISIBLE",
+              "HIDDEN",
+              "UNDER_REVIEW"
+            ],
+            "description": "HIDDEN: no se muestra en público (soporte o asistencia corregida)."
+          },
+          "canEdit": {
+            "type": "boolean",
+            "description": "Aún se puede editar (una sola vez, dentro del plazo)."
+          }
+        },
+        "required": [
+          "id",
+          "rating",
+          "comment",
+          "authorName",
+          "serviceName",
+          "barber",
+          "createdAt",
+          "editedAt",
+          "response",
+          "bookingId",
+          "barbershop",
+          "status",
+          "canEdit"
+        ]
+      },
+      "UpdateReviewDto": {
+        "type": "object",
+        "properties": {
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "comment": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500,
+            "nullable": true,
+            "description": "null quita el comentario."
+          }
+        }
+      },
+      "MyReviewPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyReviewDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "PublicReviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          },
+          "authorName": {
+            "type": "string",
+            "example": "Ana R.",
+            "description": "Nombre e inicial del apellido."
+          },
+          "serviceName": {
+            "type": "string",
+            "description": "Servicio tal como se reservó."
+          },
+          "barber": {
+            "$ref": "#/components/schemas/ReviewBarberDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "editedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "response": {
+            "nullable": true,
+            "description": "Respuesta de la barbería (null si no hay o la ocultó soporte).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReviewResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "rating",
+          "comment",
+          "authorName",
+          "serviceName",
+          "barber",
+          "createdAt",
+          "editedAt",
+          "response"
+        ]
+      },
+      "PublicReviewPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicReviewDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "ReviewResponseInputDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Texto plano."
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "CreateReviewReportDto": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "enum": [
+              "REVIEW",
+              "RESPONSE"
+            ],
+            "default": "REVIEW",
+            "description": "REVIEW: la valoración. RESPONSE: la respuesta de la barbería."
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "OFFENSIVE",
+              "PERSONAL_DATA",
+              "FAKE",
+              "SPAM",
+              "OTHER"
+            ]
+          },
+          "details": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "FavoriteDto": {
+        "type": "object",
+        "properties": {
+          "barbershopId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "BARBERSHOP",
+              "INDEPENDENT"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "TEMPORARILY_CLOSED"
+            ]
+          },
+          "rating": {
+            "$ref": "#/components/schemas/RatingDto"
+          },
+          "favoritedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "barbershopId",
+          "name",
+          "address",
+          "type",
+          "status",
+          "rating",
+          "favoritedAt"
+        ]
+      },
+      "FavoritePageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FavoriteDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
       "InviteMemberDto": {
         "type": "object",
         "properties": {
@@ -9928,6 +10325,10 @@
           "featured": {
             "type": "boolean",
             "description": "Resultado destacado (pagado). Hoy siempre false (Fase 13)."
+          },
+          "isFavorite": {
+            "type": "boolean",
+            "description": "Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false."
           }
         },
         "required": [
@@ -9943,7 +10344,8 @@
           "priceFrom",
           "isOpenNow",
           "availableNow",
-          "featured"
+          "featured",
+          "isFavorite"
         ]
       },
       "SearchPageDto": {
@@ -11019,383 +11421,6 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/BookingDto"
-            }
-          },
-          "nextCursor": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
-      },
-      "CreateReviewDto": {
-        "type": "object",
-        "properties": {
-          "rating": {
-            "type": "number",
-            "minimum": 1,
-            "maximum": 5,
-            "description": "Puntuación entera de 1 a 5."
-          },
-          "comment": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 500,
-            "nullable": true,
-            "description": "Texto plano: se recortan los espacios y no se interpreta HTML."
-          }
-        },
-        "required": [
-          "rating"
-        ]
-      },
-      "ReviewBarberDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "displayName": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "displayName"
-        ]
-      },
-      "ReviewResponseDto": {
-        "type": "object",
-        "properties": {
-          "text": {
-            "type": "string"
-          },
-          "respondedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "text",
-          "respondedAt"
-        ]
-      },
-      "ReviewBarbershopDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name"
-        ]
-      },
-      "MyReviewDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "rating": {
-            "type": "number",
-            "minimum": 1,
-            "maximum": 5
-          },
-          "comment": {
-            "type": "string",
-            "nullable": true
-          },
-          "authorName": {
-            "type": "string",
-            "example": "Ana R.",
-            "description": "Nombre e inicial del apellido."
-          },
-          "serviceName": {
-            "type": "string",
-            "description": "Servicio tal como se reservó."
-          },
-          "barber": {
-            "$ref": "#/components/schemas/ReviewBarberDto"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "editedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "response": {
-            "nullable": true,
-            "description": "Respuesta de la barbería (null si no hay o la ocultó soporte).",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ReviewResponseDto"
-              }
-            ]
-          },
-          "bookingId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "barbershop": {
-            "$ref": "#/components/schemas/ReviewBarbershopDto"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "VISIBLE",
-              "HIDDEN",
-              "UNDER_REVIEW"
-            ],
-            "description": "HIDDEN: no se muestra en público (soporte o asistencia corregida)."
-          },
-          "canEdit": {
-            "type": "boolean",
-            "description": "Aún se puede editar (una sola vez, dentro del plazo)."
-          }
-        },
-        "required": [
-          "id",
-          "rating",
-          "comment",
-          "authorName",
-          "serviceName",
-          "barber",
-          "createdAt",
-          "editedAt",
-          "response",
-          "bookingId",
-          "barbershop",
-          "status",
-          "canEdit"
-        ]
-      },
-      "UpdateReviewDto": {
-        "type": "object",
-        "properties": {
-          "rating": {
-            "type": "number",
-            "minimum": 1,
-            "maximum": 5
-          },
-          "comment": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 500,
-            "nullable": true,
-            "description": "null quita el comentario."
-          }
-        }
-      },
-      "MyReviewPageDto": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MyReviewDto"
-            }
-          },
-          "nextCursor": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
-      },
-      "PublicReviewDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "rating": {
-            "type": "number",
-            "minimum": 1,
-            "maximum": 5
-          },
-          "comment": {
-            "type": "string",
-            "nullable": true
-          },
-          "authorName": {
-            "type": "string",
-            "example": "Ana R.",
-            "description": "Nombre e inicial del apellido."
-          },
-          "serviceName": {
-            "type": "string",
-            "description": "Servicio tal como se reservó."
-          },
-          "barber": {
-            "$ref": "#/components/schemas/ReviewBarberDto"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "editedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "response": {
-            "nullable": true,
-            "description": "Respuesta de la barbería (null si no hay o la ocultó soporte).",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ReviewResponseDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "rating",
-          "comment",
-          "authorName",
-          "serviceName",
-          "barber",
-          "createdAt",
-          "editedAt",
-          "response"
-        ]
-      },
-      "PublicReviewPageDto": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PublicReviewDto"
-            }
-          },
-          "nextCursor": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
-      },
-      "ReviewResponseInputDto": {
-        "type": "object",
-        "properties": {
-          "text": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500,
-            "description": "Texto plano."
-          }
-        },
-        "required": [
-          "text"
-        ]
-      },
-      "CreateReviewReportDto": {
-        "type": "object",
-        "properties": {
-          "target": {
-            "type": "string",
-            "enum": [
-              "REVIEW",
-              "RESPONSE"
-            ],
-            "default": "REVIEW",
-            "description": "REVIEW: la valoración. RESPONSE: la respuesta de la barbería."
-          },
-          "reason": {
-            "type": "string",
-            "enum": [
-              "OFFENSIVE",
-              "PERSONAL_DATA",
-              "FAKE",
-              "SPAM",
-              "OTHER"
-            ]
-          },
-          "details": {
-            "type": "string",
-            "maxLength": 500
-          }
-        },
-        "required": [
-          "reason"
-        ]
-      },
-      "FavoriteDto": {
-        "type": "object",
-        "properties": {
-          "barbershopId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "address": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "BARBERSHOP",
-              "INDEPENDENT"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "OPEN",
-              "TEMPORARILY_CLOSED"
-            ]
-          },
-          "rating": {
-            "$ref": "#/components/schemas/RatingDto"
-          },
-          "favoritedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "barbershopId",
-          "name",
-          "address",
-          "type",
-          "status",
-          "rating",
-          "favoritedAt"
-        ]
-      },
-      "FavoritePageDto": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/FavoriteDto"
             }
           },
           "nextCursor": {

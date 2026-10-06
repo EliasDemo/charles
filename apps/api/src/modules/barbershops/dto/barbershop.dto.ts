@@ -264,6 +264,11 @@ export class BarbershopPublicDto {
 
   @ApiProperty({ type: RatingDto })
   rating!: RatingDto;
+
+  @ApiProperty({
+    description: 'Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false.',
+  })
+  isFavorite!: boolean;
 }
 
 export class BarbershopManageDto extends BarbershopPublicDto {

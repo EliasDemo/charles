@@ -29,6 +29,6 @@ import { ReviewsService } from './reviews.service';
     ReviewsProcessor,
     ReviewsScheduler,
   ],
-  exports: [ReviewModerationService, RatingsVerifier],
+  exports: [ReviewModerationService, RatingsVerifier, FavoritesService],
 })
 export class ReviewsModule {}

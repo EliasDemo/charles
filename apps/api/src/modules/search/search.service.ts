@@ -1,3 +1,4 @@
+import { FavoritesService } from '../reviews/favorites.service';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { DateTime } from 'luxon';
 import { AppException } from '../../common/errors/app.exception';
@@ -81,9 +82,10 @@ export class SearchService {
     private readonly settings: SettingsService,
     private readonly cursor: SearchCursor,
     @Inject(RANKING_STRATEGY) private readonly ranking: RankingStrategy,
+    private readonly favorites: FavoritesService,
   ) {}
 
-  async search(query: SearchQueryDto): Promise<SearchPageDto> {
+  async search(query: SearchQueryDto, viewerId: string | null = null): Promise<SearchPageDto> {
     const hasLocation = this.validate(query);
     const settings = await this.loadSettings();
     if (query.category && !(await this.services.findActiveCategoryId(query.category))) {
@@ -119,7 +121,13 @@ export class SearchService {
         )
       : await this.page(filters, order, after, limit);
 
-    const items = await this.toResults(result.items, result.evaluations, !query.cursor, sort);
+    const items = await this.toResults(
+      result.items,
+      result.evaluations,
+      !query.cursor,
+      sort,
+      viewerId,
+    );
     return {
       items,
       nextCursor: result.next ? this.cursor.encode(sort, result.next) : null,
@@ -172,7 +180,8 @@ export class SearchService {
       },
     );
 
-    const ranked = await this.toResults(result.items, result.evaluations, true, 'distance');
+    // Alternativas: sin personalizar (es una sugerencia, no una lista de la cuenta).
+    const ranked = await this.toResults(result.items, result.evaluations, true, 'distance', null);
     const chosen = [...firstSlots.values()].map((f) => f.serviceId);
     const summaries = await this.services.bookableSummaries(chosen);
     const items: AlternativeDto[] = [];
@@ -294,9 +303,15 @@ export class SearchService {
     evaluations: Map<string, Evaluation>,
     firstPage: boolean,
     sort: SearchSort,
+    viewerId: string | null,
   ): Promise<SearchResultDto[]> {
     const ranked = await this.ranking.arrange(page, { sort, firstPage });
     const candidates = ranked.map((r) => r.candidate);
+    // Una sola consulta de favoritos para toda la página.
+    const favorites = await this.favorites.favoriteIds(
+      viewerId,
+      candidates.map((c) => c.id),
+    );
     const missingOpen = candidates.filter((c) => evaluations.get(c.id)?.isOpenNow === undefined);
     const missingNow = candidates.filter((c) => evaluations.get(c.id)?.availableNow === undefined);
     const [openNow, now] = await Promise.all([
@@ -319,6 +334,7 @@ export class SearchService {
         latitude: c.latitude,
         longitude: c.longitude,
         rating: { average: c.ratingAverage, count: c.ratingCount },
+        isFavorite: favorites.has(c.id),
         distanceMeters: c.distanceMeters,
         priceFrom: c.minPrice === null ? null : { amount: c.minPrice, currency: SERVICE_CURRENCY },
         isOpenNow: evaluation?.isOpenNow ?? openNow.get(c.id) ?? false,

@@ -102,6 +102,7 @@ function build(options: {
     settings as never,
     cursor as unknown as SearchCursor,
     options.ranking ?? new OrganicRankingStrategy(),
+    { favoriteIds: () => Promise.resolve(new Set<string>()) } as never,
   );
   return { service, repository, availability };
 }

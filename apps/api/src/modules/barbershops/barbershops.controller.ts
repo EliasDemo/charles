@@ -25,7 +25,7 @@ import {
   ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { type AuthUser, CurrentUser } from '../../common/auth/auth-user';
+import { type AuthUser, CurrentUser, OptionalUser } from '../../common/auth/auth-user';
 import { Public } from '../../common/auth/public.decorator';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
 import { PaginationQueryDto } from '../../common/pagination/pagination';
@@ -92,8 +92,11 @@ export class BarbershopsController {
   @ApiOperation({ summary: 'RF-BAR-002: información pública de una barbería' })
   @ApiOkResponse({ type: BarbershopPublicDto })
   @ApiTooManyRequestsResponse({ type: ErrorResponseDto })
-  findPublic(@Param('id', uuid) id: string): Promise<BarbershopPublicDto> {
-    return this.barbershops.findPublic(id);
+  findPublic(
+    @Param('id', uuid) id: string,
+    @OptionalUser() user: AuthUser | null,
+  ): Promise<BarbershopPublicDto> {
+    return this.barbershops.findPublic(id, user?.id ?? null);
   }
 
   @ApiBearerAuth()

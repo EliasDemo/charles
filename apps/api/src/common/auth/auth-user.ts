@@ -24,3 +24,9 @@ export const CurrentUser = createParamDecorator(
     return user;
   },
 );
+
+/** En endpoints `@Public()`: la cuenta si la petición trae una sesión válida; si no, null. */
+export const OptionalUser = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext): AuthUser | null =>
+    ctx.switchToHttp().getRequest<AuthenticatedRequest>().user ?? null,
+);

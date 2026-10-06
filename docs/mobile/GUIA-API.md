@@ -215,9 +215,10 @@ Las rutas son relativas a `/api/v1`. "Sesión" significa la cabecera `Authorizat
 2. **Buscar:** `GET /search/barbershops?lat=&lng=&radiusKm=&q=&category=&minPrice=&maxPrice=&minRating=&type=&openNow=&availableNow=&date=&sort=&limit=&cursor=`.
    - Sin sesión.
    - `lat`/`lng` dentro de Perú; el radio es de 5 km por defecto y como máximo 25.
-   - Cada resultado trae distancia, "precio desde", `isOpenNow`, `availableNow` y `featured`.
+   - Cada resultado trae distancia, "precio desde", `isOpenNow`, `availableNow`, `featured` e `isFavorite`.
+   - **Sesión opcional:** es un endpoint público, pero si envías el token, `isFavorite` dice si la barbería es favorita de la cuenta (sin sesión, siempre `false`). Un token vencido o inválido no da error aquí: responde como anónimo.
 3. **Ver la barbería:**
-   - `GET /barbershops/{id}`
+   - `GET /barbershops/{id}` (con el token, también trae `isFavorite`)
    - `GET /barbershops/{id}/business-hours`
    - `GET /barbershops/{id}/services`
    - `GET /barbershops/{id}/barbers`

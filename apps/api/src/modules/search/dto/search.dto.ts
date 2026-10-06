@@ -231,6 +231,11 @@ export class SearchResultDto {
 
   @ApiProperty({ description: 'Resultado destacado (pagado). Hoy siempre false (Fase 13).' })
   featured!: boolean;
+
+  @ApiProperty({
+    description: 'Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false.',
+  })
+  isFavorite!: boolean;
 }
 
 export class SearchPageDto {

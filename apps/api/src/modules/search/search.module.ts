@@ -1,3 +1,4 @@
+import { ReviewsModule } from '../reviews/reviews.module';
 import { Module } from '@nestjs/common';
 import { AvailabilityModule } from '../availability/availability.module';
 import { BarbershopAccessModule } from '../barbershops/barbershop-access.module';
@@ -15,7 +16,13 @@ import { SearchService } from './search.service';
  * `RANKING_STRATEGY`: en la Fase 13 se reemplaza por una estrategia con destacados.
  */
 @Module({
-  imports: [AvailabilityModule, BarbershopAccessModule, ServicesModule, SettingsModule],
+  imports: [
+    AvailabilityModule,
+    BarbershopAccessModule,
+    ServicesModule,
+    SettingsModule,
+    ReviewsModule,
+  ],
   controllers: [SearchController],
   providers: [
     SearchService,

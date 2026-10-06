@@ -1,3 +1,4 @@
+import { ReviewsModule } from '../reviews/reviews.module';
 import { Module } from '@nestjs/common';
 import { BarbersModule } from '../barbers/barbers.module';
 import { BookingsModule } from '../bookings/bookings.module';
@@ -9,7 +10,14 @@ import { BarbershopsService } from './barbershops.service';
 import { MembersService } from './members.service';
 
 @Module({
-  imports: [UsersModule, SettingsModule, BookingsModule, BarbershopAccessModule, BarbersModule],
+  imports: [
+    UsersModule,
+    SettingsModule,
+    BookingsModule,
+    BarbershopAccessModule,
+    BarbersModule,
+    ReviewsModule,
+  ],
   controllers: [BarbershopsController],
   providers: [BarbershopsService, MembersService],
   exports: [MembersService],
