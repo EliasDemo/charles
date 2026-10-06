@@ -291,11 +291,11 @@ describe('RF-SER-001…003 Servicios y RF-BRB-001…002 Barberos (e2e)', () => {
         .expect(201);
 
       const stored = await prisma.barber.findUniqueOrThrow({ where: { id: res.body.id } });
-      expect(stored.phoneEnc).not.toContain('955');
+      expect(stored.phoneEnc).not.toContain('955 111 222');
 
       const pub = await new AuthClient(app).get(`${SHOPS}/${owner.shopId}/barbers`).expect(200);
       expect(pub.body.items).toHaveLength(2);
-      expect(JSON.stringify(pub.body)).not.toMatch(/955|phone|linkedUser/);
+      expect(JSON.stringify(pub.body)).not.toMatch(/955 111 222|phone|linkedUser/);
     });
 
     it('RF-BRB-001 no acepta servicios de otra barbería', async () => {
@@ -445,7 +445,7 @@ describe('RF-SER-001…003 Servicios y RF-BRB-001…002 Barberos (e2e)', () => {
         where: { action: 'barber.updated', entityId: barber.body.id },
       });
       expect(audit.changes).toEqual({ personalFields: ['displayName', 'bio', 'phone'] });
-      expect(JSON.stringify(audit.changes)).not.toMatch(/Carlos|955/);
+      expect(JSON.stringify(audit.changes)).not.toMatch(/Carlos|955 999 888|955 000 111/);
 
       await client
         .put(

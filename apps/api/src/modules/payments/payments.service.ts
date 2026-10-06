@@ -37,6 +37,12 @@ export type ResultSource = 'WEBHOOK' | 'RECONCILIATION';
 
 export const REFUND_REQUESTED_EVENT = 'refund.requested';
 
+/** Estado final y si esta llamada cambió algo (false = ya estaba resuelto: idempotente). */
+export interface ApplyResult<S> {
+  status: S;
+  applied: boolean;
+}
+
 const notAvailable = (message: string): AppException =>
   new AppException(ErrorCode.PAYMENT_NOT_AVAILABLE, message, HttpStatus.CONFLICT);
 
@@ -127,7 +133,7 @@ export class PaymentsService {
     paymentId: string,
     outcome: PaymentOutcome,
     source: ResultSource,
-  ): Promise<PaymentStatus> {
+  ): Promise<ApplyResult<PaymentStatus>> {
     return this.prisma.$transaction((tx) =>
       this.applyPaymentResult(tx, paymentId, outcome, source),
     );
@@ -146,7 +152,7 @@ export class PaymentsService {
     paymentId: string,
     outcome: PaymentOutcome,
     source: ResultSource,
-  ): Promise<PaymentStatus> {
+  ): Promise<ApplyResult<PaymentStatus>> {
     const [payment] = await tx.$queryRaw<
       { status: PaymentStatus; booking_id: string; amount: number; metadata: Prisma.JsonObject }[]
     >`SELECT status::text AS status, booking_id::text AS booking_id, amount, metadata
@@ -154,7 +160,7 @@ export class PaymentsService {
     if (!payment) {
       throw new AppException(ErrorCode.NOT_FOUND, 'El pago no existe.', HttpStatus.NOT_FOUND);
     }
-    if (payment.status !== 'PENDING') return payment.status;
+    if (payment.status !== 'PENDING') return { status: payment.status, applied: false };
 
     const booking = await tx.booking.findUniqueOrThrow({
       where: { id: payment.booking_id },
@@ -200,7 +206,7 @@ export class PaymentsService {
         idempotencyKey: `refund:orphaned:${paymentId}`,
       });
     }
-    return outcome;
+    return { status: outcome, applied: true };
   }
 
   // ───────────── Reembolsos ─────────────
@@ -361,7 +367,10 @@ export class PaymentsService {
     if (result.status === 'SUCCEEDED') await this.handleRefundResult(refundId, 'SUCCEEDED');
   }
 
-  handleRefundResult(refundId: string, outcome: 'SUCCEEDED' | 'FAILED'): Promise<RefundStatus> {
+  handleRefundResult(
+    refundId: string,
+    outcome: 'SUCCEEDED' | 'FAILED',
+  ): Promise<ApplyResult<RefundStatus>> {
     return this.prisma.$transaction((tx) => this.applyRefundResult(tx, refundId, outcome));
   }
 
@@ -370,7 +379,7 @@ export class PaymentsService {
     tx: Prisma.TransactionClient,
     refundId: string,
     outcome: 'SUCCEEDED' | 'FAILED',
-  ): Promise<RefundStatus> {
+  ): Promise<ApplyResult<RefundStatus>> {
     const [refund] = await tx.$queryRaw<
       { status: RefundStatus; payment_id: string; amount: number }[]
     >`SELECT status::text AS status, payment_id::text AS payment_id, amount
@@ -378,7 +387,7 @@ export class PaymentsService {
     if (!refund) {
       throw new AppException(ErrorCode.NOT_FOUND, 'El reembolso no existe.', HttpStatus.NOT_FOUND);
     }
-    if (refund.status !== 'PENDING') return refund.status;
+    if (refund.status !== 'PENDING') return { status: refund.status, applied: false };
     await tx.refund.update({
       where: { id: refundId },
       data: { status: outcome, processedAt: new Date(this.clock.now()) },
@@ -399,7 +408,7 @@ export class PaymentsService {
       paymentId: refund.payment_id,
       amount: refund.amount,
     });
-    return outcome;
+    return { status: outcome, applied: true };
   }
 
   // ───────────── Consulta ─────────────

@@ -14,6 +14,8 @@ export const PAYMENTS_QUEUE = 'payments';
 const DAILY_PENDING_AGE_MINUTES = 60;
 const REFUND_RESEND_AGE_MINUTES = 10;
 const BATCH = 100;
+/** Tope por ejecución diaria (pagos y reembolsos, cada uno). */
+const DAILY_MAX = 2_000;
 
 /** Resultado de revisar un pago o un reembolso contra la pasarela. */
 export type ReconcileOutcome =
@@ -63,14 +65,32 @@ export class ReconciliationService {
       state.currency === payment.currency &&
       !(this.config.isProduction && state.mode === 'TEST');
     if (state.status === 'PAID' && matches) {
-      await this.payments.handleResult(paymentId, 'SUCCEEDED', 'RECONCILIATION');
-      await this.audit.record({
-        action: 'payment.reconciled',
-        entityType: 'payment',
-        entityId: paymentId,
-        changes: { values: { status: { from: 'PENDING', to: 'SUCCEEDED' } }, source: 'gateway' },
+      // Corrección y auditoría en la misma transacción. Si otra ejecución (o el webhook) ya lo
+      // aplicó, no cambia nada ni se audita dos veces.
+      const result = await this.prisma.$transaction(async (tx) => {
+        const applied = await this.payments.applyPaymentResult(
+          tx,
+          paymentId,
+          'SUCCEEDED',
+          'RECONCILIATION',
+        );
+        if (applied.applied) {
+          await this.audit.record(
+            {
+              action: 'payment.reconciled',
+              entityType: 'payment',
+              entityId: paymentId,
+              changes: {
+                values: { status: { from: 'PENDING', to: 'SUCCEEDED' } },
+                source: 'gateway',
+              },
+            },
+            tx,
+          );
+        }
+        return applied;
       });
-      return 'CONFIRMED';
+      return result.applied ? 'CONFIRMED' : 'UNCHANGED';
     }
     // UNPAID (podría reintentarse) o datos que no coinciden: no se toca, se registra.
     await this.audit.record({
@@ -106,14 +126,25 @@ export class ReconciliationService {
       return 'UNAVAILABLE';
     }
     if (state.status === 'SUCCEEDED') {
-      await this.payments.handleRefundResult(refundId, 'SUCCEEDED');
-      await this.audit.record({
-        action: 'refund.reconciled',
-        entityType: 'refund',
-        entityId: refundId,
-        changes: { values: { status: { from: 'PENDING', to: 'SUCCEEDED' } }, source: 'gateway' },
+      const result = await this.prisma.$transaction(async (tx) => {
+        const applied = await this.payments.applyRefundResult(tx, refundId, 'SUCCEEDED');
+        if (applied.applied) {
+          await this.audit.record(
+            {
+              action: 'refund.reconciled',
+              entityType: 'refund',
+              entityId: refundId,
+              changes: {
+                values: { status: { from: 'PENDING', to: 'SUCCEEDED' } },
+                source: 'gateway',
+              },
+            },
+            tx,
+          );
+        }
+        return applied;
       });
-      return 'CONFIRMED';
+      return result.applied ? 'CONFIRMED' : 'UNCHANGED';
     }
     if (state.status === 'FAILED') {
       await this.audit.record({
@@ -127,42 +158,73 @@ export class ReconciliationService {
     return 'UNCHANGED';
   }
 
-  /** Cada pocos minutos: pagos ya iniciados en la pasarela que siguen PENDING. */
+  /**
+   * Cada pocos minutos: pagos iniciados en la pasarela cuya reserva sigue pendiente de pago.
+   * Son pocos y recientes; los pagos abandonados (que pueden quedar PENDING para siempre) no
+   * entran aquí, así nunca acaparan el lote. Esos los revisa la ejecución diaria.
+   */
   async runQuick(): Promise<Record<ReconcileOutcome, number>> {
     const pending = await this.prisma.payment.findMany({
-      where: { status: 'PENDING', startedAt: { not: null } },
-      orderBy: { startedAt: 'asc' },
+      where: {
+        status: 'PENDING',
+        startedAt: { not: null },
+        booking: { status: 'PENDING_PAYMENT' },
+      },
+      orderBy: { startedAt: 'desc' },
       take: BATCH,
       select: { id: true },
     });
     return this.tally(pending.map((p) => () => this.checkPayment(p.id)));
   }
 
-  /** Una vez al día: todo pago o reembolso pendiente antiguo. */
+  /**
+   * Una vez al día: todos los pagos y reembolsos pendientes antiguos, por páginas (hasta
+   * `DAILY_MAX` de cada uno), para que los que nunca se resuelven no tapen a los demás.
+   */
   async runDaily(): Promise<Record<ReconcileOutcome, number>> {
     const now = this.clock.now();
-    const [payments, refunds] = await Promise.all([
+    const payments = await this.pagedIds((cursor) =>
       this.prisma.payment.findMany({
         where: {
           status: 'PENDING',
           createdAt: { lte: new Date(now - DAILY_PENDING_AGE_MINUTES * 60_000) },
+          ...(cursor ? { id: { gt: cursor } } : {}),
         },
+        orderBy: { id: 'asc' },
         take: BATCH,
         select: { id: true },
       }),
+    );
+    const refunds = await this.pagedIds((cursor) =>
       this.prisma.refund.findMany({
         where: {
           status: 'PENDING',
           createdAt: { lte: new Date(now - REFUND_RESEND_AGE_MINUTES * 60_000) },
+          ...(cursor ? { id: { gt: cursor } } : {}),
         },
+        orderBy: { id: 'asc' },
         take: BATCH,
         select: { id: true },
       }),
-    ]);
+    );
     return this.tally([
-      ...payments.map((p) => () => this.checkPayment(p.id)),
-      ...refunds.map((r) => () => this.checkRefund(r.id)),
+      ...payments.map((id) => () => this.checkPayment(id)),
+      ...refunds.map((id) => () => this.checkRefund(id)),
     ]);
+  }
+
+  private async pagedIds(
+    page: (cursor: string | null) => Promise<{ id: string }[]>,
+  ): Promise<string[]> {
+    const ids: string[] = [];
+    let cursor: string | null = null;
+    while (ids.length < DAILY_MAX) {
+      const rows = await page(cursor);
+      ids.push(...rows.map((r) => r.id));
+      if (rows.length < BATCH) break;
+      cursor = rows[rows.length - 1]!.id;
+    }
+    return ids.slice(0, DAILY_MAX);
   }
 
   private async tally(

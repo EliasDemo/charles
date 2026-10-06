@@ -30,6 +30,7 @@ export const SettingKey = {
   NO_SHOW_AFTER_MINUTES: 'booking.no_show_after_minutes',
   NO_SHOW_WINDOW_HOURS: 'booking.no_show_window_hours',
   PAYMENTS_PENDING_CHECK_INTERVAL_MINUTES: 'payments.pending_check_interval_minutes',
+  WEBHOOK_RATE_LIMIT_PER_MINUTE: 'payments.webhook_rate_limit_per_minute',
   PAYMENTS_PROVIDER: 'payments.provider',
 } as const;
 

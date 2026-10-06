@@ -15,6 +15,7 @@ import {
   type RawWebhook,
 } from './payment-gateway';
 import { PaymentsService } from './payments.service';
+import { WebhookRateLimiter } from './webhook-rate-limit';
 
 export interface WebhookReceipt {
   received: true;
@@ -41,25 +42,29 @@ export class WebhooksService {
     private readonly prisma: PrismaService,
     private readonly payments: PaymentsService,
     private readonly audit: AuditService,
+    private readonly rateLimiter: WebhookRateLimiter,
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
-  async receive(provider: string, raw: RawWebhook): Promise<WebhookReceipt> {
+  async receive(provider: string, raw: RawWebhook, ip: string): Promise<WebhookReceipt> {
     if (provider.toUpperCase() !== this.gateway.provider) {
       throw reject(ErrorCode.NOT_FOUND, 'Proveedor desconocido.', HttpStatus.NOT_FOUND);
     }
+    await this.rateLimiter.assertIpNotBlocked(ip);
     let event: PaymentWebhookEvent;
     try {
       event = this.gateway.parseWebhook(raw);
     } catch (error) {
       if (error instanceof InvalidSignatureError) {
+        await this.rateLimiter.recordInvalid(ip);
         this.logger.warn(`Webhook de ${provider} con firma inválida`);
         throw reject(ErrorCode.INVALID_SIGNATURE, 'Firma inválida.', HttpStatus.UNAUTHORIZED);
       }
       throw error;
     }
+    await this.rateLimiter.consumeProvider(this.gateway.provider);
     this.assertFresh(event);
     await this.assertCoherent(event);
 

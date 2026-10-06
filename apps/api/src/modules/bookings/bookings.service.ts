@@ -80,6 +80,18 @@ function isOverlapViolation(error: unknown): boolean {
   return text.includes('bookings_no_overlap');
 }
 
+/**
+ * Plazos de la transacción de creación. Los valores por defecto de Prisma (2 s para obtener
+ * conexión y 5 s de duración) se agotan bajo carga, cuando la petición perdedora de una carrera
+ * espera el bloqueo de la ganadora.
+ */
+export const BOOKING_TX_OPTIONS = { maxWait: 10_000, timeout: 20_000 } as const;
+
+/** P2028: la transacción interactiva no pudo empezar o expiró. */
+export function isTransactionTimeout(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2028';
+}
+
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 }
@@ -215,12 +227,21 @@ export class BookingsService {
           currency: service.currency,
         });
         return { bookingId: bookingId.id, paymentId };
-      });
+      }, BOOKING_TX_OPTIONS);
     } catch (error) {
       // Dos peticiones con la misma clave a la vez: la segunda devuelve la reserva de la primera.
       if (isUniqueViolation(error)) {
         const again = await this.findReplay(clientId, idempotencyKey, dto);
         if (again) return { booking: again, replayed: true };
+      }
+      // Bajo mucha carga, la espera del bloqueo puede agotar el plazo de la transacción: el
+      // cliente puede reintentar con la misma Idempotency-Key (nunca un 500).
+      if (isTransactionTimeout(error)) {
+        throw new AppException(
+          ErrorCode.SERVICE_UNAVAILABLE,
+          'No pudimos completar la reserva a tiempo. Inténtalo de nuevo.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
       }
       throw error;
     }

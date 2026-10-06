@@ -291,6 +291,12 @@ export const SEED_SETTINGS: {
     description: 'Horas después del inicio hasta las que se puede marcar una inasistencia.',
   },
   {
+    key: 'payments.webhook_rate_limit_per_minute',
+    value: 600,
+    description:
+      'Avisos (webhooks) con firma válida por minuto y por proveedor. No depende de la IP.',
+  },
+  {
     key: 'payments.pending_check_interval_minutes',
     value: 2,
     description:

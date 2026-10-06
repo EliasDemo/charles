@@ -15,6 +15,7 @@ import {
   ReconciliationService,
 } from './reconciliation';
 import { RefundExecutor } from './refund-executor';
+import { WebhookRateLimiter, WebhookRateLimitRefresher } from './webhook-rate-limit';
 import { WebhooksService } from './webhooks.service';
 
 /**
@@ -30,6 +31,8 @@ import { WebhooksService } from './webhooks.service';
     PaymentsService,
     PaymentsProviderCheck,
     WebhooksService,
+    WebhookRateLimiter,
+    WebhookRateLimitRefresher,
     PaymentVerificationService,
     ReconciliationService,
     RefundExecutor,

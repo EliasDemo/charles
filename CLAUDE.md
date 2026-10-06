@@ -424,6 +424,7 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
 #### Reservas (Fase 7)
 
 - **Crear (`POST /bookings`):**
+  - la transacción tiene plazos explícitos (`BOOKING_TX_OPTIONS`: 10 s para obtener conexión, 20 s de duración); si aun así se agotan bajo carga (`P2028`), responde 503 reintentable con la misma `Idempotency-Key`, nunca 500;
   - **Cabecera `Idempotency-Key` (UUID) obligatoria:** la misma petición devuelve la misma reserva (200); otra petición con la misma clave da 409 `IDEMPOTENCY_KEY_REUSED`.
   - **Correo verificado:** obligatorio (403 `EMAIL_NOT_VERIFIED`).
   - **Validación del turno:** `startAt` debe ser futuro, respetar la anticipación mínima y coincidir exactamente con un turno del motor. Si no, 409 `SLOT_NOT_AVAILABLE`, también para fechas pasadas, fuera del horizonte o en una barbería no `OPEN`.
@@ -476,13 +477,18 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
   - el webhook o la conciliación aplican el resultado (`applyRefundResult`); el pago pasa a `PARTIALLY_REFUNDED` o `REFUNDED`;
   - un trigger impide que los reembolsos no fallidos de un pago superen su importe;
   - el reembolso manual (`requestManualRefund`) queda auditado.
-- **Webhooks (`POST /payments/webhooks/{provider}`, público, perfil `webhooks`):**
+- **Webhooks (`POST /payments/webhooks/{provider}`, público):**
+  - **Límite que no depende solo de la IP** (el proveedor envía desde pocas direcciones); la ruta omite el límite global por IP:
+    - avisos con firma válida: cupo por proveedor, `payments.webhook_rate_limit_per_minute` (600/min);
+    - avisos con firma inválida: 30/min por IP, sin consumir el cupo del proveedor.
   1. firma verificada sobre el cuerpo **exacto** (`req.rawBody`, solo en las rutas de webhooks y de verificación), con comparación en tiempo constante; si es inválida, 401 sin efectos;
   2. ventana de antigüedad **opcional por proveedor** (`webhookMaxAgeSeconds`; Izipay no envía marca de tiempo, así que ahí la protección es la idempotencia);
   3. coherencia: pago existente, importe, moneda y modo (en producción nunca `TEST`); si no coincide, 409 auditado;
   4. en una transacción, registro en `payment_events` (único por proveedor y evento) y aplicación. Un evento repetido responde 200 `duplicate: true`.
 - **Respuesta que reenvía la app** (`POST /bookings/{id}/payment/verify`): se verifica la firma, pero solo dispara la consulta al proveedor. Nunca confirma por sí sola.
 - **Conciliación (`ReconciliationService`):**
+  - la revisión rápida solo toma pagos iniciados cuya reserva sigue pendiente (los abandonados no acaparan el lote); la diaria recorre todo por páginas (hasta 2000);
+  - corrección y auditoría van en la misma transacción: dos ejecuciones simultáneas corrigen y auditan una sola vez;
   - corrige solo los casos inequívocos (pagado o reembolsado en la pasarela y `PENDING` en Charles), siempre mediante `applyPaymentResult` o `applyRefundResult`;
   - los casos ambiguos (rechazado, importe distinto, reembolso fallido) solo se registran;
   - todo queda en `audit_log`;

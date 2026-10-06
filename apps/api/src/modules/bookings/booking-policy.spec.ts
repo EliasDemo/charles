@@ -1,6 +1,7 @@
 import type { BookingStatus } from '../../generated/prisma/enums';
 import { cancellationDecision, noShowAllowed } from './booking-policy';
-import { orderByLoad } from './bookings.service';
+import { Prisma } from '../../generated/prisma/client';
+import { BOOKING_TX_OPTIONS, isTransactionTimeout, orderByLoad } from './bookings.service';
 
 const START = Date.parse('2030-01-07T15:00:00Z');
 const MIN = 60_000;
@@ -77,5 +78,21 @@ describe('"cualquier barbero": orderByLoad', () => {
     const input = ['b', 'a'];
     orderByLoad(input, new Map());
     expect(input).toEqual(['b', 'a']);
+  });
+});
+
+describe('transacción de creación bajo carga', () => {
+  it('plazos holgados: más que los valores por defecto de Prisma (2 s / 5 s)', () => {
+    expect(BOOKING_TX_OPTIONS.maxWait).toBeGreaterThan(2_000);
+    expect(BOOKING_TX_OPTIONS.timeout).toBeGreaterThan(5_000);
+  });
+
+  it('reconoce el plazo agotado de una transacción (P2028) para responder 503, no 500', () => {
+    const timeout = new Prisma.PrismaClientKnownRequestError('Transaction already closed', {
+      code: 'P2028',
+      clientVersion: 'test',
+    });
+    expect(isTransactionTimeout(timeout)).toBe(true);
+    expect(isTransactionTimeout(new Error('otro'))).toBe(false);
   });
 });

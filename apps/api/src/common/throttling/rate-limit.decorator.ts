@@ -30,8 +30,6 @@ export const SEARCH_RATE_LIMIT = new ConfigurableLimit(SEARCH_RATE_LIMIT_DEFAULT
 export const RATE_LIMIT_PROFILES = {
   auth: { limit: 10, ttl: ONE_MINUTE_MS },
   payments: { limit: 20, ttl: ONE_MINUTE_MS },
-  /** Avisos de la pasarela (IPN): ráfagas legítimas desde pocas IP del proveedor. */
-  webhooks: { limit: 90, ttl: ONE_MINUTE_MS },
   search: { limit: (): number => SEARCH_RATE_LIMIT.value, ttl: ONE_MINUTE_MS },
   /** Consultas públicas sin sesión (barberías, servicios, barberos). */
   public: { limit: 60, ttl: ONE_MINUTE_MS },

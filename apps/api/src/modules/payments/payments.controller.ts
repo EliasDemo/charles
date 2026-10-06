@@ -24,6 +24,8 @@ import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
 import type { RequestWithRawBody } from '../../common/http/body-parsers';
+import { SkipThrottle } from '@nestjs/throttler';
+import { clientIpOf } from '../../common/throttling/client-ip-throttler.guard';
 import { RateLimit } from '../../common/throttling/rate-limit.decorator';
 import {
   PaymentStartDto,
@@ -112,7 +114,9 @@ export class PaymentsController {
   @Public()
   @Post('payments/webhooks/:provider')
   @HttpCode(HttpStatus.OK)
-  @RateLimit('webhooks')
+  // Sin límite global por IP: el proveedor envía desde pocas direcciones. Lo limita
+  // WebhookRateLimiter (por proveedor los válidos, por IP los de firma inválida).
+  @SkipThrottle()
   @ApiOperation({
     summary: 'RF-PAG-002: aviso firmado de la pasarela (IPN). Idempotente por evento.',
   })
@@ -123,6 +127,6 @@ export class PaymentsController {
     @Param('provider') provider: string,
     @Req() req: RequestWithRawBody,
   ): Promise<WebhookReceiptDto> {
-    return this.webhooks.receive(provider, rawOf(req));
+    return this.webhooks.receive(provider, rawOf(req), clientIpOf(req));
   }
 }

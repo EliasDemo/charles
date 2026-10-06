@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import type Redis from 'ioredis';
+import { REDIS_CLIENT } from '../../src/common/redis/redis.module';
 import { DateTime } from 'luxon';
 import { OutboxRelay } from '../../src/common/outbox/outbox.relay';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
@@ -12,6 +14,12 @@ import {
 } from '../../src/modules/payments/fake-gateway';
 import { PaymentsService } from '../../src/modules/payments/payments.service';
 import { ReconciliationService } from '../../src/modules/payments/reconciliation';
+import {
+  INVALID_WEBHOOKS_PER_IP,
+  WEBHOOK_RATE_LIMIT,
+  WEBHOOK_RATE_LIMIT_DEFAULT,
+  WebhookRateLimitRefresher,
+} from '../../src/modules/payments/webhook-rate-limit';
 import { AuthClient, codeFrom, createAuthTestApp, waitForMail } from '../support/auth';
 import { ownerWithShop } from '../support/barbershops';
 import { describeError } from '../support/db';
@@ -58,6 +66,7 @@ describe('RF-PAG-001…004 Pagos, webhooks, reembolsos, conciliación y sancione
     fake.failNextCalls(0);
     fake.refundMode = 'ASYNC';
   });
+  afterEach(() => jest.restoreAllMocks());
   afterAll(() => app.close());
 
   async function shopReady(): Promise<Shop> {
@@ -114,12 +123,16 @@ describe('RF-PAG-001…004 Pagos, webhooks, reembolsos, conciliación y sancione
     return res.body as { id: string; payment: { paymentId: string } };
   }
 
-  const sendWebhook = (webhook: { rawBody: string; signature: string }, provider = 'fake') =>
-    new AuthClient(app).http
+  /** Cada aviso sale de una IP distinta (como un proveedor con varias direcciones). */
+  const sendWebhook = (webhook: { rawBody: string; signature: string }, provider = 'fake') => {
+    const sender = new AuthClient(app);
+    return sender.http
       .post(`${API}/payments/webhooks/${provider}`)
+      .set('X-Forwarded-For', sender.ip)
       .set('Content-Type', 'application/json')
       .set(FAKE_SIGNATURE_HEADER, webhook.signature)
       .send(webhook.rawBody);
+  };
 
   const paid = async (who: Client, shop: Shop, hhmm = '12:00') => {
     const booking = await book(who, shop, hhmm);
@@ -247,6 +260,59 @@ describe('RF-PAG-001…004 Pagos, webhooks, reembolsos, conciliación y sancione
       await sendWebhook(fake.settlePayment(booking.payment.paymentId, 'REJECTED')).expect(200);
       expect(await statusOf(booking.id)).toBe('CANCELLED');
       await book(await verifiedClient(), shop);
+    });
+  });
+
+  describe('límite de webhooks (por proveedor, no por IP)', () => {
+    it('el cupo es del proveedor (payments.webhook_rate_limit_per_minute), aunque cambie la IP', async () => {
+      clock.current = lima(MONDAY, '07:30');
+      // Aísla la prueba: los contadores viven en Redis y otras suites también envían avisos.
+      const redis = app.get<Redis>(REDIS_CLIENT);
+      const keys = await redis.keys('rl:webhooks:provider:*');
+      if (keys.length) await redis.del(...keys);
+      const refresher = app.get(WebhookRateLimitRefresher);
+      await prisma.appSetting.create({
+        data: { key: 'payments.webhook_rate_limit_per_minute', value: 2 },
+      });
+      await refresher.refresh();
+      try {
+        const shop = await shopReady();
+        const bookings = [];
+        for (const hhmm of ['09:00', '10:00', '11:00'])
+          bookings.push(await book(await verifiedClient(), shop, hhmm));
+        const statuses = [];
+        for (const booking of bookings) {
+          // Cada aviso sale de una IP distinta (new AuthClient): el límite no depende de ella.
+          const res = await sendWebhook(fake.settlePayment(booking.payment.paymentId, 'SUCCEEDED'));
+          statuses.push(res.status);
+        }
+        expect(statuses).toEqual([200, 200, 429]);
+      } finally {
+        await prisma.appSetting.delete({
+          where: { key: 'payments.webhook_rate_limit_per_minute' },
+        });
+        await refresher.refresh();
+      }
+      expect(WEBHOOK_RATE_LIMIT.value).toBe(WEBHOOK_RATE_LIMIT_DEFAULT);
+      expect(WEBHOOK_RATE_LIMIT_DEFAULT).toBe(600);
+    });
+
+    it('las firmas inválidas bloquean solo a esa IP, sin consumir el cupo del proveedor', async () => {
+      clock.current = lima(MONDAY, '07:45');
+      const attacker = new AuthClient(app);
+      const forged = () =>
+        attacker.http
+          .post(`${API}/payments/webhooks/fake`)
+          .set('X-Forwarded-For', attacker.ip)
+          .set('Content-Type', 'application/json')
+          .set(FAKE_SIGNATURE_HEADER, 'ab')
+          .send('{"eventId":"x"}');
+      for (let i = 0; i < INVALID_WEBHOOKS_PER_IP; i++) await forged().expect(401);
+      expect((await forged().expect(429)).body.code).toBe('TOO_MANY_REQUESTS');
+      // El proveedor (otra IP, firma válida) sigue entrando.
+      const shop = await shopReady();
+      const booking = await book(await verifiedClient(), shop);
+      await sendWebhook(fake.settlePayment(booking.payment.paymentId, 'SUCCEEDED')).expect(200);
     });
   });
 
@@ -548,6 +614,102 @@ describe('RF-PAG-001…004 Pagos, webhooks, reembolsos, conciliación y sancione
       expect(
         (await prisma.refund.findUniqueOrThrow({ where: { id: refund.id } })).requestedAt,
       ).not.toBeNull();
+    });
+
+    it('pago inexistente en la pasarela: no cambia nada', async () => {
+      const shop = await shopReady();
+      const booking = await book(await verifiedClient(), shop);
+      jest.spyOn(fake, 'getPayment').mockResolvedValueOnce({
+        status: 'NOT_FOUND',
+        amount: null,
+        currency: null,
+        mode: null,
+        providerTransactionId: null,
+      });
+      expect(await app.get(ReconciliationService).checkPayment(booking.payment.paymentId)).toBe(
+        'UNCHANGED',
+      );
+      expect(await statusOf(booking.id)).toBe('PENDING_PAYMENT');
+      // Un pago ya resuelto (o inexistente en Charles) tampoco se consulta.
+      expect(await app.get(ReconciliationService).checkPayment(randomUUID())).toBe('UNCHANGED');
+    });
+
+    it('la pasarela responde con error a mitad de un lote: el resto del lote sigue', async () => {
+      const shop = await shopReady();
+      const bookings = [];
+      for (const hhmm of ['09:00', '10:00', '11:00']) {
+        const booking = await book(await verifiedClient(), shop, hhmm);
+        fake.settlePayment(booking.payment.paymentId, 'SUCCEEDED');
+        bookings.push(booking);
+      }
+      const original = FakeGateway.prototype.getPayment.bind(fake);
+      const failing = bookings[1]!.payment.paymentId;
+      const spy = jest
+        .spyOn(fake, 'getPayment')
+        .mockImplementation((input) =>
+          input.paymentId === failing ? Promise.reject(new Error('caída')) : original(input),
+        );
+      try {
+        const totals = await app.get(ReconciliationService).runQuick();
+        expect(totals.UNAVAILABLE).toBeGreaterThanOrEqual(1);
+        expect(totals.CONFIRMED).toBeGreaterThanOrEqual(2);
+      } finally {
+        spy.mockRestore();
+      }
+      expect(await Promise.all(bookings.map((b) => statusOf(b.id)))).toEqual([
+        'CONFIRMED',
+        'PENDING_PAYMENT',
+        'CONFIRMED',
+      ]);
+      // La siguiente ejecución recoge el que falló.
+      await app.get(ReconciliationService).runQuick();
+      expect(await statusOf(bookings[1]!.id)).toBe('CONFIRMED');
+    });
+
+    it('dos ejecuciones simultáneas del trabajo: cada pago se corrige y se audita una sola vez', async () => {
+      const shop = await shopReady();
+      const booking = await book(await verifiedClient(), shop);
+      fake.settlePayment(booking.payment.paymentId, 'SUCCEEDED');
+      const reconciliation = app.get(ReconciliationService);
+      const [a, b] = await Promise.all([reconciliation.runQuick(), reconciliation.runQuick()]);
+      expect(a.CONFIRMED + b.CONFIRMED).toBeGreaterThanOrEqual(1);
+      expect(await historyOf(booking.id)).toEqual(['PENDING_PAYMENT', 'CONFIRMED']);
+      expect(
+        await prisma.auditLog.count({
+          where: { action: 'payment.reconciled', entityId: booking.payment.paymentId },
+        }),
+      ).toBe(1);
+    });
+
+    it('reembolso confirmado en la pasarela y PENDING en Charles: se corrige una sola vez', async () => {
+      const shop = await shopReady();
+      const me = await verifiedClient();
+      const booking = await paid(me, shop, '12:00');
+      await me.client.post(`${API}/bookings/${booking.id}/cancel`, {}, me.token).expect(200);
+      await relayAll();
+      const refund = await prisma.refund.findFirstOrThrow({
+        where: { paymentId: booking.payment.paymentId },
+      });
+      fake.settleRefund(
+        { refundId: refund.id, paymentId: booking.payment.paymentId, amount: refund.amount },
+        'SUCCEEDED',
+      );
+      const reconciliation = app.get(ReconciliationService);
+      const results = await Promise.all([
+        reconciliation.checkRefund(refund.id),
+        reconciliation.checkRefund(refund.id),
+      ]);
+      expect(results.filter((r) => r === 'CONFIRMED')).toHaveLength(1);
+      expect((await prisma.refund.findUniqueOrThrow({ where: { id: refund.id } })).status).toBe(
+        'SUCCEEDED',
+      );
+      expect(
+        await prisma.auditLog.count({
+          where: { action: 'refund.reconciled', entityId: refund.id },
+        }),
+      ).toBe(1);
+      // Un reembolso aún pendiente en la pasarela o inexistente: sin cambios.
+      expect(await reconciliation.checkRefund(randomUUID())).toBe('UNCHANGED');
     });
 
     it('la app reenvía el resultado firmado: dispara la consulta, nunca confirma por sí solo', async () => {

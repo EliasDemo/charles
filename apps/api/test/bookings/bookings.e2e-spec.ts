@@ -402,6 +402,12 @@ describe('RF-RES-001…008 Reservas, máquina de estados, outbox y expiración (
         const responses = await Promise.all([book(a, shop, at(hhmm)), book(b, shop, at(hhmm))]);
         const statuses = responses.map((r) => r.status).sort();
         results.push(statuses);
+        // Si falla, muestra qué respondió cada petición (para diagnosticar, no solo el estado).
+        if (statuses[0] !== 201 || statuses[1] !== 409) {
+          throw new Error(
+            `Ronda ${hhmm}: ${JSON.stringify(responses.map((r) => ({ status: r.status, body: r.body })))}`,
+          );
+        }
         expect(statuses).toEqual([201, 409]);
         expect(responses.find((r) => r.status === 409)!.body.code).toBe('SLOT_NOT_AVAILABLE');
         const active = await prisma.booking.count({
