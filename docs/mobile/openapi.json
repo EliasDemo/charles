@@ -1127,6 +1127,41 @@
         "tags": ["barbershops"]
       }
     },
+    "/api/v1/me/barber": {
+      "get": {
+        "operationId": "BarbersController_myProfiles_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyBarberProfilesDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mis perfiles de barbero, con su barbería (para bloqueos propios y agenda)",
+        "tags": ["barbers"]
+      }
+    },
     "/api/v1/barbershops/{id}/barbers": {
       "get": {
         "operationId": "BarbersController_listPublic_v1",
@@ -4953,6 +4988,70 @@
           }
         },
         "required": ["role"]
+      },
+      "MyBarberShopDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BarbershopStatus"
+              }
+            ]
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima"
+          }
+        },
+        "required": ["id", "name", "status", "timezone"]
+      },
+      "MyBarberProfileDto": {
+        "type": "object",
+        "properties": {
+          "barberId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Solo un perfil activo a la vez (MVP)."
+          },
+          "serviceIds": {
+            "description": "Servicios que realiza.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "barbershop": {
+            "$ref": "#/components/schemas/MyBarberShopDto"
+          }
+        },
+        "required": ["barberId", "displayName", "isActive", "serviceIds", "barbershop"]
+      },
+      "MyBarberProfilesDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Vacío si la cuenta no está vinculada a ningún perfil de barbero.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyBarberProfileDto"
+            }
+          }
+        },
+        "required": ["items"]
       },
       "BarberPublicDto": {
         "type": "object",

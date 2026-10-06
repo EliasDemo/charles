@@ -1,12 +1,16 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import type Redis from 'ioredis';
 import { AuditService } from '../../common/audit/audit.service';
 import { SessionRevocationStore } from '../../common/auth/session-revocation.store';
 import { APP_CONFIG } from '../../common/config/app-config.token';
 import type { AppConfig } from '../../common/config/env.validation';
 import { AppException } from '../../common/errors/app.exception';
+import { EncryptedField } from '../../common/crypto/encryption-contexts';
+import { EncryptionService } from '../../common/crypto/encryption.service';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { REDIS_CLIENT } from '../../common/redis/redis.module';
 import type { Prisma } from '../../generated/prisma/client';
 
 const REFRESH_TOKEN_BYTES = 32;
@@ -21,6 +25,9 @@ export interface IssuedRefreshToken {
 export interface RotatedSession extends IssuedRefreshToken {
   userId: string;
 }
+
+/** La rotación la ganó otra petición concurrente con el mismo token. */
+class LostRotationRace extends Error {}
 
 const invalidRefreshToken = (): AppException =>
   new AppException(
@@ -47,6 +54,8 @@ export class SessionsService {
     private readonly revocations: SessionRevocationStore,
     private readonly audit: AuditService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly encryption: EncryptionService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
   async create(userId: string, deviceInfo?: Prisma.InputJsonValue): Promise<IssuedRefreshToken> {
@@ -56,37 +65,50 @@ export class SessionsService {
 
   /**
    * Rota el token: el usado queda revocado y apunta a su reemplazo. Si llega un token ya rotado
-   * o revocado, se asume robo y se revoca toda la familia.
+   * o revocado, se asume robo y se revoca toda la familia, **salvo** dentro de la gracia
+   * (`REFRESH_TOKEN_GRACE_SECONDS`, 10 s): si el mismo token se reintenta justo después de rotarse
+   * (reintento o carrera de red de la app), se devuelve **el mismo** sucesor, nunca uno distinto.
    */
   async rotate(refreshToken: string, ip: string | null): Promise<RotatedSession> {
-    const current = await this.prisma.refreshToken.findUnique({
-      where: { tokenHash: hashToken(refreshToken) },
-    });
+    const tokenHash = hashToken(refreshToken);
+    const current = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
     if (!current) throw invalidRefreshToken();
 
     if (current.revokedAt) {
-      if (current.replacedBy) await this.handleReuse(current.userId, current.familyId, ip);
+      if (current.replacedBy) {
+        const replay = await this.graceSuccessor(current);
+        if (replay) return replay;
+        await this.handleReuse(current.userId, current.familyId, ip);
+      }
       throw invalidRefreshToken();
     }
     if (current.expiresAt <= new Date()) throw invalidRefreshToken();
 
-    const rotated = await this.prisma.$transaction(async (tx) => {
-      const next = await this.issue(
-        tx,
-        current.userId,
-        current.familyId,
-        current.deviceInfo ?? undefined,
-      );
-      // Condicional: si otra petición rotó el mismo token a la vez, solo una gana.
-      const { count } = await tx.refreshToken.updateMany({
-        where: { id: current.id, revokedAt: null },
-        data: { revokedAt: new Date(), replacedBy: next.tokenId },
+    let rotated: IssuedRefreshToken & { tokenId: string };
+    try {
+      rotated = await this.prisma.$transaction(async (tx) => {
+        const next = await this.issue(
+          tx,
+          current.userId,
+          current.familyId,
+          current.deviceInfo ?? undefined,
+        );
+        // Condicional: si otra petición rotó el mismo token a la vez, solo una gana. La que pierde
+        // revierte su transacción (no deja un token huérfano) y recibe el sucesor de la ganadora.
+        const { count } = await tx.refreshToken.updateMany({
+          where: { id: current.id, revokedAt: null },
+          data: { revokedAt: new Date(), replacedBy: next.tokenId },
+        });
+        if (count === 0) throw new LostRotationRace();
+        // Antes del commit: quien pierda la carrera ya encuentra el sucesor al terminar de esperar.
+        await this.rememberSuccessor(tokenHash, next);
+        return next;
       });
-      if (count === 0) return null;
-      return next;
-    });
-
-    if (!rotated) {
+    } catch (error) {
+      if (!(error instanceof LostRotationRace)) throw error;
+      const winner = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
+      const replay = winner ? await this.graceSuccessor(winner) : null;
+      if (replay) return replay;
       await this.handleReuse(current.userId, current.familyId, ip);
       throw invalidRefreshToken();
     }
@@ -95,6 +117,69 @@ export class SessionsService {
       sessionId: current.familyId,
       refreshToken: rotated.refreshToken,
       expiresAt: rotated.expiresAt,
+    };
+  }
+
+  private graceKey(tokenHash: Buffer): string {
+    return `auth:refresh-grace:${tokenHash.toString('hex')}`;
+  }
+
+  /** Guarda el sucesor cifrado, con vida igual a la gracia (solo el hash vive en la base). */
+  private async rememberSuccessor(
+    tokenHash: Buffer,
+    next: IssuedRefreshToken & { tokenId: string },
+  ): Promise<void> {
+    const grace = this.config.auth.refreshTokenGraceSeconds;
+    if (grace <= 0) return;
+    const sealed = this.encryption.encrypt(
+      JSON.stringify({
+        tokenId: next.tokenId,
+        refreshToken: next.refreshToken,
+        expiresAt: next.expiresAt.toISOString(),
+      }),
+      EncryptedField.REFRESH_GRACE_SUCCESSOR,
+    );
+    await this.redis.set(this.graceKey(tokenHash), sealed, 'EX', grace);
+  }
+
+  /**
+   * El sucesor ya emitido, si el token se rotó hace menos de la gracia y ese sucesor sigue
+   * vigente (no usado ni revocado). Si no, null: se trata como reutilización.
+   */
+  private async graceSuccessor(token: {
+    tokenHash: Uint8Array;
+    userId: string;
+    familyId: string;
+    revokedAt: Date | null;
+    replacedBy: string | null;
+  }): Promise<RotatedSession | null> {
+    const grace = this.config.auth.refreshTokenGraceSeconds;
+    if (grace <= 0 || !token.revokedAt || !token.replacedBy) return null;
+    if (Date.now() - token.revokedAt.getTime() > grace * 1000) return null;
+    const sealed = await this.redis.get(this.graceKey(Buffer.from(token.tokenHash)));
+    if (!sealed) return null;
+    let successor: { tokenId: string; refreshToken: string; expiresAt: string };
+    try {
+      successor = JSON.parse(
+        this.encryption.decrypt(sealed, EncryptedField.REFRESH_GRACE_SUCCESSOR),
+      ) as typeof successor;
+    } catch {
+      return null;
+    }
+    if (successor.tokenId !== token.replacedBy) return null;
+    const row = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash: hashToken(successor.refreshToken) },
+      select: { id: true, revokedAt: true, expiresAt: true },
+    });
+    if (!row || row.id !== token.replacedBy || row.revokedAt || row.expiresAt <= new Date()) {
+      return null;
+    }
+    this.logger.log({ sessionId: token.familyId }, 'Reintento de renovación dentro de la gracia');
+    return {
+      userId: token.userId,
+      sessionId: token.familyId,
+      refreshToken: successor.refreshToken,
+      expiresAt: new Date(successor.expiresAt),
     };
   }
 

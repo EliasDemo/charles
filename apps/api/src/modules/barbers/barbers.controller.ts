@@ -32,6 +32,7 @@ import {
   BarberPublicPageDto,
   CreateBarberDto,
   LinkSelfAsBarberDto,
+  MyBarberProfilesDto,
   SetBarberServicesDto,
   UpdateBarberDto,
 } from './dto/barber.dto';
@@ -43,6 +44,16 @@ const uuid = new ParseUUIDPipe();
 @Controller()
 export class BarbersController {
   constructor(private readonly barbers: BarbersService) {}
+
+  @ApiBearerAuth()
+  @Get('me/barber')
+  @ApiOperation({
+    summary: 'Mis perfiles de barbero, con su barbería (para bloqueos propios y agenda)',
+  })
+  @ApiOkResponse({ type: MyBarberProfilesDto })
+  myProfiles(@CurrentUser() user: AuthUser): Promise<MyBarberProfilesDto> {
+    return this.barbers.myProfiles(user.id);
+  }
 
   @Public()
   @RateLimit('public')

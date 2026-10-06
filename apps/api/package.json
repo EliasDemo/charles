@@ -12,6 +12,8 @@
     "test:cov": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --coverage",
     "test:e2e": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e.config.ts --runInBand",
     "openapi:export": "nest build && node dist/scripts/export-openapi.js",
+    "dev:pay": "nest build && node dist/scripts/dev-pay.js",
+    "dev:mail": "nest build && node dist/scripts/dev-mail.js",
     "prisma": "prisma",
     "seed:reference": "tsx prisma/seed-reference.ts",
     "postinstall": "prisma generate",

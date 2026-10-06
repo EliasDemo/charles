@@ -53,6 +53,9 @@ Resueltas en la Fase 8A: devoluciones al cancelar, plazo para cancelar, no-show 
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Cookies y CSRF de la web** | Hoy la sesión usa tokens en cabecera (app móvil). Antes de publicar la web hay que definir las cookies (`HttpOnly`, `Secure`, `SameSite`) y la protección CSRF. |
 
+| **Versión mínima de la app** | Sin mecanismo hoy. Antes del lanzamiento: cabecera `X-App-Version` y respuesta `426` o `APP_UPDATE_REQUIRED` para obligar a actualizar cuando cambie el contrato. |
+| **Textos de validación en español** | `VALIDATION_ERROR` devuelve `field` y `constraints` con nombres de reglas en inglés. Definir mensajes por campo en español (backend o tabla en la app) antes del lanzamiento. |
+
 ## Operación
 
 | Pendiente                                | Situación actual                                                                                                                                                            |

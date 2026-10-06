@@ -1,3 +1,4 @@
+import { BarbershopStatus } from '../../../generated/prisma/enums';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
@@ -169,4 +170,44 @@ export class BarberManagePageDto {
 
   @ApiProperty({ nullable: true, type: String })
   nextCursor!: string | null;
+}
+
+export class MyBarberShopDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty({ enum: BarbershopStatus, enumName: 'BarbershopStatus' })
+  status!: BarbershopStatus;
+
+  @ApiProperty({ example: 'America/Lima' })
+  timezone!: string;
+}
+
+/** Perfil de barbero propio (para la app: bloqueos propios, agenda). */
+export class MyBarberProfileDto {
+  @ApiProperty({ format: 'uuid' })
+  barberId!: string;
+
+  @ApiProperty()
+  displayName!: string;
+
+  @ApiProperty({ description: 'Solo un perfil activo a la vez (MVP).' })
+  isActive!: boolean;
+
+  @ApiProperty({ type: [String], description: 'Servicios que realiza.' })
+  serviceIds!: string[];
+
+  @ApiProperty({ type: MyBarberShopDto })
+  barbershop!: MyBarberShopDto;
+}
+
+export class MyBarberProfilesDto {
+  @ApiProperty({
+    type: [MyBarberProfileDto],
+    description: 'Vacío si la cuenta no está vinculada a ningún perfil de barbero.',
+  })
+  items!: MyBarberProfileDto[];
 }

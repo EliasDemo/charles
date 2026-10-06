@@ -2,7 +2,7 @@
 
 Punto de partida para retomar el trabajo en una conversación nueva. **Léelo antes de hacer nada**, junto con `CLAUDE.md` y `docs/pendientes-produccion.md`. Se actualiza al cerrar cada fase (CLAUDE.md §1).
 
-Última actualización: cierre de la Fase 9.
+Última actualización: ajustes para la app móvil previos a la Fase 11.
 
 ## Resumen
 
@@ -27,6 +27,7 @@ Punto de partida para retomar el trabajo en una conversación nueva. **Léelo an
 | 7    | Reservas, máquina de estados, outbox, expiración                                          | `329c5eb`, `aa2a171` (columna `cancelled_by_role`, arranque sin `NODE_ENV=test`)               |
 | 8A   | Pagos con `FakeGateway`: webhooks, reembolsos, conciliación, no-show, sanción a barberías | `29182fc`, `044e34b`, `eeda3dd` (contención y bloqueo ordenado), `9d19023` (regla 10 ampliada) |
 | 9    | Atención, inasistencias, corrección y agenda del día                                      | `e546048`                                                                                      |
+| —    | Ajustes para la app: `dev:pay`, `dev:mail`, `GET /me/barber`, gracia de rotación (10 s)   | (ver `git log`)                                                                                |
 
 ## Fase en curso
 

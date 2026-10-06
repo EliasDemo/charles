@@ -47,11 +47,13 @@ pnpm --filter api start:dev
    - **iOS:** necesita una excepción de ATS para la IP local, también solo en desarrollo.
 7. **Alternativa:** un túnel HTTPS (por ejemplo `cloudflared` o `ngrok`). En ese caso, configura `TRUST_PROXY` con la IP del túnel local (`loopback` suele bastar).
 
-**Correos en desarrollo.** No se envían correos reales: el backend usa `FakeMailer`, que guarda los últimos 200 mensajes en Redis durante una hora. Para leer el código de verificación o de recuperación:
+**Correos en desarrollo.** No se envían correos reales: el backend usa `FakeMailer`, que guarda los últimos 200 mensajes en Redis durante una hora. Para leer el código de verificación o de recuperación de un destinatario:
 
 ```bash
-docker compose exec redis redis-cli LRANGE fake-mailer:inbox 0 4
+pnpm --filter api dev:mail <correo>
 ```
+
+Solo funciona fuera de producción y con el correo simulado; cada lectura queda auditada (sin el correo).
 
 ---
 
@@ -78,7 +80,8 @@ Cabecera en cada petición autenticada: `Authorization: Bearer <accessToken>`.
    - Pedir otro código: `POST /auth/email-verification/request`.
    - **Hace falta para reservar** (403 `EMAIL_NOT_VERIFIED`).
 5. **Renovación:** `POST /auth/refresh` con `{ refreshToken }` devuelve un par **nuevo**. El token usado queda inválido (rotación).
-   - **Nunca hagas dos renovaciones a la vez con el mismo token.** Si llega un token ya usado, el servidor lo trata como robo y **cierra esa sesión en todos lados** (`INVALID_REFRESH_TOKEN`).
+   - **Gracia de 10 s** (`REFRESH_TOKEN_GRACE_SECONDS`): si el mismo token se reenvía dentro de esa ventana (reintento tras perder la respuesta, o dos renovaciones a la vez), el servidor devuelve **el mismo** par nuevo, nunca uno distinto. Deja de valer en cuanto el sucesor se usa.
+   - Fuera de la ventana, un token ya usado se trata como robo y **cierra esa sesión en todos lados** (`INVALID_REFRESH_TOKEN`). La gracia es una red de seguridad, no un sustituto del _single-flight_.
    - Implementa la renovación como una sola operación compartida (_single-flight_): las peticiones que reciben 401 esperan esa renovación y luego se reintentan.
 6. **Cierre de sesión:** `POST /auth/logout` con `{ allDevices?: boolean }`, autenticado. Borra los tokens del dispositivo aunque la petición falle.
 7. **Recuperar la contraseña:**
@@ -285,16 +288,17 @@ Las rutas son relativas a `/api/v1`. "Sesión" significa la cabecera `Authorizat
 
    Después, renueva la sesión para tener el rol BARBER.
 
-2. **Agenda del día:** `GET /me/barber/agenda?date=`. El barbero no puede corregir.
-3. **Reservas que atiende:** `GET /me/barber/bookings?scope=`.
-4. **Bloqueos propios:**
+2. **Perfil propio:** `GET /me/barber` devuelve `{ items: [{ barberId, displayName, isActive, serviceIds, barbershop: { id, name, status, timezone } }] }` (activos primero; lista vacía si no es barbero). De aquí sale el `barberId` para bloqueos y agenda.
+3. **Agenda del día:** `GET /me/barber/agenda?date=`. El barbero no puede corregir.
+4. **Reservas que atiende:** `GET /me/barber/bookings?scope=`.
+5. **Bloqueos propios:**
    - `POST /barbershops/{shopId}/time-blocks` con `barberId` igual a su perfil;
    - `GET` y `DELETE` sobre sus bloqueos.
 
    Los `id` de la barbería vienen en la agenda (`barbershop.id`). Hoy no hay un endpoint directo para conocer el propio `barberId` (ver `AJUSTES-BACKEND.md`).
 
-5. **Horario:** puede consultarlo (`GET /barbershops/{id}/barbers/{barberId}/schedule`), pero no cambiarlo.
-6. **Asistencia:**
+6. **Horario:** puede consultarlo (`GET /barbershops/{id}/barbers/{barberId}/schedule`), pero no cambiarlo.
+7. **Asistencia:**
    - `POST /bookings/{id}/attended`, desde la hora de inicio y hasta 24 h después;
    - `POST /bookings/{id}/no-show`, desde 15 minutos y hasta 24 h después.
 

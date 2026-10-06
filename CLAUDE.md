@@ -245,7 +245,7 @@ El objetivo es agregar funciones nuevas **sin modificar los módulos existentes*
 ### 6.3 Autenticación y sesiones
 
 - Token de acceso JWT de vida corta (15 min) firmado con algoritmo asimétrico (ES256 o RS256).
-- Token de renovación opaco y aleatorio, guardado **solo como hash**, con **rotación en cada uso** y detección de reutilización (si se reutiliza uno ya rotado, se revoca toda la familia de sesiones).
+- Token de renovación opaco y aleatorio, guardado **solo como hash**, con **rotación en cada uso** y detección de reutilización (si se reutiliza uno ya rotado, se revoca toda la familia de sesiones), con una **gracia configurable** (`REFRESH_TOKEN_GRACE_SECONDS`, 10 s) en que el mismo token devuelve el mismo sucesor, nunca uno distinto.
 - Web: tokens en cookies `HttpOnly`, `Secure`, `SameSite`, con protección CSRF. Móvil: almacenamiento seguro del sistema (Keychain / Keystore).
   - **Pendiente (fase del frontend web):** hoy los tokens viajan solo en el cuerpo (móvil). Las cookies y el CSRF se agregarán sin cambiar los endpoints: el cliente web se identificará con una cabecera, y `login`/`refresh` escribirán los tokens en cookies en vez del cuerpo. `refresh` y `logout` los leerán de la cookie cuando no vengan en el cuerpo, y los métodos que cambian estado exigirán el token CSRF (_double submit_).
 - Revocación inmediata: al cerrar sesión, el ID de sesión (`sid` del JWT = `refresh_tokens.family_id`) se marca en Redis durante la vida del token de acceso, y el guard lo rechaza en cada petición. Si Redis no responde, el guard falla de forma cerrada (503).

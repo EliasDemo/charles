@@ -13,6 +13,8 @@ export const EncryptedField = {
   USER_BIRTH_DATE: 'charles/user.birth-date/v1',
   BARBER_PHONE: 'charles/barber.phone/v1',
   TICKET_MESSAGE_BODY: 'charles/ticket-message.body/v1',
+  /** Sucesor de un token de renovación, guardado unos segundos en Redis (gracia de rotación). */
+  REFRESH_GRACE_SUCCESSOR: 'charles/refresh-grace.successor/v1',
   SPONSOR_CONTACT: 'charles/sponsor.contact/v1',
   /** Cursor de búsqueda (Fase 6): opaco y autenticado; no expone la distancia al cliente. */
   SEARCH_CURSOR: 'charles/search.cursor/v1',

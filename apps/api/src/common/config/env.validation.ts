@@ -131,6 +131,17 @@ export class EnvironmentVariables {
   @Max(365)
   REFRESH_TOKEN_TTL_DAYS = 30;
 
+  /**
+   * Gracia de la rotación del token de renovación, en segundos (0 la desactiva). Si el mismo
+   * token llega otra vez dentro de esta ventana (reintento o carrera de red de la app), se devuelve
+   * el mismo sucesor en lugar de tratarlo como robo.
+   */
+  @Transform(toInt)
+  @IsInt()
+  @Min(0)
+  @Max(60)
+  REFRESH_TOKEN_GRACE_SECONDS = 10;
+
   @IsEnum(MailerDriver)
   MAILER_DRIVER: MailerDriver = MailerDriver.Fake;
 
@@ -166,6 +177,7 @@ export interface AppConfig {
     audience: string;
     accessTokenTtlSeconds: number;
     refreshTokenTtlDays: number;
+    refreshTokenGraceSeconds: number;
   };
   mail: { driver: MailerDriver };
   scheduledJobsEnabled: boolean;
@@ -310,6 +322,7 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
       audience: env.JWT_AUDIENCE,
       accessTokenTtlSeconds: env.ACCESS_TOKEN_TTL_SECONDS,
       refreshTokenTtlDays: env.REFRESH_TOKEN_TTL_DAYS,
+      refreshTokenGraceSeconds: env.REFRESH_TOKEN_GRACE_SECONDS,
     },
     mail: { driver: env.MAILER_DRIVER },
     scheduledJobsEnabled: env.SCHEDULED_JOBS_ENABLED,

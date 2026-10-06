@@ -331,6 +331,23 @@ export interface paths {
         patch: operations["BarbershopsController_changeRole_v1"];
         trace?: never;
     };
+    "/api/v1/me/barber": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mis perfiles de barbero, con su barbería (para bloqueos propios y agenda) */
+        get: operations["BarbersController_myProfiles_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/barbershops/{id}/barbers": {
         parameters: {
             query?: never;
@@ -1360,6 +1377,28 @@ export interface components {
         };
         ChangeMemberRoleDto: {
             role: components["schemas"]["BarbershopMemberRole"];
+        };
+        MyBarberShopDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            status: components["schemas"]["BarbershopStatus"];
+            /** @example America/Lima */
+            timezone: string;
+        };
+        MyBarberProfileDto: {
+            /** Format: uuid */
+            barberId: string;
+            displayName: string;
+            /** @description Solo un perfil activo a la vez (MVP). */
+            isActive: boolean;
+            /** @description Servicios que realiza. */
+            serviceIds: string[];
+            barbershop: components["schemas"]["MyBarberShopDto"];
+        };
+        MyBarberProfilesDto: {
+            /** @description Vacío si la cuenta no está vinculada a ningún perfil de barbero. */
+            items: components["schemas"]["MyBarberProfileDto"][];
         };
         BarberPublicDto: {
             /** Format: uuid */
@@ -2805,6 +2844,33 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbersController_myProfiles_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyBarberProfilesDto"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

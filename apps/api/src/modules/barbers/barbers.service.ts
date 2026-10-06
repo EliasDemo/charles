@@ -22,6 +22,7 @@ import type {
   BarberPublicDto,
   CreateBarberDto,
   LinkSelfAsBarberDto,
+  MyBarberProfilesDto,
   UpdateBarberDto,
 } from './dto/barber.dto';
 
@@ -329,6 +330,36 @@ export class BarbersService {
       select: { id: true },
     });
     return barber?.id ?? null;
+  }
+
+  /**
+   * Perfiles de barbero de la cuenta (activos o no, sin los eliminados ni los de barberías
+   * eliminadas), con su barbería. Solo los del propio usuario.
+   */
+  async myProfiles(userId: string): Promise<MyBarberProfilesDto> {
+    const rows = await this.prisma.barber.findMany({
+      where: { userId, deletedAt: null, barbershop: { deletedAt: null } },
+      orderBy: [{ isActive: 'desc' }, { createdAt: 'asc' }],
+      select: {
+        id: true,
+        displayName: true,
+        isActive: true,
+        services: {
+          where: { service: { deletedAt: null } },
+          select: { serviceId: true },
+        },
+        barbershop: { select: { id: true, name: true, status: true, timezone: true } },
+      },
+    });
+    return {
+      items: rows.map((r) => ({
+        barberId: r.id,
+        displayName: r.displayName,
+        isActive: r.isActive,
+        serviceIds: r.services.map((s) => s.serviceId),
+        barbershop: r.barbershop,
+      })),
+    };
   }
 
   /** Perfiles de barbero activos (no eliminados) de la cuenta, con su barbería. */

@@ -23,6 +23,10 @@ import {
 import { AuthClient, codeFrom, createAuthTestApp, waitForMail } from '../support/auth';
 import { ownerWithShop } from '../support/barbershops';
 import { describeError } from '../support/db';
+import { APP_CONFIG } from '../../src/common/config/app-config.token';
+import { type AppConfig, type MailerDriver } from '../../src/common/config/env.validation';
+import { SettingsService } from '../../src/modules/settings/settings.service';
+import { assertNotProduction, devMail, devPay, DevToolError } from '../../src/scripts/dev-tools';
 
 const API = '/api/v1';
 const SHOPS = `${API}/barbershops`;
@@ -260,6 +264,90 @@ describe('RF-PAG-001…004 Pagos, webhooks, reembolsos, conciliación y sancione
       await sendWebhook(fake.settlePayment(booking.payment.paymentId, 'REJECTED')).expect(200);
       expect(await statusOf(booking.id)).toBe('CANCELLED');
       await book(await verifiedClient(), shop);
+    });
+  });
+
+  describe('herramientas de desarrollo dev:pay y dev:mail (solo consola, nunca endpoint)', () => {
+    const auditOf = (action: string, entityId?: string) =>
+      prisma.auditLog.findMany({ where: { action, ...(entityId ? { entityId } : {}) } });
+
+    it('dev:pay confirma la reserva por el mismo camino que el webhook y queda auditado', async () => {
+      const shop = await shopReady();
+      const booking = await book(await verifiedClient(), shop);
+      const result = await devPay(app, booking.id, 'SUCCEEDED');
+      expect(result).toEqual({
+        paymentId: booking.payment.paymentId,
+        bookingStatus: 'CONFIRMED',
+        duplicate: false,
+      });
+      // Mismo camino que el aviso real: evento registrado e historial de la máquina de estados.
+      const events = await prisma.paymentEvent.findMany({
+        where: { paymentId: booking.payment.paymentId },
+      });
+      expect(events.map((e) => e.type)).toEqual(['payment.succeeded']);
+      expect(await historyOf(booking.id)).toContain('CONFIRMED');
+      const audit = await auditOf('dev.payment_simulated', booking.payment.paymentId);
+      expect(audit).toHaveLength(1);
+      expect(audit[0]!.changes).toMatchObject({ bookingId: booking.id, outcome: 'SUCCEEDED' });
+      // Ya no hay pago pendiente: un segundo intento falla sin efectos.
+      await expect(devPay(app, booking.id, 'SUCCEEDED')).rejects.toBeInstanceOf(DevToolError);
+    });
+
+    it('dev:pay --reject cancela la reserva y libera el turno', async () => {
+      const shop = await shopReady();
+      const booking = await book(await verifiedClient(), shop);
+      const result = await devPay(app, booking.id, 'REJECTED');
+      expect(result.bookingStatus).toBe('CANCELLED');
+      await book(await verifiedClient(), shop);
+    });
+
+    it('dev:pay rechaza una reserva inexistente', async () => {
+      await expect(devPay(app, randomUUID(), 'SUCCEEDED')).rejects.toBeInstanceOf(DevToolError);
+    });
+
+    it('dev:pay no funciona si el proveedor configurado no es FAKE', async () => {
+      const shop = await shopReady();
+      const booking = await book(await verifiedClient(), shop);
+      jest.spyOn(app.get(SettingsService), 'get').mockResolvedValue('IZIPAY');
+      await expect(devPay(app, booking.id, 'SUCCEEDED')).rejects.toThrow(/FAKE/);
+      expect(await statusOf(booking.id)).toBe('PENDING_PAYMENT');
+    });
+
+    it('ninguna funciona con configuración de producción', async () => {
+      const config = app.get<AppConfig>(APP_CONFIG);
+      const original = config.isProduction;
+      (config as { isProduction: boolean }).isProduction = true;
+      try {
+        await expect(devPay(app, randomUUID(), 'SUCCEEDED')).rejects.toThrow(/production/);
+        await expect(devMail(app, 'x@example.com')).rejects.toThrow(/production/);
+      } finally {
+        (config as { isProduction: boolean }).isProduction = original;
+      }
+      expect(() => assertNotProduction('production')).toThrow(DevToolError);
+      expect(() => assertNotProduction('development')).not.toThrow();
+      expect(() => assertNotProduction(undefined)).not.toThrow();
+    });
+
+    it('dev:mail devuelve solo los correos de ese destinatario y audita sin el correo', async () => {
+      const client = new AuthClient(app);
+      const { email } = await client.newUser();
+      await waitForMail(app, email, 'welcome-verification');
+      const mails = await devMail(app, `  ${email.toUpperCase()} `);
+      expect(mails.length).toBeGreaterThan(0);
+      expect(mails.every((m) => m.to === email)).toBe(true);
+      const audit = await auditOf('dev.mail_read');
+      expect(JSON.stringify(audit.map((a) => a.changes))).not.toContain(email);
+    });
+
+    it('dev:mail no funciona si el correo no es el simulado', async () => {
+      const config = app.get<AppConfig>(APP_CONFIG);
+      const original = config.mail.driver;
+      config.mail.driver = 'smtp' as MailerDriver;
+      try {
+        await expect(devMail(app, 'x@example.com')).rejects.toThrow(/simulado/);
+      } finally {
+        config.mail.driver = original;
+      }
     });
   });
 

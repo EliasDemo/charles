@@ -30,12 +30,20 @@ describe('Sesiones, RF-AUT-003 cierre de sesión y autorización (e2e)', () => {
       await client.get(WHOAMI, res.body.accessToken as string).expect(200);
     });
 
-    it('RF-AUT-003 reutilizar un token ya rotado revoca toda la sesión', async () => {
+    /** Simula que la rotación ocurrió hace `seconds` segundos (fuera o dentro de la gracia). */
+    const rotatedAgo = (userId: string, seconds: number) =>
+      prisma.refreshToken.updateMany({
+        where: { userId, replacedBy: { not: null } },
+        data: { revokedAt: new Date(Date.now() - seconds * 1000) },
+      });
+
+    it('RF-AUT-003 reutilizar un token ya rotado, fuera de la gracia, revoca toda la sesión', async () => {
       const client = new AuthClient(app);
       const { tokens } = await client.newUser();
       const rotated = await client
         .post('/api/v1/auth/refresh', { refreshToken: tokens.refreshToken })
         .expect(200);
+      await rotatedAgo(tokens.user.id, 11); // gracia por defecto: 10 s
 
       const reuse = await client
         .post('/api/v1/auth/refresh', { refreshToken: tokens.refreshToken })
@@ -52,6 +60,63 @@ describe('Sesiones, RF-AUT-003 cierre de sesión y autorización (e2e)', () => {
           where: { action: 'auth.refresh_token_reused', actorId: tokens.user.id },
         }),
       ).toBe(1);
+    });
+
+    describe('gracia de rotación (10 s por defecto)', () => {
+      const refresh = (client: AuthClient, refreshToken: string) =>
+        client.post('/api/v1/auth/refresh', { refreshToken });
+
+      it('reintento dentro de la ventana: devuelve el mismo sucesor y la sesión sigue', async () => {
+        const client = new AuthClient(app);
+        const { tokens } = await client.newUser();
+        const first = await refresh(client, tokens.refreshToken).expect(200);
+        const retry = await refresh(client, tokens.refreshToken).expect(200);
+        expect(retry.body.refreshToken).toBe(first.body.refreshToken);
+        await client.get(WHOAMI, retry.body.accessToken as string).expect(200);
+        await client.get(WHOAMI, first.body.accessToken as string).expect(200);
+        // La cadena continúa normalmente con el sucesor.
+        await refresh(client, first.body.refreshToken as string).expect(200);
+        expect(
+          await prisma.auditLog.count({
+            where: { action: 'auth.refresh_token_reused', actorId: tokens.user.id },
+          }),
+        ).toBe(0);
+      });
+
+      it('peticiones simultáneas con el mismo token: todas reciben el mismo sucesor (nunca dos)', async () => {
+        const client = new AuthClient(app);
+        const { tokens } = await client.newUser();
+        const responses = await Promise.all(
+          Array.from({ length: 5 }, () => refresh(client, tokens.refreshToken)),
+        );
+        expect(responses.map((r) => r.status)).toEqual([200, 200, 200, 200, 200]);
+        expect(new Set(responses.map((r) => r.body.refreshToken as string)).size).toBe(1);
+        // En la base, un solo sucesor: el token original y el nuevo (sin huérfanos).
+        expect(await prisma.refreshToken.count({ where: { userId: tokens.user.id } })).toBe(2);
+        const alive = await prisma.refreshToken.count({
+          where: { userId: tokens.user.id, revokedAt: null },
+        });
+        expect(alive).toBe(1);
+      });
+
+      it('si el sucesor ya se usó, reintentar el token viejo es reutilización (aunque esté en la ventana)', async () => {
+        const client = new AuthClient(app);
+        const { tokens } = await client.newUser();
+        const first = await refresh(client, tokens.refreshToken).expect(200);
+        await refresh(client, first.body.refreshToken as string).expect(200);
+        const replay = await refresh(client, tokens.refreshToken).expect(401);
+        expect(replay.body.code).toBe('INVALID_REFRESH_TOKEN');
+        expect(
+          await prisma.refreshToken.count({ where: { userId: tokens.user.id, revokedAt: null } }),
+        ).toBe(0);
+      });
+
+      it('un token revocado por cierre de sesión no tiene gracia', async () => {
+        const client = new AuthClient(app);
+        const { tokens } = await client.newUser();
+        await client.post('/api/v1/auth/logout', {}, tokens.accessToken).expect(204);
+        await refresh(client, tokens.refreshToken).expect(401);
+      });
     });
 
     it('RF-AUT-003 un token desconocido o vencido no renueva la sesión', async () => {
