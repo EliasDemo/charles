@@ -1,6 +1,5 @@
 import { FakeGateway } from './fake-gateway';
 import { paymentProviderErrors, PaymentsProviderCheck } from './payments-provider.check';
-import { testOnlyModules, PaymentsTestingModule } from './testing/payments-testing.module';
 
 describe('B: pasarela simulada nunca en producción', () => {
   it.each<[boolean, unknown, string, number]>([
@@ -31,13 +30,6 @@ describe('B: pasarela simulada nunca en producción', () => {
     );
     await expect(check.onApplicationBootstrap()).resolves.toBeUndefined();
     expect(get).not.toHaveBeenCalled();
-  });
-
-  it('el módulo de pruebas del pago solo se registra con NODE_ENV=test', () => {
-    expect(testOnlyModules('test')).toEqual([PaymentsTestingModule]);
-    for (const env of ['production', 'development', undefined]) {
-      expect(testOnlyModules(env)).toEqual([]);
-    }
   });
 });
 

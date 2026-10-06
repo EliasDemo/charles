@@ -2,35 +2,47 @@ import type { BookingStatus } from '../../generated/prisma/enums';
 
 export type CancelDecision =
   | { allowed: true }
-  | { allowed: false; reason: 'ALREADY_CANCELLED' | 'NOT_CANCELLABLE' | 'DEADLINE_PASSED' };
+  | { allowed: false; reason: 'ALREADY_CANCELLED' | 'NOT_CANCELLABLE' | 'ALREADY_STARTED' };
 
 /**
- * Reglas de cancelación (RF-RES-005). El plazo sale de `booking.cancellation_deadline_minutes`,
- * que sigue pendiente de definir (CLAUDE.md §4.2). Con `null` (provisional, decidido en la Fase 7):
- * - el cliente cancela una PENDING_PAYMENT siempre y una CONFIRMED hasta que empiece;
- * - con un número N, la CONFIRMED solo hasta N minutos antes del inicio.
- * La barbería (OWNER o MANAGER, con motivo) cancela hasta que empiece; el plazo no la limita.
- * Nada aquí decide devoluciones: esa política también está pendiente.
+ * Quién puede cancelar y hasta cuándo (RF-RES-005, Fase 8A). La devolución no se decide aquí:
+ * depende de la anticipación (`refund-policy.ts`).
+ * - El cliente cancela una PENDING_PAYMENT siempre y una CONFIRMED hasta la hora de inicio
+ *   (con menos de `refunds.partial_min_minutes`, sin devolución).
+ * - La barbería (OWNER o MANAGER, con motivo) cancela hasta la hora de inicio.
  */
 export function cancellationDecision(input: {
   status: BookingStatus;
   startAt: number;
   now: number;
   by: 'CLIENT' | 'BARBERSHOP';
-  deadlineMinutes: number | null;
 }): CancelDecision {
-  const { status, startAt, now, by, deadlineMinutes } = input;
+  const { status, startAt, now, by } = input;
   if (status === 'CANCELLED') return { allowed: false, reason: 'ALREADY_CANCELLED' };
   if (status !== 'PENDING_PAYMENT' && status !== 'CONFIRMED') {
     return { allowed: false, reason: 'NOT_CANCELLABLE' };
   }
   if (by === 'CLIENT' && status === 'PENDING_PAYMENT') return { allowed: true };
-  const limit =
-    by === 'CLIENT' && deadlineMinutes !== null ? startAt - deadlineMinutes * 60_000 : startAt;
-  return now < limit ? { allowed: true } : { allowed: false, reason: 'DEADLINE_PASSED' };
+  return now < startAt ? { allowed: true } : { allowed: false, reason: 'ALREADY_STARTED' };
 }
 
-/** `null` o un entero ≥ 0; cualquier otro valor se trata como no definido. */
-export function parseDeadline(value: unknown): number | null {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
+export const NO_SHOW_DEFAULTS = { afterMinutes: 15, windowHours: 24 } as const;
+
+/**
+ * Inasistencia (Fase 8A): solo una reserva CONFIRMED, desde `afterMinutes` y hasta `windowHours`
+ * después del inicio (ambos inclusivos). Sin devolución.
+ */
+export function noShowAllowed(input: {
+  status: BookingStatus;
+  startAt: number;
+  now: number;
+  afterMinutes: number;
+  windowHours: number;
+}): boolean {
+  const { status, startAt, now, afterMinutes, windowHours } = input;
+  return (
+    status === 'CONFIRMED' &&
+    now >= startAt + afterMinutes * 60_000 &&
+    now <= startAt + windowHours * 3600_000
+  );
 }

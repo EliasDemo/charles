@@ -1,8 +1,8 @@
 import type { Config } from 'jest';
 
 /**
- * Cobertura de los módulos bookings y payments (CLAUDE.md §11: mínimo 80 %), medida con sus
- * pruebas unitarias y las e2e (reservas y outbox) contra la base real. Falla si baja del mínimo.
+ * Cobertura de los módulos bookings, payments y moderation (CLAUDE.md §11: mínimo 80 %), medida con sus
+ * pruebas unitarias y las e2e (reservas, pagos y outbox) contra la base real. Falla si baja del mínimo.
  * Misma base que jest-e2e.config.ts (Jest no permite importarla aquí sin extensión).
  * Compila sin `isolatedModules` (test/tsconfig.coverage.json): con él, TypeScript emite ramas
  * artificiales en los metadatos de los decoradores que no son lógica de la aplicación.
@@ -12,7 +12,7 @@ const config: Config = {
   testEnvironment: 'node',
   moduleFileExtensions: ['ts', 'js', 'json'],
   testRegex: [
-    'test/(bookings|outbox)/.*\\.e2e-spec\\.ts$',
+    'test/(bookings|outbox|payments)/.*\\.e2e-spec\\.ts$',
     'src/modules/(bookings|payments)/.*\\.spec\\.ts$',
   ],
   transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/test/tsconfig.coverage.json' }] },
@@ -23,6 +23,7 @@ const config: Config = {
   collectCoverageFrom: [
     'src/modules/bookings/**/*.ts',
     'src/modules/payments/**/*.ts',
+    'src/modules/moderation/**/*.ts',
     '!**/*.spec.ts',
   ],
   coverageDirectory: '<rootDir>/coverage/bookings',

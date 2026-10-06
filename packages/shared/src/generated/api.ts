@@ -721,10 +721,48 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** RF-PAG-002: estado del pago y de sus reembolsos (cliente) */
+        get: operations["PaymentsController_status_v1"];
         put?: never;
         /** RF-PAG-001: iniciar o reintentar el pago de una reserva pendiente (idempotente) */
         post: operations["PaymentsController_start_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/{id}/payment/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * RF-PAG-002: la app reenvía el resultado firmado; el servidor consulta a la pasarela
+         * @description Verifica la firma del resultado que devuelve el SDK y, si es auténtico, consulta el estado del pago al proveedor. La respuesta de la app nunca confirma la reserva por sí sola.
+         */
+        post: operations["PaymentsController_verify_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/webhooks/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-PAG-002: aviso firmado de la pasarela (IPN). Idempotente por evento. */
+        post: operations["PaymentsController_webhook_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -762,6 +800,40 @@ export interface paths {
         get: operations["BookingsController_findOne_v1"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/{id}/cancellation-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-RES-005: si se puede cancelar ahora y cuánto se devolvería (antes de confirmar) */
+        get: operations["BookingsController_cancellationPreview_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/{id}/no-show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marcar inasistencia (barbero asignado o barbería; de 15 min a 24 h tras el inicio) */
+        post: operations["BookingsController_markNoShow_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1581,7 +1653,7 @@ export interface components {
         PaymentStatus: "PENDING" | "SUCCEEDED" | "REJECTED" | "CANCELLED" | "REFUNDED" | "PARTIALLY_REFUNDED";
         ClientPaymentActionDto: {
             /** @enum {string} */
-            type: "FAKE" | "REDIRECT" | "SDK";
+            type: "FAKE" | "IZIPAY_SDK";
             data: {
                 [key: string]: string;
             };
@@ -1595,6 +1667,52 @@ export interface components {
             amount: components["schemas"]["MoneyDto"];
             /** @description null si la pasarela no respondió: reintentar con POST /bookings/{id}/payment. */
             clientAction: components["schemas"]["ClientPaymentActionDto"] | null;
+        };
+        /** @enum {string} */
+        RefundStatus: "PENDING" | "SUCCEEDED" | "FAILED";
+        /** @enum {string} */
+        RefundReason: "CLIENT_CANCELLATION" | "BARBERSHOP_CANCELLATION" | "ORPHANED_PAYMENT" | "MANUAL";
+        RefundViewDto: {
+            /** Format: uuid */
+            refundId: string;
+            status: components["schemas"]["RefundStatus"];
+            reasonType: components["schemas"]["RefundReason"];
+            amount: components["schemas"]["MoneyDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            processedAt: string | null;
+        };
+        PaymentViewDto: {
+            /** Format: uuid */
+            paymentId: string;
+            provider: string;
+            status: components["schemas"]["PaymentStatus"];
+            amount: components["schemas"]["MoneyDto"];
+            /**
+             * Format: date-time
+             * @description Cuándo la pasarela aceptó el pago.
+             */
+            startedAt: string | null;
+            /** Format: date-time */
+            confirmedAt: string | null;
+            refunds: components["schemas"]["RefundViewDto"][];
+        };
+        PaymentStatusDto: {
+            items: components["schemas"]["PaymentViewDto"][];
+        };
+        PaymentVerificationDto: {
+            /**
+             * @description Resultado de consultar a la pasarela. La respuesta de la app nunca confirma por sí sola.
+             * @enum {string}
+             */
+            outcome: "CONFIRMED" | "REVIEW" | "UNCHANGED" | "UNAVAILABLE";
+            paymentStatus: components["schemas"]["PaymentStatus"];
+        };
+        WebhookReceiptDto: {
+            received: boolean;
+            /** @description true si el evento ya se había recibido (no se aplica de nuevo). */
+            duplicate: boolean;
         };
         CreateBookingDto: {
             /** Format: uuid */
@@ -1695,9 +1813,56 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        RefundQuoteDto: {
+            /** @description Lo que se devolverá (redondeado hacia abajo). */
+            amount: components["schemas"]["MoneyDto"];
+            /** @example 50 */
+            percent: number;
+            /** @enum {string} */
+            rule: "NO_PAYMENT" | "BARBERSHOP_CANCELLATION" | "CLIENT_FULL" | "CLIENT_PARTIAL" | "CLIENT_NONE";
+            /** @description Cobrado y aún no devuelto (base del cálculo). */
+            paid: components["schemas"]["MoneyDto"];
+        };
+        CancellationPreviewDto: {
+            allowed: boolean;
+            /** @enum {string|null} */
+            reason: "ALREADY_CANCELLED" | "NOT_CANCELLABLE" | "ALREADY_STARTED" | null;
+            refund: components["schemas"]["RefundQuoteDto"];
+            /** @description true si cancela la barbería: el motivo es obligatorio. */
+            reasonRequired: boolean;
+        };
         CancelBookingDto: {
             /** @description Obligatorio si cancela la barbería (OWNER o MANAGER). */
             reason?: string;
+        };
+        CancelledBookingDto: {
+            /** Format: uuid */
+            id: string;
+            status: components["schemas"]["BookingStatus"];
+            barbershop: components["schemas"]["NamedRefDto"];
+            /** @description Nombre del servicio al reservar (copia). */
+            service: components["schemas"]["NamedRefDto"];
+            barber: components["schemas"]["NamedRefDto"];
+            barberChosenByClient: boolean;
+            /** @description Solo para la barbería y el barbero: nombre del cliente (sin contacto). */
+            client: components["schemas"]["NamedRefDto"] | null;
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
+            /** @description Duración copiada del servicio al reservar. */
+            durationMinutes: number;
+            price: components["schemas"]["BookingPriceDto"];
+            /**
+             * Format: date-time
+             * @description Límite para pagar (PENDING_PAYMENT).
+             */
+            expiresAt: string | null;
+            cancellation: components["schemas"]["CancellationDto"] | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Devolución aplicada. */
+            refund: components["schemas"]["RefundQuoteDto"];
         };
         BookingPageDto: {
             items: components["schemas"]["BookingDto"][];
@@ -3499,6 +3664,35 @@ export interface operations {
             };
         };
     };
+    PaymentsController_status_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentStatusDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     PaymentsController_start_v1: {
         parameters: {
             query?: never;
@@ -3535,6 +3729,72 @@ export interface operations {
                 };
             };
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PaymentsController_verify_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentVerificationDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PaymentsController_webhook_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookReceiptDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3648,6 +3908,88 @@ export interface operations {
             };
         };
     };
+    BookingsController_cancellationPreview_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancellationPreviewDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BookingsController_markNoShow_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     BookingsController_cancel_v1: {
         parameters: {
             query?: never;
@@ -3668,7 +4010,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BookingDto"];
+                    "application/json": components["schemas"]["CancelledBookingDto"];
                 };
             };
             403: {

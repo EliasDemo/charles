@@ -2,29 +2,30 @@
 
 Lista de todo lo que **bloquea** el lanzamiento de Charles. Se revisa al cerrar cada fase (CLAUDE.md §1, regla 13): se agrega lo nuevo y se marca lo resuelto, indicando la fase o decisión que lo cerró.
 
-Última revisión: cierre de la Fase 7.
+Última revisión: cierre de la Fase 8A.
 
 ## Decisiones de negocio pendientes (CLAUDE.md §4.2)
 
-Hasta que se definan, el sistema lee cada punto desde `app_settings` y no inventa reglas.
+Resueltas en la Fase 8A: devoluciones al cancelar, plazo para cancelar, no-show y sanción por cancelaciones de la barbería.
 
-| Pendiente                                                                 | Situación actual                                                                                                                                                                                 | Dónde                       |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- |
-| **Plazo para cancelar**                                                   | `booking.cancellation_deadline_minutes = null`. Regla provisional: el cliente cancela una `PENDING_PAYMENT` siempre y una `CONFIRMED` hasta que empiece.                                         | Fase 7, `booking-policy.ts` |
-| **Política de devolución** (devolución, retención y comisión al cancelar) | `payments.cancellation_refund_policy = null`. No se devuelve dinero: los pagos cobrados de reservas canceladas quedan con `refundDecision: PENDING_POLICY` y los pagos huérfanos con `ORPHANED`. | Fases 7 y 8                 |
-| **Comisión** (quién la asume)                                             | `payments.commission_policy = null`.                                                                                                                                                             | Fase 8                      |
-| **Liquidación** (cuándo recibe el dinero la barbería)                     | `payments.payout_policy = null`.                                                                                                                                                                 | Fase 8                      |
-| **No-show** (qué pasa con el pago)                                        | `payments.no_show_policy = null`.                                                                                                                                                                | Fase 9                      |
-| **Medios de pago**                                                        | `payments.methods = null`.                                                                                                                                                                       | Fase 8                      |
+| Pendiente                                       | Situación actual                                                                                                                                | Dónde                          |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **Comisión de Charles**                         | Sin definir. Cada reserva lleva una línea `FEE` en 0 (`CHARLES_FEE_AMOUNT`).                                                                    | Fase 8A, `bookings.service.ts` |
+| **Comisión de la pasarela en las devoluciones** | Sin definir quién la asume (Charles, la barbería o el cliente). Hoy se devuelve el importe calculado por la política, sin descontar comisiones. | Fase 8B o antes de producción  |
+| **Liquidación a la barbería**                   | Fuera de alcance: cuándo y cómo recibe el dinero la barbería (y el de un no-show).                                                              | Por definir                    |
+| **Sanción económica a la barbería**             | Solo existe la suspensión por 3 cancelaciones injustificadas en 30 días. La multa o el descuento quedan pendientes.                             | Por definir                    |
+| **Reservas de una barbería suspendida**         | Las reservas futuras se dejan como están. Falta decidir si se cancelan y se devuelven, y cómo se avisa al cliente.                              | Fase 12                        |
+| **Medios de pago**                              | `payments.methods = null` (Yape, Plin y QR por confirmar en el SDK).                                                                            | Fase 8B                        |
 
 ## Integraciones reales
 
-| Pendiente                           | Situación actual                                                                                                                                                                                                                  |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Proveedor de correo real**        | Solo existe `FakeMailer`, que guarda los correos en Redis. La app no arranca en producción con `MAILER_DRIVER=fake`. Previsto para la Fase 10.                                                                                    |
-| **Pasarela de pagos real (Izipay)** | Solo existe `FakeGateway`. La app no arranca en producción con `payments.provider = FAKE`. Previsto para la Fase 8: elección de plataforma, SDK con Expo, webhooks firmados y reembolsos (ver `docs/pagos-izipay.md` y ADR 0002). |
-| **Impuestos**                       | Los precios incluyen impuestos (ADR 0002) y hoy solo se guarda una línea `SERVICE`. Hay que revisar si hace falta desglosar el IGV (línea `TAX`) antes de la Fase 8.                                                              |
-| **RUC**                             | Es opcional. Podría ser obligatorio antes de recibir pagos (Fase 8).                                                                                                                                                              |
+| Pendiente                                        | Situación actual                                                                                                                                                                                                                                            |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Proveedor de correo real**                     | Solo existe `FakeMailer`, que guarda los correos en Redis. La app no arranca en producción con `MAILER_DRIVER=fake`. Previsto para la Fase 10.                                                                                                              |
+| **Pasarela de pagos real (Izipay, micuentaweb)** | Solo existe `FakeGateway`. La app no arranca en producción con `payments.provider = FAKE` ni, desde la 8B, con credenciales de test. Sistema de pagos completo en la 8A; el adaptador llega en la 8B (`docs/pagos-izipay.md`, `docs/izipay/referencia.md`). |
+| **IPN de Izipay en producción**                  | Hay que configurar la URL pública de notificación en el Back Office y confirmar la recepción.                                                                                                                                                               |
+| **Impuestos**                                    | Los precios incluyen impuestos (ADR 0002) y hoy solo se guarda una línea `SERVICE`. Hay que revisar si hace falta desglosar el IGV (línea `TAX`) antes de la Fase 8.                                                                                        |
+| **RUC**                                          | Es opcional. Podría ser obligatorio antes de recibir pagos (Fase 8).                                                                                                                                                                                        |
 
 ## Aspectos legales
 

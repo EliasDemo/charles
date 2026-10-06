@@ -3028,6 +3028,148 @@
         "tags": [
           "payments"
         ]
+      },
+      "get": {
+        "operationId": "PaymentsController_status_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentStatusDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-PAG-002: estado del pago y de sus reembolsos (cliente)",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/api/v1/bookings/{id}/payment/verify": {
+      "post": {
+        "description": "Verifica la firma del resultado que devuelve el SDK y, si es auténtico, consulta el estado del pago al proveedor. La respuesta de la app nunca confirma la reserva por sí sola.",
+        "operationId": "PaymentsController_verify_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentVerificationDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-PAG-002: la app reenvía el resultado firmado; el servidor consulta a la pasarela",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/api/v1/payments/webhooks/{provider}": {
+      "post": {
+        "operationId": "PaymentsController_webhook_v1",
+        "parameters": [
+          {
+            "name": "provider",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookReceiptDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "RF-PAG-002: aviso firmado de la pasarela (IPN). Idempotente por evento.",
+        "tags": [
+          "payments"
+        ]
       }
     },
     "/api/v1/bookings": {
@@ -3184,6 +3326,128 @@
         ]
       }
     },
+    "/api/v1/bookings/{id}/cancellation-preview": {
+      "get": {
+        "operationId": "BookingsController_cancellationPreview_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancellationPreviewDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-RES-005: si se puede cancelar ahora y cuánto se devolvería (antes de confirmar)",
+        "tags": [
+          "bookings"
+        ]
+      }
+    },
+    "/api/v1/bookings/{id}/no-show": {
+      "post": {
+        "operationId": "BookingsController_markNoShow_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Marcar inasistencia (barbero asignado o barbería; de 15 min a 24 h tras el inicio)",
+        "tags": [
+          "bookings"
+        ]
+      }
+    },
     "/api/v1/bookings/{id}/cancel": {
       "post": {
         "operationId": "BookingsController_cancel_v1",
@@ -3213,7 +3477,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BookingDto"
+                  "$ref": "#/components/schemas/CancelledBookingDto"
                 }
               }
             }
@@ -5833,8 +6097,7 @@
             "type": "string",
             "enum": [
               "FAKE",
-              "REDIRECT",
-              "SDK"
+              "IZIPAY_SDK"
             ]
           },
           "data": {
@@ -5887,6 +6150,170 @@
           "status",
           "amount",
           "clientAction"
+        ]
+      },
+      "RefundStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "SUCCEEDED",
+          "FAILED"
+        ]
+      },
+      "RefundReason": {
+        "type": "string",
+        "enum": [
+          "CLIENT_CANCELLATION",
+          "BARBERSHOP_CANCELLATION",
+          "ORPHANED_PAYMENT",
+          "MANUAL"
+        ]
+      },
+      "RefundViewDto": {
+        "type": "object",
+        "properties": {
+          "refundId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RefundStatus"
+              }
+            ]
+          },
+          "reasonType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RefundReason"
+              }
+            ]
+          },
+          "amount": {
+            "$ref": "#/components/schemas/MoneyDto"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "processedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "refundId",
+          "status",
+          "reasonType",
+          "amount",
+          "createdAt",
+          "processedAt"
+        ]
+      },
+      "PaymentViewDto": {
+        "type": "object",
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaymentStatus"
+              }
+            ]
+          },
+          "amount": {
+            "$ref": "#/components/schemas/MoneyDto"
+          },
+          "startedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "Cuándo la pasarela aceptó el pago."
+          },
+          "confirmedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "refunds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefundViewDto"
+            }
+          }
+        },
+        "required": [
+          "paymentId",
+          "provider",
+          "status",
+          "amount",
+          "startedAt",
+          "confirmedAt",
+          "refunds"
+        ]
+      },
+      "PaymentStatusDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentViewDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "PaymentVerificationDto": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "CONFIRMED",
+              "REVIEW",
+              "UNCHANGED",
+              "UNAVAILABLE"
+            ],
+            "description": "Resultado de consultar a la pasarela. La respuesta de la app nunca confirma por sí sola."
+          },
+          "paymentStatus": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaymentStatus"
+              }
+            ]
+          }
+        },
+        "required": [
+          "outcome",
+          "paymentStatus"
+        ]
+      },
+      "WebhookReceiptDto": {
+        "type": "object",
+        "properties": {
+          "received": {
+            "type": "boolean"
+          },
+          "duplicate": {
+            "type": "boolean",
+            "description": "true si el evento ya se había recibido (no se aplica de nuevo)."
+          }
+        },
+        "required": [
+          "received",
+          "duplicate"
         ]
       },
       "CreateBookingDto": {
@@ -6224,6 +6651,77 @@
           "createdAt"
         ]
       },
+      "RefundQuoteDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "description": "Lo que se devolverá (redondeado hacia abajo).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ]
+          },
+          "percent": {
+            "type": "number",
+            "example": 50
+          },
+          "rule": {
+            "type": "string",
+            "enum": [
+              "NO_PAYMENT",
+              "BARBERSHOP_CANCELLATION",
+              "CLIENT_FULL",
+              "CLIENT_PARTIAL",
+              "CLIENT_NONE"
+            ]
+          },
+          "paid": {
+            "description": "Cobrado y aún no devuelto (base del cálculo).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "amount",
+          "percent",
+          "rule",
+          "paid"
+        ]
+      },
+      "CancellationPreviewDto": {
+        "type": "object",
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "ALREADY_CANCELLED",
+              "NOT_CANCELLABLE",
+              "ALREADY_STARTED"
+            ]
+          },
+          "refund": {
+            "$ref": "#/components/schemas/RefundQuoteDto"
+          },
+          "reasonRequired": {
+            "type": "boolean",
+            "description": "true si cancela la barbería: el motivo es obligatorio."
+          }
+        },
+        "required": [
+          "allowed",
+          "reason",
+          "refund",
+          "reasonRequired"
+        ]
+      },
       "CancelBookingDto": {
         "type": "object",
         "properties": {
@@ -6232,6 +6730,108 @@
             "description": "Obligatorio si cancela la barbería (OWNER o MANAGER)."
           }
         }
+      },
+      "CancelledBookingDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BookingStatus"
+              }
+            ]
+          },
+          "barbershop": {
+            "$ref": "#/components/schemas/NamedRefDto"
+          },
+          "service": {
+            "description": "Nombre del servicio al reservar (copia).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NamedRefDto"
+              }
+            ]
+          },
+          "barber": {
+            "$ref": "#/components/schemas/NamedRefDto"
+          },
+          "barberChosenByClient": {
+            "type": "boolean"
+          },
+          "client": {
+            "nullable": true,
+            "description": "Solo para la barbería y el barbero: nombre del cliente (sin contacto).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NamedRefDto"
+              }
+            ]
+          },
+          "startAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "number",
+            "description": "Duración copiada del servicio al reservar."
+          },
+          "price": {
+            "$ref": "#/components/schemas/BookingPriceDto"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "Límite para pagar (PENDING_PAYMENT)."
+          },
+          "cancellation": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CancellationDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "refund": {
+            "description": "Devolución aplicada.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RefundQuoteDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "barbershop",
+          "service",
+          "barber",
+          "barberChosenByClient",
+          "client",
+          "startAt",
+          "endAt",
+          "durationMinutes",
+          "price",
+          "expiresAt",
+          "cancellation",
+          "createdAt",
+          "refund"
+        ]
       },
       "BookingPageDto": {
         "type": "object",

@@ -35,6 +35,8 @@ import {
   BookingListQueryDto,
   BookingPageDto,
   CancelBookingDto,
+  CancellationPreviewDto,
+  CancelledBookingDto,
   CreateBookingDto,
   CreatedBookingDto,
 } from './dto/booking.dto';
@@ -81,19 +83,44 @@ export class BookingsController {
     return this.bookings.findOne(user.id, id);
   }
 
+  @Get('bookings/:id/cancellation-preview')
+  @ApiOperation({
+    summary: 'RF-RES-005: si se puede cancelar ahora y cuánto se devolvería (antes de confirmar)',
+  })
+  @ApiOkResponse({ type: CancellationPreviewDto })
+  @ApiForbiddenResponse({ type: ErrorResponseDto })
+  cancellationPreview(
+    @CurrentUser() user: AuthUser,
+    @Param('id', uuid) id: string,
+  ): Promise<CancellationPreviewDto> {
+    return this.bookings.cancellationPreview(user.id, id);
+  }
+
+  @Post('bookings/:id/no-show')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Marcar inasistencia (barbero asignado o barbería; de 15 min a 24 h tras el inicio)',
+  })
+  @ApiOkResponse({ type: BookingDto })
+  @ApiForbiddenResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
+  markNoShow(@CurrentUser() user: AuthUser, @Param('id', uuid) id: string): Promise<BookingDto> {
+    return this.bookings.markNoShow(user.id, id);
+  }
+
   @Post('bookings/:id/cancel')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'RF-RES-005: cancelar (cliente, o OWNER/MANAGER con motivo; el barbero no)',
   })
-  @ApiOkResponse({ type: BookingDto })
+  @ApiOkResponse({ type: CancelledBookingDto })
   @ApiForbiddenResponse({ type: ErrorResponseDto })
   @ApiConflictResponse({ type: ErrorResponseDto })
   cancel(
     @CurrentUser() user: AuthUser,
     @Param('id', uuid) id: string,
     @Body() dto: CancelBookingDto,
-  ): Promise<BookingDto> {
+  ): Promise<CancelledBookingDto> {
     return this.bookings.cancel(user.id, id, dto);
   }
 

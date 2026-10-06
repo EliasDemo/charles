@@ -1,47 +1,29 @@
 import type { BookingStatus } from '../../generated/prisma/enums';
-import { cancellationDecision, parseDeadline } from './booking-policy';
+import { cancellationDecision, noShowAllowed } from './booking-policy';
 import { orderByLoad } from './bookings.service';
 
 const START = Date.parse('2030-01-07T15:00:00Z');
 const MIN = 60_000;
 
-const decide = (
-  status: BookingStatus,
-  by: 'CLIENT' | 'BARBERSHOP',
-  now: number,
-  deadlineMinutes: number | null = null,
-) => cancellationDecision({ status, startAt: START, now, by, deadlineMinutes });
+const decide = (status: BookingStatus, by: 'CLIENT' | 'BARBERSHOP', now: number) =>
+  cancellationDecision({ status, startAt: START, now, by });
 
-describe('RF-RES-005 reglas de cancelación', () => {
-  describe('con el plazo sin definir (null, provisional)', () => {
-    it('el cliente cancela una PENDING_PAYMENT siempre, incluso después del inicio', () => {
-      expect(decide('PENDING_PAYMENT', 'CLIENT', START + 10 * MIN)).toEqual({ allowed: true });
-    });
+describe('RF-RES-005 quién puede cancelar y hasta cuándo (Fase 8A)', () => {
+  it('el cliente cancela una PENDING_PAYMENT siempre, incluso después del inicio', () => {
+    expect(decide('PENDING_PAYMENT', 'CLIENT', START + 10 * MIN)).toEqual({ allowed: true });
+  });
 
-    it('el cliente cancela una CONFIRMED hasta que empiece', () => {
-      expect(decide('CONFIRMED', 'CLIENT', START - 1)).toEqual({ allowed: true });
-      expect(decide('CONFIRMED', 'CLIENT', START)).toEqual({
-        allowed: false,
-        reason: 'DEADLINE_PASSED',
-      });
-    });
-
-    it('la barbería cancela hasta que empiece', () => {
-      expect(decide('CONFIRMED', 'BARBERSHOP', START - 1).allowed).toBe(true);
-      expect(decide('PENDING_PAYMENT', 'BARBERSHOP', START).allowed).toBe(false);
+  it('el cliente cancela una CONFIRMED hasta la hora de inicio (aunque sea sin devolución)', () => {
+    expect(decide('CONFIRMED', 'CLIENT', START - 1)).toEqual({ allowed: true });
+    expect(decide('CONFIRMED', 'CLIENT', START)).toEqual({
+      allowed: false,
+      reason: 'ALREADY_STARTED',
     });
   });
 
-  describe('con plazo de N minutos', () => {
-    it('el cliente solo hasta N minutos antes; la barbería no tiene ese límite', () => {
-      expect(decide('CONFIRMED', 'CLIENT', START - 121 * MIN, 120).allowed).toBe(true);
-      expect(decide('CONFIRMED', 'CLIENT', START - 120 * MIN, 120)).toEqual({
-        allowed: false,
-        reason: 'DEADLINE_PASSED',
-      });
-      expect(decide('CONFIRMED', 'BARBERSHOP', START - 10 * MIN, 120).allowed).toBe(true);
-      expect(decide('PENDING_PAYMENT', 'CLIENT', START - 10 * MIN, 120).allowed).toBe(true);
-    });
+  it('la barbería cancela hasta la hora de inicio', () => {
+    expect(decide('CONFIRMED', 'BARBERSHOP', START - 1).allowed).toBe(true);
+    expect(decide('PENDING_PAYMENT', 'BARBERSHOP', START).allowed).toBe(false);
   });
 
   it.each<[BookingStatus, string]>([
@@ -53,17 +35,26 @@ describe('RF-RES-005 reglas de cancelación', () => {
     expect(decide(status, 'CLIENT', START - 60 * MIN)).toEqual({ allowed: false, reason });
     expect(decide(status, 'BARBERSHOP', START - 60 * MIN)).toEqual({ allowed: false, reason });
   });
+});
 
-  it.each<[unknown, number | null]>([
-    [null, null],
-    [undefined, null],
-    [120, 120],
-    [0, 0],
-    [-5, null],
-    [2.5, null],
-    ['120', null],
-  ])('parseDeadline(%p) = %p', (value, expected) => {
-    expect(parseDeadline(value)).toBe(expected);
+describe('inasistencia: de 15 minutos a 24 horas después del inicio (inclusivos)', () => {
+  const allowed = (now: number, status: BookingStatus = 'CONFIRMED') =>
+    noShowAllowed({ status, startAt: START, now, afterMinutes: 15, windowHours: 24 });
+
+  it.each<[string, number, boolean]>([
+    ['antes del inicio', START - MIN, false],
+    ['a los 14 min', START + 14 * MIN, false],
+    ['a los 15 min exactos', START + 15 * MIN, true],
+    ['a las 24 h exactas', START + 24 * 60 * MIN, true],
+    ['pasadas las 24 h', START + 24 * 60 * MIN + 1, false],
+  ])('%s', (_case, now, expected) => {
+    expect(allowed(now)).toBe(expected);
+  });
+
+  it('solo reservas confirmadas', () => {
+    for (const status of ['PENDING_PAYMENT', 'CANCELLED', 'EXPIRED', 'ATTENDED'] as const) {
+      expect(allowed(START + 30 * MIN, status)).toBe(false);
+    }
   });
 });
 

@@ -42,6 +42,23 @@ function wrap(parser: RequestHandler): RequestHandler {
     });
 }
 
+/**
+ * Rutas cuyo cuerpo se conserva sin procesar (webhooks y resultado reenviado por la app): la
+ * firma se calcula sobre el texto exacto.
+ */
+export const RAW_BODY_PATH =
+  /^\/api\/v\d+\/(payments\/webhooks\/[^/?]+|bookings\/[^/?]+\/payment\/verify)(\?|$)/;
+
+export type RequestWithRawBody = Request & { rawBody?: Buffer };
+
+/** Guarda el cuerpo original (solo en webhooks de pagos; en el resto no hace falta). */
+function keepRawBody(req: RequestWithRawBody, _res: unknown, buffer: Buffer): void {
+  if (RAW_BODY_PATH.test(req.originalUrl ?? req.url)) req.rawBody = Buffer.from(buffer);
+}
+
 export function bodyParsers(limit: string): RequestHandler[] {
-  return [wrap(json({ limit })), wrap(urlencoded({ limit, extended: false }))];
+  return [
+    wrap(json({ limit, verify: keepRawBody })),
+    wrap(urlencoded({ limit, extended: false, verify: keepRawBody })),
+  ];
 }

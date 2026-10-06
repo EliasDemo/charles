@@ -181,6 +181,46 @@ export class BookingDto {
   createdAt!: Date;
 }
 
+export class RefundQuoteDto {
+  @ApiProperty({ type: MoneyDto, description: 'Lo que se devolverá (redondeado hacia abajo).' })
+  amount!: MoneyDto;
+
+  @ApiProperty({ example: 50 })
+  percent!: number;
+
+  @ApiProperty({
+    enum: ['NO_PAYMENT', 'BARBERSHOP_CANCELLATION', 'CLIENT_FULL', 'CLIENT_PARTIAL', 'CLIENT_NONE'],
+  })
+  rule!: string;
+
+  @ApiProperty({ type: MoneyDto, description: 'Cobrado y aún no devuelto (base del cálculo).' })
+  paid!: MoneyDto;
+}
+
+/** Fase 8A: lo que la app muestra antes de confirmar la cancelación. */
+export class CancellationPreviewDto {
+  @ApiProperty()
+  allowed!: boolean;
+
+  @ApiProperty({
+    nullable: true,
+    enum: ['ALREADY_CANCELLED', 'NOT_CANCELLABLE', 'ALREADY_STARTED'],
+    type: String,
+  })
+  reason!: string | null;
+
+  @ApiProperty({ type: RefundQuoteDto })
+  refund!: RefundQuoteDto;
+
+  @ApiProperty({ description: 'true si cancela la barbería: el motivo es obligatorio.' })
+  reasonRequired!: boolean;
+}
+
+export class CancelledBookingDto extends BookingDto {
+  @ApiProperty({ type: RefundQuoteDto, description: 'Devolución aplicada.' })
+  refund!: RefundQuoteDto;
+}
+
 export class CreatedBookingDto extends BookingDto {
   @ApiProperty({ type: PaymentStartDto })
   payment!: PaymentStartDto;

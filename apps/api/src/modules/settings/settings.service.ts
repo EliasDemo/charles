@@ -22,7 +22,14 @@ export const SettingKey = {
   SEARCH_RATE_LIMIT_PER_MINUTE: 'search.rate_limit_per_minute',
   BOOKING_MAX_PENDING_PER_CLIENT: 'booking.max_pending_per_client',
   BOOKING_RATE_LIMIT_PER_MINUTE: 'booking.rate_limit_per_minute',
-  CANCELLATION_DEADLINE_MINUTES: 'booking.cancellation_deadline_minutes',
+  REFUND_FULL_MIN_MINUTES: 'refunds.full_min_minutes',
+  REFUND_PARTIAL_MIN_MINUTES: 'refunds.partial_min_minutes',
+  REFUND_PARTIAL_PERCENT: 'refunds.partial_percent',
+  UNJUSTIFIED_CANCELLATIONS_LIMIT: 'barbershops.unjustified_cancellations_limit',
+  UNJUSTIFIED_CANCELLATIONS_WINDOW_DAYS: 'barbershops.unjustified_cancellations_window_days',
+  NO_SHOW_AFTER_MINUTES: 'booking.no_show_after_minutes',
+  NO_SHOW_WINDOW_HOURS: 'booking.no_show_window_hours',
+  PAYMENTS_PENDING_CHECK_INTERVAL_MINUTES: 'payments.pending_check_interval_minutes',
   PAYMENTS_PROVIDER: 'payments.provider',
 } as const;
 

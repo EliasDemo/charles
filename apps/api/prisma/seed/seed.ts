@@ -254,14 +254,47 @@ export const SEED_SETTINGS: {
   },
   { key: 'payments.methods', value: null, description: 'PENDIENTE (§4.2): medios de pago.' },
   {
-    key: 'booking.cancellation_deadline_minutes',
-    value: null,
-    description: 'PENDIENTE (§4.2): plazo límite para cancelar.',
+    key: 'refunds.full_min_minutes',
+    value: 300,
+    description: 'El cliente cancela con esta anticipación (minutos) o más: devolución total.',
   },
   {
-    key: 'payments.cancellation_refund_policy',
-    value: null,
-    description: 'PENDIENTE (§4.2): devolución, retención y comisión al cancelar.',
+    key: 'refunds.partial_min_minutes',
+    value: 120,
+    description:
+      'El cliente cancela con esta anticipación o más (y menos que la total): devolución parcial.',
+  },
+  {
+    key: 'refunds.partial_percent',
+    value: 50,
+    description: 'Porcentaje de la devolución parcial (redondeo hacia abajo al céntimo).',
+  },
+  {
+    key: 'barbershops.unjustified_cancellations_limit',
+    value: 3,
+    description:
+      'Cancelaciones injustificadas de la barbería dentro de la ventana que la pasan a SUSPENDED.',
+  },
+  {
+    key: 'barbershops.unjustified_cancellations_window_days',
+    value: 30,
+    description: 'Ventana, en días, para contar las cancelaciones injustificadas de la barbería.',
+  },
+  {
+    key: 'booking.no_show_after_minutes',
+    value: 15,
+    description: 'Minutos después del inicio desde los que se puede marcar una inasistencia.',
+  },
+  {
+    key: 'booking.no_show_window_hours',
+    value: 24,
+    description: 'Horas después del inicio hasta las que se puede marcar una inasistencia.',
+  },
+  {
+    key: 'payments.pending_check_interval_minutes',
+    value: 2,
+    description:
+      'Cada cuántos minutos se consultan a la pasarela los pagos iniciados aún pendientes.',
   },
   {
     key: 'payments.commission_policy',

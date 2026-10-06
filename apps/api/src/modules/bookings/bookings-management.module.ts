@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { AvailabilityModule } from '../availability/availability.module';
 import { BarbersModule } from '../barbers/barbers.module';
 import { BarbershopAccessModule } from '../barbershops/barbershop-access.module';
+import { ModerationModule } from '../moderation/moderation.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { ServicesModule } from '../services/services.module';
 import { SettingsModule } from '../settings/settings.module';
@@ -23,6 +24,7 @@ import { BookingsService } from './bookings.service';
   imports: [
     BookingsModule,
     PaymentsModule,
+    ModerationModule,
     AvailabilityModule,
     ServicesModule,
     BarbersModule,

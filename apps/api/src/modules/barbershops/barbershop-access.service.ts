@@ -61,6 +61,23 @@ export class BarbershopAccessService {
   }
 
   /** Nombres de barberías no eliminadas (para invitaciones y correos). */
+  /**
+   * Suspende una barbería (sanción por cancelaciones injustificadas, Fase 8A). Dentro de la
+   * transacción recibida. Devuelve el estado anterior, o null si ya estaba suspendida o eliminada.
+   */
+  async suspendInTx(
+    tx: Prisma.TransactionClient,
+    barbershopId: string,
+  ): Promise<BarbershopStatus | null> {
+    const shop = await tx.barbershop.findFirst({
+      where: { id: barbershopId, deletedAt: null, status: { not: 'SUSPENDED' } },
+      select: { status: true },
+    });
+    if (!shop) return null;
+    await tx.barbershop.update({ where: { id: barbershopId }, data: { status: 'SUSPENDED' } });
+    return shop.status;
+  }
+
   /** Nombres aunque la barbería se haya eliminado (historial de reservas). */
   async namesIncludingDeleted(ids: string[]): Promise<Map<string, string>> {
     const shops = await this.prisma.barbershop.findMany({

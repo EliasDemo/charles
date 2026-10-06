@@ -9,23 +9,29 @@ import { localDateOf, localDayBounds } from '../availability/engine/local-time';
 import { BarbersService } from '../barbers/barbers.service';
 import { BarbershopAccessService } from '../barbershops/barbershop-access.service';
 import { PaymentsService } from '../payments/payments.service';
+import { ReconciliationService } from '../payments/reconciliation';
 import { ServicesService } from '../services/services.service';
 import { SettingKey, SettingsService } from '../settings/settings.service';
 import { UsersService } from '../users/users.service';
-import { cancellationDecision, parseDeadline } from './booking-policy';
+import { cancellationDecision, NO_SHOW_DEFAULTS, noShowAllowed } from './booking-policy';
 import { type BookingActor, BookingStateMachine } from './booking-state-machine';
 import type {
   BookingDto,
   BookingListQueryDto,
   BookingPageDto,
   CancelBookingDto,
+  CancellationPreviewDto,
+  CancelledBookingDto,
   CreateBookingDto,
   CreatedBookingDto,
 } from './dto/booking.dto';
+import { CancellationReviewsService } from '../moderation/cancellation-reviews.service';
 
 export const BOOKING_DEFAULTS = { pendingTtlMinutes: 10, maxPendingPerClient: 2 } as const;
 /** "Cualquier barbero": candidatos que se intentan si otro se adelanta (CLAUDE.md §4.1). */
 export const MAX_BARBER_ATTEMPTS = 3;
+/** Comisión de Charles por reserva: sin definir, 0 hasta que se decida (CLAUDE.md §4.2). */
+export const CHARLES_FEE_AMOUNT = 0;
 const IDEMPOTENCY_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const bookingInclude = {
@@ -44,6 +50,12 @@ const slotNotAvailable = (): AppException =>
   );
 const notFound = (): AppException =>
   new AppException(ErrorCode.NOT_FOUND, 'La reserva no existe.', HttpStatus.NOT_FOUND);
+const barberCannotCancel = (): AppException =>
+  new AppException(
+    ErrorCode.FORBIDDEN,
+    'El barbero no puede cancelar reservas. Pídeselo al responsable de la barbería.',
+    HttpStatus.FORBIDDEN,
+  );
 
 /** Datos de la petición que identifican una reserva idempotente. */
 function fingerprint(clientId: string, dto: CreateBookingDto): Prisma.InputJsonObject {
@@ -98,6 +110,8 @@ export class BookingsService {
     private readonly access: BarbershopAccessService,
     private readonly users: UsersService,
     private readonly settings: SettingsService,
+    private readonly reviews: CancellationReviewsService,
+    private readonly reconciliation: ReconciliationService,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
@@ -142,8 +156,11 @@ export class BookingsService {
         BOOKING_DEFAULTS.maxPendingPerClient,
       ),
     ]);
-    const now = this.clock.now();
     const endAt = startAt + service.durationMinutes * 60_000;
+    // Ajuste C: antes de vencer una PENDING_PAYMENT con pago iniciado, se consulta la pasarela
+    // (fuera de la transacción). Si estaba pagada, se confirma en lugar de vencer.
+    await this.checkStartedPaymentsBeforeExpiring(candidates, startAt, endAt);
+    const now = this.clock.now();
     const actor: BookingActor = { userId: clientId, role: 'CLIENT' };
 
     let created: { bookingId: string; paymentId: string } | { replayId: string };
@@ -264,6 +281,28 @@ export class BookingsService {
     return orderByLoad(slot.barberIds, counts).slice(0, MAX_BARBER_ATTEMPTS);
   }
 
+  private async checkStartedPaymentsBeforeExpiring(
+    barberIds: string[],
+    startAt: number,
+    endAt: number,
+  ): Promise<void> {
+    const due = await this.prisma.payment.findMany({
+      where: {
+        status: 'PENDING',
+        startedAt: { not: null },
+        booking: {
+          barberId: { in: barberIds },
+          status: 'PENDING_PAYMENT',
+          expiresAt: { lte: new Date(this.clock.now()) },
+          startAt: { lt: new Date(endAt) },
+          endAt: { gt: new Date(startAt) },
+        },
+      },
+      select: { id: true },
+    });
+    for (const payment of due) await this.reconciliation.checkPayment(payment.id);
+  }
+
   private async expireOverlapping(
     tx: Prisma.TransactionClient,
     barberIds: string[],
@@ -330,13 +369,23 @@ export class BookingsService {
             metadata: { request: fingerprint(input.clientId, input.dto) },
             // Precio congelado al reservar (RF-SER-002): los cambios del servicio no lo alteran.
             priceLines: {
-              create: {
-                type: 'SERVICE',
-                description: input.service.name,
-                amount: input.service.priceAmount,
-                sourceType: 'service',
-                sourceId: input.dto.serviceId,
-              },
+              create: [
+                {
+                  type: 'SERVICE',
+                  description: input.service.name,
+                  amount: input.service.priceAmount,
+                  sourceType: 'service',
+                  sourceId: input.dto.serviceId,
+                },
+                // Comisión de Charles: sin definir (CLAUDE.md §4.2). El cálculo queda preparado
+                // como línea FEE en 0; fee_total_amount y total no cambian.
+                {
+                  type: 'FEE',
+                  description: 'Comisión de Charles',
+                  amount: CHARLES_FEE_AMOUNT,
+                  sourceType: 'commission',
+                },
+              ],
             },
           },
           select: { id: true },
@@ -389,48 +438,92 @@ export class BookingsService {
 
   // ───────────── Cancelar (RF-RES-005) ─────────────
 
-  async cancel(userId: string, bookingId: string, dto: CancelBookingDto): Promise<BookingDto> {
+  /** Quién actúa sobre la reserva: el cliente, la barbería (OWNER/MANAGER) o el barbero asignado. */
+  private async actorOn(
+    userId: string,
+    booking: { clientId: string; barbershopId: string; barberId: string },
+  ): Promise<'CLIENT' | 'BARBERSHOP' | 'BARBER' | null> {
+    if (booking.clientId === userId) return 'CLIENT';
+    if (await this.access.isMember(booking.barbershopId, userId)) return 'BARBERSHOP';
+    if ((await this.barbers.barberIdsOfUser(userId)).includes(booking.barberId)) return 'BARBER';
+    return null;
+  }
+
+  /**
+   * Vista previa (Fase 8A): si se puede cancelar ahora y cuánto se devolvería. Usa la misma
+   * función que la cancelación, así lo que ve el cliente es lo que se aplica.
+   */
+  async cancellationPreview(userId: string, bookingId: string): Promise<CancellationPreviewDto> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      select: { clientId: true, barbershopId: true, barberId: true },
+      select: {
+        clientId: true,
+        barbershopId: true,
+        barberId: true,
+        status: true,
+        startAt: true,
+        currency: true,
+      },
     });
     if (!booking) throw notFound();
+    const role = await this.actorOn(userId, booking);
+    if (!role) throw notFound();
+    if (role === 'BARBER') throw barberCannotCancel();
+    const by = role === 'CLIENT' ? 'CLIENT' : 'BARBERSHOP';
+    const decision = cancellationDecision({
+      status: booking.status,
+      startAt: booking.startAt.getTime(),
+      now: this.clock.now(),
+      by,
+    });
+    const quote = await this.payments.quoteCancellation(
+      { id: bookingId, startAt: booking.startAt },
+      by,
+    );
+    return {
+      allowed: decision.allowed,
+      reason: decision.allowed ? null : decision.reason,
+      refund: {
+        amount: { amount: decision.allowed ? quote.amount : 0, currency: booking.currency },
+        percent: decision.allowed ? quote.percent : 0,
+        rule: quote.rule,
+        paid: { amount: quote.refundableAmount, currency: booking.currency },
+      },
+      reasonRequired: by === 'BARBERSHOP',
+    };
+  }
 
-    let actor: BookingActor;
-    if (booking.clientId === userId) {
-      actor = { userId, role: 'CLIENT' };
-    } else if (await this.access.isMember(booking.barbershopId, userId)) {
-      actor = { userId, role: 'BARBERSHOP' };
-      if (!dto.reason) {
-        throw new AppException(
-          ErrorCode.VALIDATION_ERROR,
-          'Los datos enviados no son válidos.',
-          HttpStatus.BAD_REQUEST,
-          [{ field: 'reason', constraints: ['requiredForBarbershop'] }],
-        );
-      }
-    } else if ((await this.barbers.barberIdsOfUser(userId)).includes(booking.barberId)) {
+  async cancel(
+    userId: string,
+    bookingId: string,
+    dto: CancelBookingDto,
+  ): Promise<CancelledBookingDto> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { clientId: true, barbershopId: true, barberId: true, startAt: true },
+    });
+    if (!booking) throw notFound();
+    const role = await this.actorOn(userId, booking);
+    if (!role) throw notFound();
+    if (role === 'BARBER') throw barberCannotCancel();
+    const actor: BookingActor = { userId, role };
+    if (role === 'BARBERSHOP' && !dto.reason) {
       throw new AppException(
-        ErrorCode.FORBIDDEN,
-        'El barbero no puede cancelar reservas. Pídeselo al responsable de la barbería.',
-        HttpStatus.FORBIDDEN,
+        ErrorCode.VALIDATION_ERROR,
+        'Los datos enviados no son válidos.',
+        HttpStatus.BAD_REQUEST,
+        [{ field: 'reason', constraints: ['requiredForBarbershop'] }],
       );
-    } else {
-      throw notFound();
     }
 
-    const deadline = parseDeadline(
-      await this.settings.get(SettingKey.CANCELLATION_DEADLINE_MINUTES),
-    );
-    await this.prisma.$transaction(async (tx) => {
+    const quote = await this.prisma.$transaction(async (tx) => {
       const [current] = await tx.$queryRaw<{ status: BookingRow['status']; start_at: Date }[]>`
         SELECT status::text AS status, start_at FROM bookings WHERE id = ${bookingId}::uuid FOR UPDATE`;
       const decision = cancellationDecision({
         status: current!.status,
         startAt: current!.start_at.getTime(),
         now: this.clock.now(),
-        by: actor.role === 'CLIENT' ? 'CLIENT' : 'BARBERSHOP',
-        deadlineMinutes: deadline,
+        by: role,
       });
       if (!decision.allowed) {
         throw decision.reason === 'ALREADY_CANCELLED'
@@ -441,16 +534,91 @@ export class BookingsService {
             )
           : new AppException(
               ErrorCode.CANCELLATION_NOT_ALLOWED,
-              decision.reason === 'DEADLINE_PASSED'
-                ? 'Ya no se puede cancelar esta reserva.'
+              decision.reason === 'ALREADY_STARTED'
+                ? 'La reserva ya empezó; ya no se puede cancelar.'
                 : 'Esta reserva ya no se puede cancelar.',
               HttpStatus.CONFLICT,
             );
       }
       await this.stateMachine.transition(tx, bookingId, 'CANCELLED', actor, dto.reason ?? null);
-      await this.payments.onBookingCancelled(tx, bookingId, actor.role);
+      // Toda cancelación de la barbería queda registrada para revisión (sanción), pagada o no.
+      if (role === 'BARBERSHOP') {
+        await this.reviews.recordInTx(tx, {
+          bookingId,
+          barbershopId: booking.barbershopId,
+          cancelledById: userId,
+          reason: dto.reason!,
+        });
+      }
+      return this.payments.onBookingCancelled(
+        tx,
+        { id: bookingId, startAt: booking.startAt },
+        role,
+      );
     });
-    return this.toDto(await this.loadOne(bookingId), actor.role === 'CLIENT' ? 'CLIENT' : 'STAFF');
+    const dtoOut = await this.toDto(
+      await this.loadOne(bookingId),
+      role === 'CLIENT' ? 'CLIENT' : 'STAFF',
+    );
+    return {
+      ...dtoOut,
+      refund: {
+        amount: { amount: quote.amount, currency: dtoOut.price.total.currency },
+        percent: quote.percent,
+        rule: quote.rule,
+        paid: { amount: quote.refundableAmount, currency: dtoOut.price.total.currency },
+      },
+    };
+  }
+
+  /**
+   * Inasistencia (Fase 8A): el barbero asignado o la barbería, desde
+   * `booking.no_show_after_minutes` (15) y hasta `booking.no_show_window_hours` (24) después del
+   * inicio. Sin devolución.
+   */
+  async markNoShow(userId: string, bookingId: string): Promise<BookingDto> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { clientId: true, barbershopId: true, barberId: true },
+    });
+    if (!booking) throw notFound();
+    const role = await this.actorOn(userId, booking);
+    if (!role) throw notFound();
+    if (role === 'CLIENT') {
+      throw new AppException(
+        ErrorCode.FORBIDDEN,
+        'Solo la barbería o el barbero pueden marcar una inasistencia.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+    const [afterMinutes, windowHours] = await Promise.all([
+      this.settings.positiveInt(SettingKey.NO_SHOW_AFTER_MINUTES, NO_SHOW_DEFAULTS.afterMinutes),
+      this.settings.positiveInt(SettingKey.NO_SHOW_WINDOW_HOURS, NO_SHOW_DEFAULTS.windowHours),
+    ]);
+    await this.prisma.$transaction(async (tx) => {
+      const [current] = await tx.$queryRaw<{ status: BookingRow['status']; start_at: Date }[]>`
+        SELECT status::text AS status, start_at FROM bookings WHERE id = ${bookingId}::uuid FOR UPDATE`;
+      const allowed = noShowAllowed({
+        status: current!.status,
+        startAt: current!.start_at.getTime(),
+        now: this.clock.now(),
+        afterMinutes,
+        windowHours,
+      });
+      if (!allowed) {
+        throw new AppException(
+          ErrorCode.NO_SHOW_NOT_ALLOWED,
+          `Solo se puede marcar una inasistencia de una reserva confirmada, desde ${afterMinutes} minutos y hasta ${windowHours} horas después del inicio.`,
+          HttpStatus.CONFLICT,
+          [{ afterMinutes, windowHours }],
+        );
+      }
+      await this.stateMachine.transition(tx, bookingId, 'NO_SHOW', {
+        userId,
+        role: 'BARBERSHOP',
+      });
+    });
+    return this.toDto(await this.loadOne(bookingId), 'STAFF');
   }
 
   // ───────────── Consultar (RF-RES-004/008) ─────────────

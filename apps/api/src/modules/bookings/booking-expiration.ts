@@ -5,6 +5,7 @@ import { CLOCK, type Clock } from '../../common/clock/clock';
 import { APP_CONFIG } from '../../common/config/app-config.token';
 import type { AppConfig } from '../../common/config/env.validation';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { ReconciliationService } from '../payments/reconciliation';
 import { BookingStateMachine, SYSTEM_ACTOR } from './booking-state-machine';
 
 export const BOOKINGS_QUEUE = 'bookings';
@@ -21,11 +22,36 @@ export class BookingExpirationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly stateMachine: BookingStateMachine,
+    private readonly reconciliation: ReconciliationService,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
+  /**
+   * Ajuste C (Fase 8A): antes de vencer una reserva cuyo pago ya se inició en la pasarela, se
+   * consulta su estado (fuera de toda transacción). Si estaba pagada, se confirma en lugar de
+   * vencer. Si la pasarela no responde, se vence igual: un pago confirmado después queda huérfano
+   * y se devuelve completo.
+   */
+  async confirmPaidBeforeExpiring(): Promise<number> {
+    const started = await this.prisma.payment.findMany({
+      where: {
+        status: 'PENDING',
+        startedAt: { not: null },
+        booking: { status: 'PENDING_PAYMENT', expiresAt: { lte: new Date(this.clock.now()) } },
+      },
+      take: BATCH_SIZE,
+      select: { id: true },
+    });
+    let confirmed = 0;
+    for (const payment of started) {
+      if ((await this.reconciliation.checkPayment(payment.id)) === 'CONFIRMED') confirmed++;
+    }
+    return confirmed;
+  }
+
   /** Devuelve cuántas reservas venció. */
   async expireDue(batchSize = BATCH_SIZE): Promise<number> {
+    await this.confirmPaidBeforeExpiring();
     let total = 0;
     for (;;) {
       const expired = await this.prisma.$transaction(async (tx) => {

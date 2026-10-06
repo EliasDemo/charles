@@ -9,10 +9,9 @@ import {
   BOOKING_RATE_LIMIT_DEFAULT,
   BookingRateLimitRefresher,
 } from '../../src/modules/bookings/booking-rate-limit';
-import { FakeGateway } from '../../src/modules/payments/fake-gateway';
+import { FAKE_SIGNATURE_HEADER, FakeGateway } from '../../src/modules/payments/fake-gateway';
 import { AuthClient, codeFrom, createAuthTestApp, waitForMail } from '../support/auth';
 import { ownerWithShop } from '../support/barbershops';
-import { createTestApp } from '../support/create-test-app';
 import { expectConstraintViolation } from '../support/db';
 
 const API = '/api/v1';
@@ -119,8 +118,15 @@ describe('RF-RES-001…008 Reservas, máquina de estados, outbox y expiración (
       .set('Idempotency-Key', options.key ?? randomUUID());
   }
 
-  const pay = (paymentId: string, outcome: 'SUCCEEDED' | 'REJECTED' | 'CANCELLED') =>
-    new AuthClient(app).post(`${API}/testing/payments/${paymentId}/result`, { outcome });
+  /** Simula que el cliente pagó (o fue rechazado) y llega el webhook firmado de la pasarela. */
+  const pay = (paymentId: string, outcome: 'SUCCEEDED' | 'REJECTED') => {
+    const { rawBody, signature } = app.get(FakeGateway).settlePayment(paymentId, outcome);
+    return new AuthClient(app).http
+      .post(`${API}/payments/webhooks/fake`)
+      .set('Content-Type', 'application/json')
+      .set(FAKE_SIGNATURE_HEADER, signature)
+      .send(rawBody);
+  };
 
   const history = (bookingId: string) =>
     prisma.bookingStatusHistory.findMany({ where: { bookingId }, orderBy: { createdAt: 'asc' } });
@@ -149,6 +155,12 @@ describe('RF-RES-001…008 Reservas, máquina de estados, outbox y expiración (
           total: { amount: 2500, currency: 'PEN' },
           lines: [
             { type: 'SERVICE', description: 'Corte', amount: { amount: 2500, currency: 'PEN' } },
+            // Comisión de Charles preparada en 0 (sin definir).
+            {
+              type: 'FEE',
+              description: 'Comisión de Charles',
+              amount: { amount: 0, currency: 'PEN' },
+            },
           ],
         },
         expiresAt: new Date(clock.current + 10 * MINUTE).toISOString(),
@@ -502,8 +514,15 @@ describe('RF-RES-001…008 Reservas, máquina de estados, outbox y expiración (
       const me = await verifiedClient();
       const res = await book(me, shop, at('10:00')).expect(201);
       const paymentId = res.body.payment.paymentId as string;
-      expect((await pay(paymentId, 'SUCCEEDED').expect(200)).body.status).toBe('SUCCEEDED');
-      expect((await pay(paymentId, 'REJECTED').expect(200)).body.status).toBe('SUCCEEDED');
+      expect((await pay(paymentId, 'SUCCEEDED').expect(200)).body).toEqual({
+        received: true,
+        duplicate: false,
+      });
+      // Un resultado posterior distinto no cambia un pago que ya no está PENDING.
+      await pay(paymentId, 'REJECTED').expect(200);
+      expect((await prisma.payment.findUniqueOrThrow({ where: { id: paymentId } })).status).toBe(
+        'SUCCEEDED',
+      );
       const booking = await me.client.get(`${API}/bookings/${res.body.id}`, me.token).expect(200);
       expect(booking.body).toMatchObject({ status: 'CONFIRMED', expiresAt: null });
       expect((await history(res.body.id)).map((h) => [h.toStatus, h.changedById])).toEqual([
@@ -550,6 +569,10 @@ describe('RF-RES-001…008 Reservas, máquina de estados, outbox y expiración (
       });
       expect(payment.status).toBe('SUCCEEDED');
       expect(payment.metadata).toMatchObject({ refundDecision: 'ORPHANED' });
+      const refunds = await prisma.refund.findMany({ where: { paymentId: payment.id } });
+      expect(refunds.map((r) => [r.reasonType, r.amount, r.status])).toEqual([
+        ['ORPHANED_PAYMENT', 2500, 'PENDING'],
+      ]);
       const orphaned = await prisma.outboxEvent.findMany({ where: { type: 'payment.orphaned' } });
       expect(
         orphaned.some((e) => (e.payload as { paymentId: string }).paymentId === payment.id),
@@ -588,19 +611,8 @@ describe('RF-RES-001…008 Reservas, máquina de estados, outbox y expiración (
         .expect(404);
     });
 
-    it('resultado de un pago inexistente: 404', async () => {
-      expect((await pay(randomUUID(), 'SUCCEEDED').expect(404)).body.code).toBe('NOT_FOUND');
-    });
-
-    it('B: la ruta de pruebas del pago responde 404 fuera del entorno de pruebas', async () => {
-      const dev = await createTestApp({ config: { nodeEnv: 'development' as never } });
-      try {
-        await new AuthClient(dev)
-          .post(`${API}/testing/payments/${randomUUID()}/result`, { outcome: 'SUCCEEDED' })
-          .expect(404);
-      } finally {
-        await dev.close();
-      }
+    it('webhook de un pago inexistente: 409 WEBHOOK_MISMATCH, sin efectos', async () => {
+      expect((await pay(randomUUID(), 'SUCCEEDED').expect(409)).body.code).toBe('WEBHOOK_MISMATCH');
     });
   });
 
@@ -613,28 +625,40 @@ describe('RF-RES-001…008 Reservas, máquina de estados, outbox y expiración (
     const cancel = (who: { client: AuthClient; token: string }, id: string, reason?: string) =>
       who.client.post(`${API}/bookings/${id}/cancel`, reason ? { reason } : {}, who.token);
 
-    it('RF-RES-005 el cliente cancela una confirmada antes de que empiece; la devolución queda pendiente de política', async () => {
+    it('RF-RES-005 el cliente cancela una confirmada con 2 h de anticipación: devolución del 50 %', async () => {
       const shop = await shopReady();
       const me = await verifiedClient();
-      const booking = await confirmed(shop, me);
+      const booking = await confirmed(shop, me); // 10:00; reloj a las 08:00 → 120 min
+      const preview = await me.client
+        .get(`${API}/bookings/${booking.id}/cancellation-preview`, me.token)
+        .expect(200);
+      expect(preview.body).toEqual({
+        allowed: true,
+        reason: null,
+        reasonRequired: false,
+        refund: {
+          amount: { amount: 1250, currency: 'PEN' },
+          percent: 50,
+          rule: 'CLIENT_PARTIAL',
+          paid: { amount: 2500, currency: 'PEN' },
+        },
+      });
       const res = await cancel(me, booking.id).expect(200);
       expect(res.body).toMatchObject({
         status: 'CANCELLED',
         cancellation: { byRole: 'CLIENT', reason: null },
+        refund: preview.body.refund,
       });
-      const payment = await prisma.payment.findUniqueOrThrow({
-        where: { id: booking.payment.paymentId },
+      const refunds = await prisma.refund.findMany({
+        where: { paymentId: booking.payment.paymentId },
       });
-      expect(payment.status).toBe('SUCCEEDED'); // no se devuelve dinero en esta fase
-      expect(payment.metadata).toMatchObject({
-        refundDecision: 'PENDING_POLICY',
-        cancelledByRole: 'CLIENT',
-      });
+      expect(refunds.map((r) => [r.reasonType, r.amount, r.status])).toEqual([
+        ['CLIENT_CANCELLATION', 1250, 'PENDING'],
+      ]);
       expect(await eventsOf(booking.id)).toEqual([
         'booking.created',
         'booking.confirmed',
         'booking.cancelled',
-        'payment.refund_decision_pending',
       ]);
       const row = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
       expect(row.cancelledById).toBe(me.userId);
@@ -666,40 +690,48 @@ describe('RF-RES-001…008 Reservas, máquina de estados, outbox y expiración (
       await cancel(me, res.body.id).expect(200);
     });
 
-    it('RF-RES-005 flujos alternativos: ya empezó, ya cancelada', async () => {
+    it('RF-RES-005 flujos alternativos: ya empezó, ya cancelada; con menos de 2 h, sin devolución', async () => {
       const shop = await shopReady();
       const me = await verifiedClient();
       const booking = await confirmed(shop, me, '09:00');
       clock.current = lima(MONDAY, '09:00');
       expect((await cancel(me, booking.id).expect(409)).body.code).toBe('CANCELLATION_NOT_ALLOWED');
       clock.current = lima(MONDAY, '08:30');
-      await cancel(me, booking.id).expect(200);
+      const late = await cancel(me, booking.id).expect(200);
+      expect(late.body.refund).toMatchObject({ rule: 'CLIENT_NONE', amount: { amount: 0 } });
       expect((await cancel(me, booking.id).expect(409)).body.code).toBe('ALREADY_CANCELLED');
     });
 
-    it('con plazo configurado (booking.cancellation_deadline_minutes) el cliente no cancela tarde; la barbería sí', async () => {
+    it('la barbería cancela: devolución total y la cancelación queda registrada para revisión', async () => {
       const shop = await shopReady();
       const me = await verifiedClient();
       const booking = await confirmed(shop, me, '10:00');
-      await prisma.appSetting.upsert({
-        where: { key: 'booking.cancellation_deadline_minutes' },
-        update: { value: 120 },
-        create: { key: 'booking.cancellation_deadline_minutes', value: 120 },
+      clock.current = lima(MONDAY, '09:50'); // 10 min antes: aun así, total
+      const res = await cancel(shop.owner, booking.id, 'El barbero está enfermo').expect(200);
+      expect(res.body.cancellation).toEqual({
+        byRole: 'BARBERSHOP',
+        reason: 'El barbero está enfermo',
       });
-      try {
-        clock.current = lima(MONDAY, '08:30'); // 90 min antes
-        expect((await cancel(me, booking.id).expect(409)).body.code).toBe(
-          'CANCELLATION_NOT_ALLOWED',
-        );
-        const res = await cancel(shop.owner, booking.id, 'El barbero está enfermo').expect(200);
-        expect(res.body.cancellation).toEqual({
-          byRole: 'BARBERSHOP',
-          reason: 'El barbero está enfermo',
-        });
-        expect(res.body.client).toMatchObject({ id: me.userId });
-      } finally {
-        await prisma.appSetting.delete({ where: { key: 'booking.cancellation_deadline_minutes' } });
-      }
+      expect(res.body.refund).toMatchObject({ rule: 'BARBERSHOP_CANCELLATION', percent: 100 });
+      expect(res.body.client).toMatchObject({ id: me.userId });
+      const review = await prisma.barbershopCancellationReview.findUniqueOrThrow({
+        where: { bookingId: booking.id },
+      });
+      expect(review).toMatchObject({
+        barbershopId: shop.owner.shopId,
+        cancelledById: shop.owner.userId,
+        status: 'PENDING_REVIEW',
+      });
+    });
+
+    it('la cancelación de la barbería de una reserva sin pagar también se registra', async () => {
+      const shop = await shopReady();
+      const res = await book(await verifiedClient(), shop, at('10:00')).expect(201);
+      const cancelled = await cancel(shop.owner, res.body.id, 'Cierre imprevisto').expect(200);
+      expect(cancelled.body.refund).toMatchObject({ rule: 'NO_PAYMENT', amount: { amount: 0 } });
+      expect(
+        await prisma.barbershopCancellationReview.count({ where: { bookingId: res.body.id } }),
+      ).toBe(1);
     });
 
     it('la barbería debe dar un motivo; el barbero no puede cancelar; un tercero recibe 404', async () => {

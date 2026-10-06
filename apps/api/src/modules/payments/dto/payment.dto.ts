@@ -1,11 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsIn } from 'class-validator';
-import { PaymentStatus } from '../../../generated/prisma/enums';
+import { PaymentStatus, RefundReason, RefundStatus } from '../../../generated/prisma/enums';
 import { MoneyDto } from '../../barbershops/dto/barbershop.dto';
 
 export class ClientPaymentActionDto {
-  @ApiProperty({ enum: ['FAKE', 'REDIRECT', 'SDK'] })
-  type!: 'FAKE' | 'REDIRECT' | 'SDK';
+  @ApiProperty({ enum: ['FAKE', 'IZIPAY_SDK'] })
+  type!: 'FAKE' | 'IZIPAY_SDK';
 
   @ApiProperty({ type: 'object', additionalProperties: { type: 'string' } })
   data!: Record<string, string>;
@@ -32,9 +31,70 @@ export class PaymentStartDto {
   clientAction!: ClientPaymentActionDto | null;
 }
 
-/** Solo pruebas (NODE_ENV=test): simula el resultado que llegará por webhook en la Fase 8. */
-export class FakePaymentResultDto {
-  @ApiProperty({ enum: ['SUCCEEDED', 'REJECTED', 'CANCELLED'] })
-  @IsIn(['SUCCEEDED', 'REJECTED', 'CANCELLED'])
-  outcome!: 'SUCCEEDED' | 'REJECTED' | 'CANCELLED';
+export class RefundViewDto {
+  @ApiProperty({ format: 'uuid' })
+  refundId!: string;
+
+  @ApiProperty({ enum: RefundStatus, enumName: 'RefundStatus' })
+  status!: RefundStatus;
+
+  @ApiProperty({ enum: RefundReason, enumName: 'RefundReason' })
+  reasonType!: RefundReason;
+
+  @ApiProperty({ type: MoneyDto })
+  amount!: MoneyDto;
+
+  @ApiProperty()
+  createdAt!: Date;
+
+  @ApiProperty({ nullable: true, type: Date })
+  processedAt!: Date | null;
+}
+
+export class PaymentViewDto {
+  @ApiProperty({ format: 'uuid' })
+  paymentId!: string;
+
+  @ApiProperty()
+  provider!: string;
+
+  @ApiProperty({ enum: PaymentStatus, enumName: 'PaymentStatus' })
+  status!: PaymentStatus;
+
+  @ApiProperty({ type: MoneyDto })
+  amount!: MoneyDto;
+
+  @ApiProperty({ nullable: true, type: Date, description: 'Cuándo la pasarela aceptó el pago.' })
+  startedAt!: Date | null;
+
+  @ApiProperty({ nullable: true, type: Date })
+  confirmedAt!: Date | null;
+
+  @ApiProperty({ type: [RefundViewDto] })
+  refunds!: RefundViewDto[];
+}
+
+export class PaymentStatusDto {
+  @ApiProperty({ type: [PaymentViewDto] })
+  items!: PaymentViewDto[];
+}
+
+export class PaymentVerificationDto {
+  @ApiProperty({
+    enum: ['CONFIRMED', 'REVIEW', 'UNCHANGED', 'UNAVAILABLE'],
+    description:
+      'Resultado de consultar a la pasarela. La respuesta de la app nunca confirma por sí sola.',
+  })
+  outcome!: 'CONFIRMED' | 'REVIEW' | 'UNCHANGED' | 'UNAVAILABLE';
+
+  @ApiProperty({ enum: PaymentStatus, enumName: 'PaymentStatus' })
+  paymentStatus!: PaymentStatus;
+}
+
+export class WebhookReceiptDto {
+  @ApiProperty()
+  received!: true;
+
+  @ApiProperty({ description: 'true si el evento ya se había recibido (no se aplica de nuevo).' })
+  duplicate!: boolean;
 }

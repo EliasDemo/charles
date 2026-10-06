@@ -192,13 +192,13 @@ pnpm verify                           # todo lo anterior + coberturas + OpenAPI 
 
 ### 4.2 Pendientes (NO las inventes; deja el punto configurable y pregunta)
 
-- Medios de pago (la pasarela ya está decidida: Izipay).
-- Política de devolución, retención y comisión al cancelar.
-- Quién asume la comisión y cuándo recibe el dinero la barbería.
-- Tratamiento del pago ante un no-show.
-- Plazo límite para cancelar.
+- Medios de pago (la pasarela ya está decidida: Izipay, plataforma micuentaweb).
+- Comisión de Charles: sin definir. El desglose ya lleva una línea `FEE` en 0.
+- Quién asume la comisión de la pasarela, también en las devoluciones.
+- Liquidación a la barbería (cuándo recibe el dinero): fuera de alcance.
+- Sanción económica a la barbería por cancelar.
 
-Hasta que se definan: la pasarela se implementa detrás de la interfaz `PaymentGateway` con una implementación simulada (`FakeGateway`, luego Izipay), y las políticas se leen desde `app_settings` (claves sembradas con valor `null` hasta su definición).
+Hasta que se definan: la pasarela se implementa detrás de la interfaz `PaymentGateway` (`FakeGateway`, luego Izipay), y las políticas se leen desde `app_settings`. **Resueltas en la Fase 8A:** devoluciones al cancelar, plazo para cancelar, no-show y sanción por cancelaciones de la barbería (ver "Pagos y reembolsos (Fase 8A)"). Lo que bloquea salir a producción está en `docs/pendientes-produccion.md`.
 
 ---
 
@@ -418,7 +418,7 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
   - Un evento "en proceso" abandonado durante más de 5 min se reentrega.
   - Cada evento tiene un ID único y el payload lleva solo IDs, nunca datos personales.
   - **Todo consumidor debe ser idempotente por ese ID**: `IdempotentConsumerStore.runOnce(consumidor, eventId, efecto)`, con la marca en Redis por 30 días. Si el efecto debe ser idempotente para siempre (por ejemplo, un cobro), se apoya además en una restricción única en la base.
-- **Eventos:** `booking.created`, `booking.confirmed`, `booking.cancelled`, `booking.expired`, `booking.attended`, `booking.no_show`, `payment.orphaned` y `payment.refund_decision_pending`.
+- **Eventos:** `booking.created`, `booking.confirmed`, `booking.cancelled`, `booking.expired`, `booking.attended`, `booking.no_show`, `payment.orphaned`, `refund.requested`, `refund.succeeded`, `refund.failed`, `barbershop.cancellation_recorded` y `barbershop.suspended`.
 - **Trabajos programados** (`SCHEDULED_JOBS_ENABLED`, activo por defecto; las e2e los apagan y los ejecutan a mano con el reloj fijo): el relay del outbox y el vencimiento de reservas sin pago.
 
 #### Reservas (Fase 7)
@@ -445,21 +445,62 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
 - **Pago (punto de unión, Fase 7):**
   - La fila `payments` (`PENDING`) se crea en la transacción de la reserva.
   - `PaymentGateway.createPayment` se llama después del commit, con `idempotencyKey = booking:{id}`. Si falla, la reserva existe igual y se reintenta con `POST /bookings/{id}/payment` (502 `PAYMENT_PROVIDER_ERROR` mientras siga fallando).
-  - La reserva pasa a `CONFIRMED` **solo** desde `PaymentsService.handleResult`, que en la Fase 8 llamará el webhook verificado; hoy lo llama un endpoint que solo existe con `NODE_ENV=test`.
+  - La reserva pasa a `CONFIRMED` **solo** desde `PaymentsService.applyPaymentResult`, que llaman el webhook verificado y la conciliación (nunca la app). Ver Fase 8A.
   - Un pago rechazado o cancelado lleva la reserva a `CANCELLED`, con el sistema como actor.
-  - Un pago confirmado sobre una reserva vencida o cancelada no la reactiva: queda `refundDecision: ORPHANED` y se emite el evento `payment.orphaned`.
+  - Un pago confirmado sobre una reserva vencida o cancelada no la reactiva: queda `refundDecision: ORPHANED`, se emite `payment.orphaned` y se devuelve completo.
   - La app no arranca en producción con `payments.provider = FAKE`.
 - **Cancelar (`POST /bookings/{id}/cancel`):**
   - el cliente, o el OWNER/MANAGER con motivo obligatorio; el barbero no (403);
-  - con `booking.cancellation_deadline_minutes = null` (provisional): el cliente cancela una `PENDING_PAYMENT` siempre y una `CONFIRMED` hasta que empiece; con un número N, hasta N minutos antes;
-  - la barbería cancela hasta que empiece;
+  - el cliente cancela una `PENDING_PAYMENT` siempre y una `CONFIRMED` hasta la hora de inicio; la devolución depende de la anticipación (Fase 8A). `booking.cancellation_deadline_minutes` se eliminó;
+  - la barbería cancela hasta la hora de inicio;
   - se guarda quién canceló (`cancelled_by`) y con qué rol (columna `cancelled_by_role`: `CLIENT`, `BARBERSHOP` o `SYSTEM`; un `CHECK` exige que exista si y solo si la reserva está `CANCELLED`);
-  - **no se devuelve dinero:** un pago cobrado queda con `refundDecision: PENDING_POLICY` y se emite `payment.refund_decision_pending`, a la espera de la política y de la Fase 8.
+  - la respuesta incluye la devolución aplicada; `GET /bookings/{id}/cancellation-preview` la muestra antes de confirmar.
 - **Consultar:**
   - `GET /me/bookings`, `GET /me/barber/bookings` y `GET /barbershops/{id}/bookings`, con `scope=upcoming|history` y cursor;
   - `GET /bookings/{id}`;
   - el barbero y el responsable ven solo el **nombre** del cliente (ni teléfono, ni correo, ni documento);
   - quien no tiene relación con la reserva recibe 404.
+
+#### Pagos y reembolsos (Fase 8A)
+
+- **Devolución al cancelar** (`refund-policy.ts`, función pura que usan la vista previa y la cancelación):
+  - la barbería cancela: total, siempre, con motivo obligatorio;
+  - el cliente cancela con `refunds.full_min_minutes` (300) o más de anticipación: total;
+  - con `refunds.partial_min_minutes` (120) o más: `refunds.partial_percent` (50 %), redondeado hacia abajo al céntimo;
+  - con menos: sin devolución, pero puede cancelar hasta la hora de inicio;
+  - la anticipación se mide desde la cancelación hasta `start_at`, con límites inclusivos;
+  - pago huérfano: devolución total automática.
+- **Reembolsos:**
+  - en la transacción de la cancelación se crea el `refund` `PENDING`, con `idempotency_key` única y `reason_type` (`CLIENT_CANCELLATION`, `BARBERSHOP_CANCELLATION`, `ORPHANED_PAYMENT` o `MANUAL`), y se publica `refund.requested`;
+  - el consumidor del outbox (`RefundExecutor`, idempotente) llama a `PaymentGateway.refund` fuera de la transacción; si la pasarela falla, el outbox reintenta;
+  - el webhook o la conciliación aplican el resultado (`applyRefundResult`); el pago pasa a `PARTIALLY_REFUNDED` o `REFUNDED`;
+  - un trigger impide que los reembolsos no fallidos de un pago superen su importe;
+  - el reembolso manual (`requestManualRefund`) queda auditado.
+- **Webhooks (`POST /payments/webhooks/{provider}`, público, perfil `webhooks`):**
+  1. firma verificada sobre el cuerpo **exacto** (`req.rawBody`, solo en las rutas de webhooks y de verificación), con comparación en tiempo constante; si es inválida, 401 sin efectos;
+  2. ventana de antigüedad **opcional por proveedor** (`webhookMaxAgeSeconds`; Izipay no envía marca de tiempo, así que ahí la protección es la idempotencia);
+  3. coherencia: pago existente, importe, moneda y modo (en producción nunca `TEST`); si no coincide, 409 auditado;
+  4. en una transacción, registro en `payment_events` (único por proveedor y evento) y aplicación. Un evento repetido responde 200 `duplicate: true`.
+- **Respuesta que reenvía la app** (`POST /bookings/{id}/payment/verify`): se verifica la firma, pero solo dispara la consulta al proveedor. Nunca confirma por sí sola.
+- **Conciliación (`ReconciliationService`):**
+  - corrige solo los casos inequívocos (pagado o reembolsado en la pasarela y `PENDING` en Charles), siempre mediante `applyPaymentResult` o `applyRefundResult`;
+  - los casos ambiguos (rechazado, importe distinto, reembolso fallido) solo se registran;
+  - todo queda en `audit_log`;
+  - corre cada `payments.pending_check_interval_minutes` (2) sobre los pagos iniciados (`payments.started_at`) y a diario a las 04:00 de Lima sobre todo lo pendiente antiguo, incluidos los reembolsos nunca enviados.
+- **Antes de vencer** una `PENDING_PAYMENT` con el pago iniciado (en el trabajo de vencimiento y al crear otra reserva sobre el turno), se consulta la pasarela fuera de la transacción: si estaba pagada, se confirma; si no responde, se vence y un pago posterior queda huérfano y se devuelve.
+- **Consulta:** `GET /bookings/{id}/payment` muestra el pago y sus reembolsos (solo el cliente).
+- **Comisión:** cada reserva lleva una línea `FEE` "Comisión de Charles" en 0 (`CHARLES_FEE_AMOUNT`).
+- **Cancelaciones de la barbería (sanción):**
+  - toda cancelación de la barbería, pagada o no, crea una fila en `barbershop_cancellation_reviews` (`PENDING_REVIEW`) en la misma transacción;
+  - `CancellationReviewsService.review` (solo `SUPPORT`; la pantalla es de la Fase 12) la califica `JUSTIFIED` o `UNJUSTIFIED`, una sola vez;
+  - con `barbershops.unjustified_cancellations_limit` (3) injustificadas en `barbershops.unjustified_cancellations_window_days` (30), contadas por fecha de cancelación, la barbería pasa a `SUSPENDED` en la misma transacción, con auditoría y evento;
+  - las reservas futuras de una barbería suspendida se dejan como están (Fase 12).
+- **No-show (`POST /bookings/{id}/no-show`):** lo marca el barbero asignado o la barbería, sobre una reserva `CONFIRMED`, desde `booking.no_show_after_minutes` (15) y hasta `booking.no_show_window_hours` (24) después del inicio. No hay devolución. Marcar asistencia es de la Fase 9.
+- **Compatibilidad con Izipay:**
+  - la interfaz `PaymentGateway` no asume errores HTTP (`PaymentGatewayError`);
+  - `parseWebhook` y `verifyClientResult` reciben el cuerpo sin procesar;
+  - el evento normalizado trae importe, moneda, modo e ID de transacción;
+  - referencia técnica en `docs/izipay/referencia.md`.
 
 ---
 
@@ -499,7 +540,7 @@ Servicio único `AvailabilityService`. Para una barbería, servicio, fecha y (op
 
 ## 11. Pruebas
 
-- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings` y `payments`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) en `search` con `pnpm --filter api test:cov:search` y en `bookings` + `payments` con `pnpm --filter api test:cov:bookings`; CI y `pnpm verify` fallan si alguna baja del 80 %.
+- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings` y `payments`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) en `search` con `pnpm --filter api test:cov:search` y en `bookings` + `payments` + `moderation` con `pnpm --filter api test:cov:bookings`; CI y `pnpm verify` fallan si alguna baja del 80 %.
 - e2e por cada RF de prioridad Alta, contra PostgreSQL real en Docker (no simular la base de datos).
 - **Prueba de concurrencia obligatoria** (RF-RES-007): dos peticiones simultáneas por el mismo turno → exactamente una tiene éxito. Está en `test/bookings/bookings.e2e-spec.ts`: 10 rondas por API, más las variantes de "cualquier barbero" y de la misma clave de idempotencia.
 - Pruebas de autorización: por cada endpoint privado, un caso que verifique que otro usuario **no** puede acceder.

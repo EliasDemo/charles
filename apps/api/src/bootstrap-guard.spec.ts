@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { assertRunnableEnvironment } from './bootstrap-guard';
 
 describe('Arranque de la app real: sin vías para saltarse las validaciones de producción', () => {
-  it('NODE_ENV=test no puede arrancar la app real (registraría el pago simulado)', () => {
+  it('NODE_ENV=test no puede arrancar la app real (omitiría las reglas de producción)', () => {
     expect(() => assertRunnableEnvironment('test')).toThrow(/NODE_ENV=test/);
   });
 
