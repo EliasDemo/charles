@@ -13,6 +13,8 @@ export const EncryptedField = {
   USER_BIRTH_DATE: 'charles/user.birth-date/v1',
   BARBER_PHONE: 'charles/barber.phone/v1',
   TICKET_MESSAGE_BODY: 'charles/ticket-message.body/v1',
+  /** Fase 10: token push del dispositivo. */
+  DEVICE_PUSH_TOKEN: 'charles/device.push-token/v1',
   /** Sucesor de un token de renovación, guardado unos segundos en Redis (gracia de rotación). */
   REFRESH_GRACE_SUCCESSOR: 'charles/refresh-grace.successor/v1',
   SPONSOR_CONTACT: 'charles/sponsor.contact/v1',
@@ -27,6 +29,8 @@ export const BlindIndexKind = {
   EMAIL: 'charles/blind-index/email/v1',
   PHONE: 'charles/blind-index/phone/v1',
   DOCUMENT: 'charles/blind-index/document/v1',
+  /** Fase 10: token push de Expo (unicidad sin guardarlo en claro). */
+  PUSH_TOKEN: 'charles/blind-index/push-token/v1',
 } as const;
 
 export type BlindIndexKind = (typeof BlindIndexKind)[keyof typeof BlindIndexKind];

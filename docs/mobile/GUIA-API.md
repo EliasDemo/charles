@@ -297,6 +297,10 @@ Las rutas son relativas a `/api/v1`. "Sesión" significa la cabecera `Authorizat
     - cancelar con motivo obligatorio: `POST /bookings/{id}/cancel` con `{ reason }`. Se devuelve todo y la cancelación queda registrada para revisión.
 11. **Responder valoraciones:** `PUT /reviews/{id}/response` con `{ text }` (hasta 500 caracteres). Una respuesta por valoración, editable con la misma llamada. El barbero no responde.
 
+### Notificaciones (todos)
+
+Ver [`PUSH.md`](PUSH.md): registrar el dispositivo (`PUT /me/devices`, token en el cuerpo), tipos de aviso y navegación, horario silencioso, preferencias y bandeja (`GET /me/notifications`).
+
 ### Ayuda y reportes (todos)
 
 1. **Tickets de soporte:** `POST /support/tickets` con `{ category, subject, message, relatedType?, relatedId? }` (relación opcional con una reserva, un pago o una barbería propios). Máximo 5 abiertos (429).
@@ -359,13 +363,12 @@ Reembolso: `PENDING` (enviado o por enviar a la pasarela), `SUCCEEDED` o `FAILED
 
 ## 7. Qué está disponible hoy y qué no
 
-| Fase               | Estado                                                                                                                                                                                                       | Qué deja preparado la app                                                                   |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| 1–7, 8A, 9, 11, 12 | **Disponible**: cuentas, barberías, servicios, barberos, horarios, disponibilidad, búsqueda, reservas, pagos con `FakeGateway`, reembolsos, asistencia, agenda, favoritos, valoraciones y tickets de soporte | —                                                                                           |
-| 8B                 | **Falta**: pago real con Izipay (SDK, `formToken`)                                                                                                                                                           | Pantalla de pago detrás de un módulo intercambiable; ver `PAGOS.md`                         |
-| 10                 | **Falta**: notificaciones push y correo real; registro de `device_tokens`                                                                                                                                    | Pedir el permiso de notificaciones y obtener el token del dispositivo, sin enviarlo todavía |
-| 13                 | **Falta**: promociones, cupones, auspiciadores y destacados                                                                                                                                                  | Hoy `featured` siempre es `false`; espacio para banners                                     |
-| 14                 | **Falta**: galería e imágenes (logo, portada, fotos de barberos y trabajos)                                                                                                                                  | Hoy no hay imágenes: usar marcadores                                                        |
-| 15–16              | **Falta**: planes de suscripción y membresías                                                                                                                                                                | —                                                                                           |
+| Fase            | Estado                                                                                                                                                                                                                                                     | Qué deja preparado la app                                           |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 1–12 (salvo 8B) | **Disponible**: cuentas, barberías, servicios, barberos, horarios, disponibilidad, búsqueda, reservas, pagos con `FakeGateway`, reembolsos, asistencia, agenda, favoritos, valoraciones, tickets de soporte y notificaciones (push simulado en desarrollo) | —                                                                   |
+| 8B              | **Falta**: pago real con Izipay (SDK, `formToken`)                                                                                                                                                                                                         | Pantalla de pago detrás de un módulo intercambiable; ver `PAGOS.md` |
+| 13              | **Falta**: promociones, cupones, auspiciadores y destacados                                                                                                                                                                                                | Hoy `featured` siempre es `false`; espacio para banners             |
+| 14              | **Falta**: galería e imágenes (logo, portada, fotos de barberos y trabajos)                                                                                                                                                                                | Hoy no hay imágenes: usar marcadores                                |
+| 15–16           | **Falta**: planes de suscripción y membresías                                                                                                                                                                                                              | —                                                                   |
 
 Estado detallado del proyecto: `docs/ESTADO.md`.

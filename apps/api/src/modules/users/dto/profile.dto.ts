@@ -3,6 +3,7 @@ import { Transform, Type } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
@@ -25,6 +26,14 @@ export class NotificationPreferencesDto {
   @ArrayUnique()
   @IsEnum(NotificationChannel, { each: true })
   notificationChannels!: NotificationChannel[];
+
+  @ApiPropertyOptional({
+    default: true,
+    description: 'Fase 10: recordatorios de citas (24 y 2 h antes). Por defecto activos.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  reminders?: boolean;
 }
 
 /** RF-CLI-002: solo nombre, teléfono y preferencias. El correo no se puede cambiar en el MVP. */

@@ -41,6 +41,11 @@ export const SettingKey = {
   SUPPORT_TICKET_AUTO_CLOSE_DAYS: 'support.ticket_auto_close_days',
   SUPPORT_MAX_OPEN_TICKETS_PER_USER: 'support.max_open_tickets_per_user',
   SUPPORT_SUSPENSION_KEEP_HOURS: 'support.suspension_keep_hours',
+  NOTIFICATIONS_REMINDER_HOURS: 'notifications.reminder_hours',
+  NOTIFICATIONS_QUIET_START: 'notifications.quiet_start',
+  NOTIFICATIONS_QUIET_END: 'notifications.quiet_end',
+  NOTIFICATIONS_RETENTION_DAYS: 'notifications.retention_days',
+  NOTIFICATIONS_MAX_DEVICES_PER_USER: 'notifications.max_devices_per_user',
 } as const;
 
 /** Lectura de `app_settings` (clave/valor). Las políticas pendientes valen JSON `null`. */

@@ -1,5 +1,6 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
+import { OutboxService } from '../../common/outbox/outbox.service';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
@@ -62,6 +63,7 @@ export class ReviewsService {
     private readonly access: BarbershopAccessService,
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
+    private readonly outbox: OutboxService,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
@@ -108,6 +110,12 @@ export class ReviewsService {
           select: { id: true },
         });
         await this.ratings.recalculate(tx, booking.barbershop_id, booking.barber_id);
+        // Fase 10: aviso a la barbería.
+        await this.outbox.publish(tx, 'review.created', {
+          reviewId: review.id,
+          barbershopId: booking.barbershop_id,
+          rating: dto.rating,
+        });
         return review.id;
       });
     } catch (error) {

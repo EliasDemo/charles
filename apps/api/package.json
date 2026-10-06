@@ -23,7 +23,8 @@
     "test:load:race": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-load.config.ts --runInBand",
     "test:cov:bookings": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e-coverage-bookings.config.ts --runInBand",
     "test:cov:reviews": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e-coverage-reviews.config.ts --runInBand",
-    "test:cov:admin": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e-coverage-admin.config.ts --runInBand"
+    "test:cov:admin": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e-coverage-admin.config.ts --runInBand",
+    "test:cov:notifications": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e-coverage-notifications.config.ts --runInBand"
   },
   "dependencies": {
     "@nest-lab/throttler-storage-redis": "1.2.0",

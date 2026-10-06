@@ -1,0 +1,407 @@
+import { DateTime } from 'luxon';
+import type { NotificationChannel } from '../../generated/prisma/enums';
+
+/**
+ * Catálogo de avisos (Fase 10, RF-NOT-001…004): quién recibe cada uno, por qué canales y con qué
+ * texto (solo español, plantillas en el backend). Funciones puras: se prueban aisladas.
+ *
+ * Reglas de contenido:
+ * - El **push** no lleva datos sensibles (ni montos, ni nombres, ni motivos): solo lo necesario
+ *   para que la persona abra la app.
+ * - La bandeja y el correo pueden dar detalle (servicio, barbería, hora, monto devuelto), nunca
+ *   el nombre completo ni el contacto de otra persona.
+ * - Todo aviso lleva `resource` (tipo e ID) para que la app abra la pantalla correcta.
+ */
+
+export type NotificationType =
+  | 'BOOKING_CONFIRMED'
+  | 'NEW_BOOKING'
+  | 'BOOKING_CANCELLED'
+  | 'BOOKING_CANCELLED_BY_CLIENT'
+  | 'BOOKING_CANCELLED_BY_BARBERSHOP'
+  | 'BOOKING_CANCELLED_BY_SUPPORT'
+  | 'PAYMENT_REJECTED'
+  | 'BOOKING_EXPIRED'
+  | 'NO_SHOW'
+  | 'BOOKING_REMINDER'
+  | 'REFUND_COMPLETED'
+  | 'REFUND_FAILED'
+  | 'NEW_REVIEW'
+  | 'SUPPORT_REPLY'
+  | 'ACCOUNT_DISABLED'
+  | 'BARBERSHOP_SUSPENDED';
+
+export type ResourceType = 'booking' | 'review' | 'ticket' | 'barbershop' | 'account';
+
+export interface Text {
+  title: string;
+  body: string;
+}
+
+export interface PlannedNotification {
+  userId: string;
+  type: NotificationType;
+  channels: NotificationChannel[];
+  /** Seguridad y pagos: se envían aunque la persona haya apagado ese canal. */
+  mandatory: boolean;
+  /** Urgente: el push no espera al fin del horario silencioso. */
+  urgent: boolean;
+  /** Recordatorio: depende además del interruptor de recordatorios. */
+  reminder?: boolean;
+  push: Text;
+  detail: Text;
+  email?: { subject: string; text: string };
+  resource: { type: ResourceType; id: string | null };
+}
+
+export interface BookingContext {
+  bookingId: string;
+  clientId: string;
+  /** Cuenta vinculada al barbero asignado, si la tiene. */
+  barberUserId: string | null;
+  /** OWNER y MANAGER de la barbería. */
+  staffIds: string[];
+  barbershopName: string;
+  timezone: string;
+  startAt: number;
+  serviceName: string;
+  /** Devolución pedida por esta cancelación, si la hay. */
+  refund: { amount: number; currency: string } | null;
+}
+
+export interface BookingEvent {
+  status: string;
+  from: string | null;
+  actorRole: string | null;
+}
+
+const ALL: NotificationChannel[] = ['PUSH', 'IN_APP', 'EMAIL'];
+const PUSH_APP: NotificationChannel[] = ['PUSH', 'IN_APP'];
+const APP: NotificationChannel[] = ['IN_APP'];
+const APP_EMAIL: NotificationChannel[] = ['IN_APP', 'EMAIL'];
+const EMAIL: NotificationChannel[] = ['EMAIL'];
+const DAY = 24 * 3_600_000;
+
+export function formatWhen(ms: number, timezone: string): string {
+  return DateTime.fromMillis(ms, { zone: timezone })
+    .setLocale('es')
+    .toFormat("cccc d 'de' LLLL 'a las' HH:mm");
+}
+
+export function formatMoney(amount: number, currency: string): string {
+  const value = (amount / 100).toFixed(2);
+  return currency === 'PEN' ? `S/ ${value}` : `${currency} ${value}`;
+}
+
+const emailFooter = '\n\nPuedes ver el detalle en la app de Charles.';
+
+/** Avisos de un cambio de estado de reserva (`booking.*` del outbox). */
+export function planBookingEvent(
+  event: BookingEvent,
+  ctx: BookingContext,
+  now: number,
+): PlannedNotification[] {
+  const when = formatWhen(ctx.startAt, ctx.timezone);
+  const what = `${ctx.serviceName} en ${ctx.barbershopName}, ${when}`;
+  const resource = { type: 'booking' as const, id: ctx.bookingId };
+  const soon = ctx.startAt - now <= DAY;
+  const refundText =
+    ctx.refund && ctx.refund.amount > 0
+      ? ` Te devolveremos ${formatMoney(ctx.refund.amount, ctx.refund.currency)}.`
+      : '';
+  const plans: PlannedNotification[] = [];
+  const add = (p: Omit<PlannedNotification, 'resource'>) => plans.push({ ...p, resource });
+
+  const toBarberAndStaff = (
+    type: NotificationType,
+    push: Text,
+    detail: Text,
+    barberChannels: NotificationChannel[],
+    staffChannels: NotificationChannel[] | null,
+    urgent: boolean,
+  ) => {
+    if (ctx.barberUserId) {
+      add({
+        userId: ctx.barberUserId,
+        type,
+        channels: barberChannels,
+        mandatory: false,
+        urgent,
+        push,
+        detail,
+        ...(barberChannels.includes('EMAIL')
+          ? { email: { subject: detail.title, text: `${detail.body}${emailFooter}` } }
+          : {}),
+      });
+    }
+    if (staffChannels) {
+      for (const userId of ctx.staffIds) {
+        add({ userId, type, channels: staffChannels, mandatory: false, urgent, push, detail });
+      }
+    }
+  };
+
+  switch (event.status) {
+    case 'CONFIRMED': {
+      const detail = { title: 'Reserva confirmada', body: `${what}.` };
+      add({
+        userId: ctx.clientId,
+        type: 'BOOKING_CONFIRMED',
+        channels: ALL,
+        mandatory: false,
+        urgent: soon,
+        push: { title: 'Reserva confirmada', body: 'Toca para ver los detalles.' },
+        detail,
+        email: {
+          subject: 'Tu reserva está confirmada',
+          text: `Tu reserva está confirmada: ${what}.${emailFooter}`,
+        },
+      });
+      toBarberAndStaff(
+        'NEW_BOOKING',
+        { title: 'Nueva reserva', body: 'Toca para ver la agenda.' },
+        { title: 'Nueva reserva', body: `${ctx.serviceName}, ${when}.` },
+        ALL,
+        PUSH_APP,
+        soon,
+      );
+      break;
+    }
+    case 'CANCELLED': {
+      if (event.from === 'PENDING_PAYMENT') {
+        // Pago rechazado (lo cancela el sistema). La cancelación propia de algo no pagado no avisa.
+        if (event.actorRole === 'SYSTEM') {
+          add({
+            userId: ctx.clientId,
+            type: 'PAYMENT_REJECTED',
+            channels: PUSH_APP,
+            mandatory: true,
+            urgent: true,
+            push: { title: 'Pago no confirmado', body: 'Toca para ver los detalles.' },
+            detail: {
+              title: 'No pudimos confirmar tu pago',
+              body: `La reserva de ${what} se canceló porque el pago fue rechazado.`,
+            },
+          });
+        }
+        break;
+      }
+      const cancelledPush = { title: 'Reserva cancelada', body: 'Toca para ver los detalles.' };
+      if (event.actorRole === 'CLIENT') {
+        add({
+          userId: ctx.clientId,
+          type: 'BOOKING_CANCELLED',
+          channels: ALL,
+          mandatory: false,
+          urgent: soon,
+          push: cancelledPush,
+          detail: { title: 'Cancelaste tu reserva', body: `${what}.${refundText}` },
+          email: {
+            subject: 'Cancelaste tu reserva',
+            text: `Cancelaste tu reserva: ${what}.${refundText}${emailFooter}`,
+          },
+        });
+        toBarberAndStaff(
+          'BOOKING_CANCELLED_BY_CLIENT',
+          cancelledPush,
+          { title: 'El cliente canceló una reserva', body: `${ctx.serviceName}, ${when}.` },
+          PUSH_APP,
+          PUSH_APP,
+          soon,
+        );
+      } else if (event.actorRole === 'BARBERSHOP' || event.actorRole === 'SUPPORT') {
+        const bySupport = event.actorRole === 'SUPPORT';
+        const detail = {
+          title: bySupport ? 'Tu reserva fue cancelada' : 'La barbería canceló tu reserva',
+          body: `${what}.${refundText || ' No había pagos que devolver.'}`,
+        };
+        add({
+          userId: ctx.clientId,
+          type: bySupport ? 'BOOKING_CANCELLED_BY_SUPPORT' : 'BOOKING_CANCELLED_BY_BARBERSHOP',
+          channels: ALL,
+          mandatory: true,
+          urgent: soon,
+          push: cancelledPush,
+          detail,
+          email: { subject: detail.title, text: `${detail.title}: ${detail.body}${emailFooter}` },
+        });
+        toBarberAndStaff(
+          'BOOKING_CANCELLED',
+          cancelledPush,
+          { title: 'Reserva cancelada', body: `${ctx.serviceName}, ${when}.` },
+          bySupport ? APP : PUSH_APP,
+          null,
+          soon,
+        );
+      }
+      break;
+    }
+    case 'EXPIRED':
+      add({
+        userId: ctx.clientId,
+        type: 'BOOKING_EXPIRED',
+        channels: PUSH_APP,
+        mandatory: true,
+        urgent: true,
+        push: { title: 'Reserva vencida', body: 'Toca para ver los detalles.' },
+        detail: {
+          title: 'Tu reserva venció',
+          body: `La reserva de ${what} venció porque no se completó el pago a tiempo.`,
+        },
+      });
+      break;
+    case 'NO_SHOW':
+      add({
+        userId: ctx.clientId,
+        type: 'NO_SHOW',
+        channels: APP,
+        mandatory: false,
+        urgent: false,
+        push: { title: 'Reserva no asistida', body: 'Toca para ver los detalles.' },
+        detail: {
+          title: 'Reserva marcada como no asistida',
+          body: `La barbería marcó que no asististe a ${what}. Si es un error, escribe a soporte.`,
+        },
+      });
+      break;
+  }
+  return dedupeByUser(plans);
+}
+
+/** Recordatorio de una reserva confirmada. */
+export function planReminder(ctx: BookingContext, hours: number): PlannedNotification {
+  const when = formatWhen(ctx.startAt, ctx.timezone);
+  return {
+    userId: ctx.clientId,
+    type: 'BOOKING_REMINDER',
+    channels: PUSH_APP,
+    mandatory: false,
+    urgent: true, // su hora ya respeta el horario silencioso
+    reminder: true,
+    push: { title: 'Recordatorio de tu cita', body: 'Toca para ver los detalles.' },
+    detail: {
+      title: hours >= 24 ? 'Tu cita es mañana' : 'Tu cita es pronto',
+      body: `${ctx.serviceName} en ${ctx.barbershopName}, ${when}.`,
+    },
+    resource: { type: 'booking', id: ctx.bookingId },
+  };
+}
+
+export function planRefund(input: {
+  outcome: 'SUCCEEDED' | 'FAILED';
+  clientId: string;
+  bookingId: string;
+  amount: number;
+  currency: string;
+}): PlannedNotification {
+  const money = formatMoney(input.amount, input.currency);
+  const detail =
+    input.outcome === 'SUCCEEDED'
+      ? {
+          title: 'Devolución completada',
+          body: `Te devolvimos ${money}. Puede tardar unos días en verse en tu cuenta o tarjeta.`,
+        }
+      : {
+          title: 'No pudimos completar tu devolución',
+          body: `La devolución de ${money} no se pudo completar. Soporte la revisará y te contactará.`,
+        };
+  return {
+    userId: input.clientId,
+    type: input.outcome === 'SUCCEEDED' ? 'REFUND_COMPLETED' : 'REFUND_FAILED',
+    channels: APP_EMAIL,
+    mandatory: true,
+    urgent: false,
+    push: { title: detail.title, body: 'Toca para ver los detalles.' },
+    detail,
+    email: { subject: detail.title, text: `${detail.body}${emailFooter}` },
+    resource: { type: 'booking', id: input.bookingId },
+  };
+}
+
+export function planNewReview(input: {
+  staffIds: string[];
+  reviewId: string;
+  rating: number;
+}): PlannedNotification[] {
+  return input.staffIds.map((userId) => ({
+    userId,
+    type: 'NEW_REVIEW' as const,
+    channels: APP,
+    mandatory: false,
+    urgent: false,
+    push: { title: 'Nueva valoración', body: 'Toca para verla.' },
+    detail: {
+      title: 'Nueva valoración',
+      body: `Recibiste una valoración de ${input.rating} ${input.rating === 1 ? 'estrella' : 'estrellas'}.`,
+    },
+    resource: { type: 'review' as const, id: input.reviewId },
+  }));
+}
+
+export function planSupportReply(input: {
+  userId: string;
+  ticketId: string;
+  subject: string;
+}): PlannedNotification {
+  return {
+    userId: input.userId,
+    type: 'SUPPORT_REPLY',
+    channels: PUSH_APP,
+    mandatory: false,
+    urgent: false,
+    push: { title: 'Soporte respondió', body: 'Toca para ver tu solicitud.' },
+    detail: {
+      title: 'Soporte respondió',
+      body: `Hay una respuesta en tu solicitud «${input.subject}».`,
+    },
+    resource: { type: 'ticket', id: input.ticketId },
+  };
+}
+
+export function planAccountDisabled(userId: string): PlannedNotification {
+  const body =
+    'Tu cuenta de Charles fue deshabilitada. Si crees que es un error, escribe a soporte desde la ' +
+    'opción «Ayuda» de la app, con tu correo y tu contraseña.';
+  return {
+    userId,
+    type: 'ACCOUNT_DISABLED',
+    channels: EMAIL,
+    mandatory: true,
+    urgent: true,
+    push: { title: 'Cuenta deshabilitada', body: 'Abre la app para más información.' },
+    detail: { title: 'Cuenta deshabilitada', body },
+    email: { subject: 'Tu cuenta de Charles fue deshabilitada', text: body },
+    resource: { type: 'account', id: null },
+  };
+}
+
+export function planBarbershopSuspended(input: {
+  staffIds: string[];
+  barbershopId: string;
+  barbershopName: string;
+}): PlannedNotification[] {
+  const body =
+    `${input.barbershopName} fue suspendida y no recibe reservas nuevas. ` +
+    'Para más información, escribe a soporte desde la app.';
+  return input.staffIds.map((userId) => ({
+    userId,
+    type: 'BARBERSHOP_SUSPENDED' as const,
+    channels: APP_EMAIL,
+    mandatory: true,
+    urgent: true,
+    push: { title: 'Barbería suspendida', body: 'Abre la app para más información.' },
+    detail: { title: 'Tu barbería fue suspendida', body },
+    email: { subject: 'Tu barbería fue suspendida', text: body },
+    resource: { type: 'barbershop' as const, id: input.barbershopId },
+  }));
+}
+
+/** Una persona con varios papeles (p. ej. dueña y barbera) recibe un solo aviso: el primero. */
+function dedupeByUser(plans: PlannedNotification[]): PlannedNotification[] {
+  const seen = new Set<string>();
+  return plans.filter((p) => {
+    if (seen.has(p.userId)) return false;
+    seen.add(p.userId);
+    return true;
+  });
+}

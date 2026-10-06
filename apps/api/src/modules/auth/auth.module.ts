@@ -1,5 +1,6 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { DevicesModule } from '../notifications/devices.module';
 import { SettingsModule } from '../settings/settings.module';
 import { UsersModule } from '../users/users.module';
 import { AccountRecoveryService } from './account-recovery.service';
@@ -13,7 +14,12 @@ import { OneTimeCodesService } from './one-time-codes.service';
 import { SessionsService } from './sessions.service';
 
 @Module({
-  imports: [UsersModule, SettingsModule, BullModule.registerQueue({ name: AUTH_MAIL_QUEUE })],
+  imports: [
+    UsersModule,
+    SettingsModule,
+    DevicesModule,
+    BullModule.registerQueue({ name: AUTH_MAIL_QUEUE }),
+  ],
   controllers: [AuthController],
   providers: [
     AuthService,

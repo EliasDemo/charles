@@ -161,6 +161,15 @@ enum ReviewReportTarget {
   RESPONSE
 }
 
+/// Fase 10: estado de entrega de una notificación (IN_APP nace SENT).
+enum NotificationStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
 enum NotificationChannel {
   PUSH
   EMAIL
@@ -329,17 +338,23 @@ model PasswordResetToken {
 }
 
 model DeviceToken {
-  id         String         @id @default(uuid(7)) @db.Uuid
-  userId     String         @map("user_id") @db.Uuid
-  platform   DevicePlatform
-  pushToken  String         @unique @map("push_token")
-  lastSeenAt DateTime       @default(now()) @map("last_seen_at") @db.Timestamptz(3)
-  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt  DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id            String         @id @default(uuid(7)) @db.Uuid
+  userId        String         @map("user_id") @db.Uuid
+  platform      DevicePlatform
+  /// Fase 10: token de Expo cifrado (nunca en claro ni en logs) e índice ciego para unicidad.
+  pushTokenEnc  String         @map("push_token_enc")
+  pushTokenHash Bytes          @unique @map("push_token_hash")
+  appVersion    String?        @map("app_version")
+  /// Sesión que lo registró: al cerrarla se borra el token.
+  sessionId     String?        @map("session_id") @db.Uuid
+  lastSeenAt    DateTime       @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  @@index([userId, lastSeenAt])
+  @@index([sessionId])
   @@map("device_tokens")
 }
 
@@ -861,21 +876,35 @@ model ReviewReport {
 }
 
 model Notification {
-  id        String              @id @default(uuid(7)) @db.Uuid
-  userId    String              @map("user_id") @db.Uuid
-  type      String
-  title     String
-  body      String
-  data      Json                @default("{}")
-  channel   NotificationChannel
-  sentAt    DateTime?           @map("sent_at") @db.Timestamptz(3)
-  readAt    DateTime?           @map("read_at") @db.Timestamptz(3)
-  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id           String              @id @default(uuid(7)) @db.Uuid
+  userId       String              @map("user_id") @db.Uuid
+  type         String
+  title        String
+  body         String
+  /// Navegación para la app: `{ resource: { type, id } }` y datos del aviso.
+  data         Json                @default("{}")
+  channel      NotificationChannel
+  /// Fase 10: idempotencia (evento o recordatorio); única por usuario y canal.
+  dedupeKey    String              @map("dedupe_key")
+  status       NotificationStatus  @default(PENDING)
+  /// No se envía antes (horario silencioso o reintento con espera).
+  sendAfter    DateTime            @default(now()) @map("send_after") @db.Timestamptz(3)
+  attempts     Int                 @default(0)
+  claimedAt    DateTime?           @map("claimed_at") @db.Timestamptz(3)
+  /// Código del último error (nunca el contenido).
+  lastError    String?             @map("last_error")
+  /// Datos del proveedor (por ejemplo, tickets de Expo para consultar recibos).
+  providerData Json                @default("{}") @map("provider_data")
+  sentAt       DateTime?           @map("sent_at") @db.Timestamptz(3)
+  readAt       DateTime?           @map("read_at") @db.Timestamptz(3)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id])
 
+  @@unique([userId, dedupeKey, channel])
   @@index([userId, readAt])
+  @@index([createdAt])
   @@map("notifications")
 }
 

@@ -11,6 +11,7 @@ import type { StaffActor } from './admin-access';
 export type SettingSchema =
   | { type: 'integer'; min: number; max: number; multipleOf?: number }
   | { type: 'boolean' }
+  | { type: 'integerList'; min: number; max: number; minItems: number; maxItems: number }
   | { type: 'string'; minLength: number; maxLength: number; pattern?: RegExp };
 
 interface SettingRule {
@@ -23,6 +24,13 @@ const int = (min: number, max: number, multipleOf?: number): SettingRule => ({
   schema: { type: 'integer', min, max, ...(multipleOf ? { multipleOf } : {}) },
 });
 const readOnly = (why: string): SettingRule => ({ readOnly: why });
+
+const HH_MM: SettingSchema = {
+  type: 'string',
+  minLength: 5,
+  maxLength: 5,
+  pattern: /^([01]\d|2[0-3]):[0-5]\d$/,
+};
 
 const SECURITY = 'Ajuste de seguridad: se cambia por despliegue, no desde el panel.';
 const PAYMENTS = 'Ajuste de pagos sensible: se cambia por despliegue, no desde el panel.';
@@ -76,6 +84,13 @@ export const SETTING_RULES: Readonly<Record<string, SettingRule>> = {
   [SettingKey.SUPPORT_TICKET_AUTO_CLOSE_DAYS]: int(1, 90),
   [SettingKey.SUPPORT_MAX_OPEN_TICKETS_PER_USER]: int(1, 50),
   [SettingKey.SUPPORT_SUSPENSION_KEEP_HOURS]: int(1, 720),
+  [SettingKey.NOTIFICATIONS_REMINDER_HOURS]: {
+    schema: { type: 'integerList', min: 1, max: 168, minItems: 0, maxItems: 4 },
+  },
+  [SettingKey.NOTIFICATIONS_QUIET_START]: { schema: HH_MM },
+  [SettingKey.NOTIFICATIONS_QUIET_END]: { schema: HH_MM },
+  [SettingKey.NOTIFICATIONS_RETENTION_DAYS]: int(7, 365),
+  [SettingKey.NOTIFICATIONS_MAX_DEVICES_PER_USER]: int(1, 50),
 };
 
 /** Ajustes que deben ser coherentes entre sí: se valida el conjunto con el valor nuevo. */
@@ -117,6 +132,21 @@ export function schemaViolation(schema: SettingSchema, value: unknown): string |
   switch (schema.type) {
     case 'boolean':
       return typeof value === 'boolean' ? null : 'Debe ser verdadero o falso.';
+    case 'integerList':
+      if (
+        !Array.isArray(value) ||
+        value.some((v) => typeof v !== 'number' || !Number.isInteger(v))
+      ) {
+        return 'Debe ser una lista de números enteros.';
+      }
+      if (value.length < schema.minItems || value.length > schema.maxItems) {
+        return `Debe tener entre ${schema.minItems} y ${schema.maxItems} valores.`;
+      }
+      if ((value as number[]).some((v) => v < schema.min || v > schema.max)) {
+        return `Cada valor debe estar entre ${schema.min} y ${schema.max}.`;
+      }
+      if (new Set(value).size !== value.length) return 'No puede tener valores repetidos.';
+      return null;
     case 'integer':
       if (typeof value !== 'number' || !Number.isInteger(value))
         return 'Debe ser un número entero.';

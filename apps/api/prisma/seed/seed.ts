@@ -341,6 +341,32 @@ export const SEED_SETTINGS: {
       'Al suspender una barbería con la opción por defecto, se mantienen las reservas de estas próximas horas y se cancelan las demás.',
   },
   {
+    key: 'notifications.reminder_hours',
+    value: [24, 2],
+    description:
+      'Horas antes del inicio en que se envían los recordatorios. Si caen en el horario silencioso, se adelantan.',
+  },
+  {
+    key: 'notifications.quiet_start',
+    value: '22:00',
+    description: 'Inicio del horario silencioso (hora local de la barbería): sin push no urgentes.',
+  },
+  {
+    key: 'notifications.quiet_end',
+    value: '08:00',
+    description: 'Fin del horario silencioso (hora local de la barbería).',
+  },
+  {
+    key: 'notifications.retention_days',
+    value: 90,
+    description: 'Días que se conservan los avisos de la bandeja.',
+  },
+  {
+    key: 'notifications.max_devices_per_user',
+    value: 10,
+    description: 'Dispositivos con push por cuenta; al pasarse, se borran los menos usados.',
+  },
+  {
     key: 'payments.webhook_rate_limit_per_minute',
     value: 600,
     description:

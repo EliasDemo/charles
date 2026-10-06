@@ -15,6 +15,7 @@ import { ConflictOfInterestService, type StaffActor } from './admin-access';
 import type {
   AdminBookingDto,
   AdminCancellationReviewDto,
+  AdminFailedRefundDto,
   AdminReviewDto,
   CancellationReviewQueryDto,
   ManualRefundDto,
@@ -138,6 +139,26 @@ export class AdminOperationsService {
       reason: dto.reason,
     });
     return { refundId };
+  }
+
+  /** Fase 10: reembolsos fallidos en la pasarela, para que soporte los resuelva. */
+  async failedRefunds(query: PaginationQueryDto): Promise<Page<AdminFailedRefundDto>> {
+    const args = pageArgs(query);
+    const rows = await this.prisma.refund.findMany({
+      where: { ...args.where, status: 'FAILED' },
+      orderBy: args.orderBy,
+      take: args.take,
+      include: { payment: { select: { id: true, currency: true, bookingId: true } } },
+    });
+    return toPage(rows, query, (r) => ({
+      id: r.id,
+      amount: r.amount,
+      currency: r.payment.currency,
+      reasonType: r.reasonType,
+      paymentId: r.payment.id,
+      bookingId: r.payment.bookingId,
+      createdAt: r.createdAt.toISOString(),
+    }));
   }
 
   // ───────────── Cancelaciones de barberías (8A) ─────────────

@@ -76,7 +76,7 @@ describe('validateEnv', () => {
   });
 
   describe('producción', () => {
-    it('con TLS, sin Swagger y CORS https, el único bloqueo es el correo simulado (Fase 10)', () => {
+    it('con TLS, sin Swagger y CORS https, solo bloquean el correo y el push simulados', () => {
       let message = '';
       try {
         validateEnv(production);
@@ -86,7 +86,19 @@ describe('validateEnv', () => {
       const problems = message.split('\n').filter((line) => line.startsWith(' - '));
       expect(problems).toEqual([
         ' - MAILER_DRIVER: el correo simulado no se permite en producción',
+        ' - PUSH_DRIVER: el push simulado no se permite en producción',
       ]);
+    });
+
+    it('Fase 10: con PUSH_DRIVER=expo el push ya no bloquea; el token de Expo es opcional', () => {
+      let message = '';
+      try {
+        validateEnv({ ...production, PUSH_DRIVER: 'expo' });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).not.toContain('PUSH_DRIVER');
+      expect(() => validateEnv({ ...production, PUSH_DRIVER: 'apns' })).toThrow(/PUSH_DRIVER/);
     });
 
     it('exige la clave JWT', () => {

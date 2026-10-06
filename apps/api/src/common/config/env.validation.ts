@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsOptional,
   IsString,
   Matches,
   Max,
@@ -22,6 +23,14 @@ export enum NodeEnv {
 export enum MailerDriver {
   /** Simulado: guarda los correos en Redis. Prohibido en producción (proveedor real: Fase 10). */
   Fake = 'fake',
+}
+
+/** Fase 10: envío de notificaciones push. */
+export enum PushDriver {
+  /** Simulado: guarda los envíos en Redis. Prohibido en producción. */
+  Fake = 'fake',
+  /** Expo Push Service (la app es Expo; entrega a iOS y Android). */
+  Expo = 'expo',
 }
 
 export enum LogLevel {
@@ -145,6 +154,17 @@ export class EnvironmentVariables {
   @IsEnum(MailerDriver)
   MAILER_DRIVER: MailerDriver = MailerDriver.Fake;
 
+  @IsEnum(PushDriver)
+  PUSH_DRIVER: PushDriver = PushDriver.Fake;
+
+  /**
+   * Token de acceso de Expo (opcional; obligatorio si se activa "enhanced push security" en el
+   * proyecto de Expo). Secreto: solo en `.env`.
+   */
+  @IsOptional()
+  @IsString()
+  EXPO_ACCESS_TOKEN?: string;
+
   /**
    * Trabajos programados (vencer reservas sin pago, publicar el outbox). Las e2e los apagan y
    * ejecutan cada trabajo a mano, con el reloj fijo.
@@ -180,6 +200,7 @@ export interface AppConfig {
     refreshTokenGraceSeconds: number;
   };
   mail: { driver: MailerDriver };
+  push: { driver: PushDriver; expoAccessToken: string | null };
   scheduledJobsEnabled: boolean;
 }
 
@@ -265,6 +286,9 @@ function productionErrors(env: EnvironmentVariables, corsOrigins: string[]): str
   if (env.MAILER_DRIVER === MailerDriver.Fake) {
     errors.push('MAILER_DRIVER: el correo simulado no se permite en producción');
   }
+  if (env.PUSH_DRIVER === PushDriver.Fake) {
+    errors.push('PUSH_DRIVER: el push simulado no se permite en producción');
+  }
   if (corsOrigins.some((o) => !o.startsWith('https://'))) {
     errors.push('CORS_ORIGINS: en producción todos los orígenes deben usar https');
   }
@@ -325,6 +349,7 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
       refreshTokenGraceSeconds: env.REFRESH_TOKEN_GRACE_SECONDS,
     },
     mail: { driver: env.MAILER_DRIVER },
+    push: { driver: env.PUSH_DRIVER, expoAccessToken: env.EXPO_ACCESS_TOKEN || null },
     scheduledJobsEnabled: env.SCHEDULED_JOBS_ENABLED,
   };
 }

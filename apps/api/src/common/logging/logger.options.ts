@@ -22,6 +22,7 @@ export const SENSITIVE_KEYS = [
   'token',
   'accessToken',
   'refreshToken',
+  'pushToken',
   'idToken',
   'resetToken',
   'secret',

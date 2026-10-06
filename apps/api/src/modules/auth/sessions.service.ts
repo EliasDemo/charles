@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import type Redis from 'ioredis';
 import { AuditService } from '../../common/audit/audit.service';
+import { DevicesService } from '../notifications/devices.service';
 import { SessionRevocationStore } from '../../common/auth/session-revocation.store';
 import { APP_CONFIG } from '../../common/config/app-config.token';
 import type { AppConfig } from '../../common/config/env.validation';
@@ -56,6 +57,7 @@ export class SessionsService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly encryption: EncryptionService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly devices: DevicesService,
   ) {}
 
   async create(userId: string, deviceInfo?: Prisma.InputJsonValue): Promise<IssuedRefreshToken> {
@@ -189,6 +191,8 @@ export class SessionsService {
       where: { userId, familyId: sessionId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    // Fase 10: el dispositivo de esa sesión deja de recibir push.
+    await this.devices.removeForSessions(userId, [sessionId]);
     await this.revocations.revoke([sessionId]);
   }
 
@@ -214,6 +218,8 @@ export class SessionsService {
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    // Fase 10: sin sesiones, ningún dispositivo recibe push.
+    await this.devices.removeAllForUser(userId, tx);
     return families.map((f) => f.familyId);
   }
 
@@ -227,6 +233,7 @@ export class SessionsService {
       where: { familyId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    await this.devices.removeForSessions(userId, [familyId]);
     await this.revocations.revoke([familyId]);
     await this.audit.record({
       actorId: userId,

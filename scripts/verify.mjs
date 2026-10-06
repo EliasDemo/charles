@@ -20,6 +20,11 @@ const steps = [
   ['Cobertura de reviews (mínimo 80 %)', 'pnpm', ['--filter', 'api', 'test:cov:reviews']],
   ['Cobertura de admin y support (mínimo 80 %)', 'pnpm', ['--filter', 'api', 'test:cov:admin']],
   [
+    'Cobertura de notifications (mínimo 80 %)',
+    'pnpm',
+    ['--filter', 'api', 'test:cov:notifications'],
+  ],
+  [
     'Generar OpenAPI y tipos de packages/shared',
     'pnpm',
     ['--filter', '@charles/shared', 'generate'],

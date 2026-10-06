@@ -1,5 +1,6 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
+import { OutboxService } from '../../common/outbox/outbox.service';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { EncryptedField } from '../../common/crypto/encryption-contexts';
 import { EncryptionService } from '../../common/crypto/encryption.service';
@@ -74,6 +75,7 @@ export class TicketsService {
     private readonly users: UsersService,
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
+    private readonly outbox: OutboxService,
     private readonly conflicts: ConflictOfInterestService,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
@@ -309,6 +311,10 @@ export class TicketsService {
       if (ticket.status === 'CLOSED') throw ticketClosed();
       const internal = dto.isInternal ?? false;
       await this.addMessage(tx, ticketId, staff.id, dto.body, internal);
+      if (!internal) {
+        // Fase 10: aviso al usuario (nunca por una nota interna).
+        await this.outbox.publish(tx, 'ticket.replied', { ticketId, userId: ticket.user_id });
+      }
       if (!internal && ticket.status === 'OPEN') {
         await tx.supportTicket.update({
           where: { id: ticketId },

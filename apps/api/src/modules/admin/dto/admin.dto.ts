@@ -545,3 +545,34 @@ export class RefundRequestedDto {
   @ApiProperty({ format: 'uuid' })
   refundId!: string;
 }
+
+export class AdminFailedRefundDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  amount!: number;
+
+  @ApiProperty()
+  currency!: string;
+
+  @ApiProperty()
+  reasonType!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  paymentId!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  bookingId!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  createdAt!: string;
+}
+
+export class AdminFailedRefundPageDto {
+  @ApiProperty({ type: [AdminFailedRefundDto] })
+  items!: AdminFailedRefundDto[];
+
+  @ApiProperty({ nullable: true, type: String })
+  nextCursor!: string | null;
+}

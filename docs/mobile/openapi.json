@@ -6354,6 +6354,73 @@
         "tags": ["admin"]
       }
     },
+    "/api/v1/admin/refunds/failed": {
+      "get": {
+        "operationId": "AdminOperationsController_failedRefunds_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Valor de nextCursor de la página anterior.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminFailedRefundPageDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Fase 10: reembolsos fallidos en la pasarela, para resolver",
+        "tags": ["admin"]
+      }
+    },
     "/api/v1/admin/cancellation-reviews": {
       "get": {
         "operationId": "AdminOperationsController_cancellationReviews_v1",
@@ -6995,6 +7062,255 @@
         "summary": "Solo ADMIN: editar o desactivar (nunca borrar) una categoría",
         "tags": ["admin"]
       }
+    },
+    "/api/v1/me/devices": {
+      "put": {
+        "description": "El token de Expo va en el cuerpo (nunca en la URL). Idempotente por token. Queda ligado a la sesión: al cerrarla se borra. Máximo 10 por cuenta (se borran los menos usados).",
+        "operationId": "NotificationsController_registerDevice_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDeviceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-NOT-001: registrar o actualizar el dispositivo para recibir push",
+        "tags": ["notifications"]
+      },
+      "get": {
+        "operationId": "NotificationsController_listDevices_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceListDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-NOT-001: mis dispositivos con push (sin el token)",
+        "tags": ["notifications"]
+      }
+    },
+    "/api/v1/me/devices/{id}": {
+      "delete": {
+        "operationId": "NotificationsController_removeDevice_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-NOT-001: dejar de recibir push en un dispositivo (por su ID)",
+        "tags": ["notifications"]
+      }
+    },
+    "/api/v1/me/notifications": {
+      "get": {
+        "operationId": "NotificationsController_inbox_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Valor de nextCursor de la página anterior.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "unreadOnly",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPageDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-NOT-004: bandeja de avisos (los más recientes primero; se conservan 90 días)",
+        "tags": ["notifications"]
+      }
+    },
+    "/api/v1/me/notifications/unread-count": {
+      "get": {
+        "operationId": "NotificationsController_unread_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadCountDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-NOT-004: avisos sin leer",
+        "tags": ["notifications"]
+      }
+    },
+    "/api/v1/me/notifications/{id}/read": {
+      "post": {
+        "operationId": "NotificationsController_markRead_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-NOT-004: marcar un aviso como leído",
+        "tags": ["notifications"]
+      }
+    },
+    "/api/v1/me/notifications/read-all": {
+      "post": {
+        "operationId": "NotificationsController_markAllRead_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkedReadDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-NOT-004: marcar todos como leídos",
+        "tags": ["notifications"]
+      }
     }
   },
   "info": {
@@ -7094,6 +7410,11 @@
             "items": {
               "$ref": "#/components/schemas/NotificationChannel"
             }
+          },
+          "reminders": {
+            "type": "boolean",
+            "default": true,
+            "description": "Fase 10: recordatorios de citas (24 y 2 h antes). Por defecto activos."
           }
         },
         "required": ["notificationChannels"]
@@ -11346,6 +11667,61 @@
         },
         "required": ["refundId"]
       },
+      "AdminFailedRefundDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "reasonType": {
+            "type": "string"
+          },
+          "paymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "amount",
+          "currency",
+          "reasonType",
+          "paymentId",
+          "bookingId",
+          "createdAt"
+        ]
+      },
+      "AdminFailedRefundPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminFailedRefundDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": ["items", "nextCursor"]
+      },
       "AdminCancellationReviewDto": {
         "type": "object",
         "properties": {
@@ -11662,6 +12038,141 @@
             "description": "false la desactiva (nunca se borra)."
           }
         }
+      },
+      "RegisterDeviceDto": {
+        "type": "object",
+        "properties": {
+          "pushToken": {
+            "type": "string",
+            "example": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"
+          },
+          "platform": {
+            "type": "string",
+            "enum": ["IOS", "ANDROID"]
+          },
+          "appVersion": {
+            "type": "string",
+            "example": "1.4.0",
+            "maxLength": 40
+          }
+        },
+        "required": ["pushToken", "platform"]
+      },
+      "DeviceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID propio del dispositivo (para borrarlo)."
+          },
+          "platform": {
+            "type": "string",
+            "enum": ["IOS", "ANDROID", "WEB"]
+          },
+          "appVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["id", "platform", "appVersion", "lastSeenAt"]
+      },
+      "DeviceListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeviceDto"
+            }
+          }
+        },
+        "required": ["items"]
+      },
+      "NotificationResourceDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["booking", "review", "ticket", "barbershop", "account"],
+            "description": "Pantalla que abre la app al tocar el aviso."
+          },
+          "id": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": ["type", "id"]
+      },
+      "NotificationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "example": "BOOKING_CONFIRMED"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/NotificationResourceDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": ["id", "type", "title", "body", "resource", "createdAt", "readAt"]
+      },
+      "NotificationPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": ["items", "nextCursor"]
+      },
+      "UnreadCountDto": {
+        "type": "object",
+        "properties": {
+          "unread": {
+            "type": "number"
+          }
+        },
+        "required": ["unread"]
+      },
+      "MarkedReadDto": {
+        "type": "object",
+        "properties": {
+          "updated": {
+            "type": "number"
+          }
+        },
+        "required": ["updated"]
       }
     }
   }

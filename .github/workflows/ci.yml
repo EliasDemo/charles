@@ -119,6 +119,9 @@ jobs:
       - name: Cobertura de admin y support (mínimo 80 %)
         run: pnpm --filter api test:cov:admin
 
+      - name: Cobertura de notifications (mínimo 80 %)
+        run: pnpm --filter api test:cov:notifications
+
       - name: Verificar que OpenAPI y el cliente generado están al día
         run: |
           pnpm --filter @charles/shared generate

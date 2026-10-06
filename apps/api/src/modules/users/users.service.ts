@@ -170,6 +170,24 @@ export class UsersService {
     };
   }
 
+  /** Fase 10: estado y preferencias de notificación de varias cuentas. */
+  async notificationTargets(
+    ids: string[],
+  ): Promise<
+    { id: string; status: UserStatus; deleted: boolean; preferences: Prisma.JsonValue }[]
+  > {
+    const rows = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, status: true, deletedAt: true, preferences: true },
+    });
+    return rows.map((u) => ({
+      id: u.id,
+      status: u.status,
+      deleted: u.deletedAt !== null,
+      preferences: u.preferences,
+    }));
+  }
+
   /** Fase 12: contacto en claro, solo para el acceso auditado de soporte. */
   async contact(id: string): Promise<{ email: string; phone: string | null } | null> {
     const user = await this.prisma.user.findUnique({
@@ -234,7 +252,10 @@ export class UsersService {
       emailVerified: user.emailVerifiedAt !== null,
       phone: this.encryption.decryptNullable(user.phoneEnc, EncryptedField.USER_PHONE),
       roles: user.roles.map((r) => r.role),
-      preferences: { notificationChannels: notificationChannelsOf(user.preferences) },
+      preferences: {
+        notificationChannels: notificationChannelsOf(user.preferences),
+        reminders: !(isRecord(user.preferences) && user.preferences.reminders === false),
+      },
       createdAt: user.createdAt,
     };
   }
@@ -267,6 +288,9 @@ export class UsersService {
       data.preferences = {
         ...base,
         notificationChannels: dto.preferences.notificationChannels,
+        ...(dto.preferences.reminders !== undefined
+          ? { reminders: dto.preferences.reminders }
+          : {}),
       };
       changed.push('preferences.notificationChannels');
     }

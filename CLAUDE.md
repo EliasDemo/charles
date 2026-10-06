@@ -593,6 +593,18 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
 - **Ajustes:** `PUT /admin/settings/{key}` con esquema y rango por clave (`SETTING_RULES`), reglas cruzadas (p. ej. devolución parcial ≤ total) y valor anterior y nuevo en `audit_log`. Seguridad, pagos sensibles y decisiones pendientes: solo lectura (`SETTING_READ_ONLY`). Una prueba exige que toda clave sembrada tenga regla.
 - **Categorías:** crear, editar y desactivar (nunca borrar).
 
+### Notificaciones (Fase 10)
+
+- **Canales:** push por Expo Push Service (`PushSender`: `ExpoPushSender` en producción, `FakePushSender` en desarrollo y pruebas; `PUSH_DRIVER=fake` prohibido en producción), correo (`Mailer`, hoy `FakeMailer`) y bandeja en la app.
+- **Flujo:** un consumidor idempotente del outbox (`booking.*`, `refund.*`, `review.created`, `ticket.replied`, `user.disabled`, `barbershop.suspended`) planifica los avisos con un catálogo puro (`notification-catalog.ts`) y los guarda en `notifications`, uno por persona y canal (`dedupe_key` única). La entrega corre aparte, **fuera de toda transacción**: reclama un lote (`FOR UPDATE SKIP LOCKED`), llama al proveedor y registra `SENT`, `SKIPPED` o `FAILED`; reintenta con espera creciente hasta 5 intentos.
+- **Contenido:** el push nunca lleva montos, nombres ni motivos; la bandeja y el correo dan el detalle. Todo aviso lleva `resource` (tipo e ID) para navegar. Solo español, con plantillas en el backend.
+- **Preferencias:** por canal (`preferences.notificationChannels`) y `preferences.reminders`. Seguridad y pagos se envían siempre. Una cuenta deshabilitada solo recibe el aviso de su deshabilitación.
+- **Horario silencioso:** `notifications.quiet_start` y `quiet_end` (22:00–08:00, zona de la barbería). Los push no urgentes esperan a su fin; los urgentes (citas de las próximas 24 h, pago rechazado) no.
+- **Recordatorios:** `notifications.reminder_hours` ([24, 2]). Si caen en el horario silencioso, se adelantan al último minuto permitido. Nunca de una reserva cancelada o que ya empezó (se vuelve a comprobar al entregar), ni si su momento ya había pasado al confirmarse.
+- **Dispositivos:** `PUT /me/devices` con el token en el cuerpo (cifrado, índice ciego, `pushToken` redactado en logs) y `DELETE /me/devices/{id}`. Ligado a la sesión: `SessionsService` lo borra al revocarla. Máximo `notifications.max_devices_per_user` (10). Los tokens que Expo marca `DeviceNotRegistered` (en el envío o en los recibos) se borran.
+- **Bandeja:** `GET /me/notifications`, contador de no leídos, marcar leído uno o todos; se conservan `notifications.retention_days` (90).
+- **Soporte:** `GET /admin/refunds/failed` lista los reembolsos fallidos.
+
 ---
 
 ## 9. Motor de disponibilidad (RF-DIS-001 a 004, RF-BRB-003)
@@ -631,7 +643,7 @@ Servicio único `AvailabilityService`. Para una barbería, servicio, fecha y (op
 
 ## 11. Pruebas
 
-- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings`, `payments`, `reviews`, `admin` y `support`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) en `search` con `pnpm --filter api test:cov:search` y en `bookings` + `payments` + `moderation` con `pnpm --filter api test:cov:bookings`, en `reviews` con `pnpm --filter api test:cov:reviews` y en `admin` + `support` con `pnpm --filter api test:cov:admin`; CI y `pnpm verify` fallan si alguna baja del 80 %.
+- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings`, `payments`, `reviews`, `admin`, `support` y `notifications`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) en `search` con `pnpm --filter api test:cov:search` y en `bookings` + `payments` + `moderation` con `pnpm --filter api test:cov:bookings`, en `reviews` con `pnpm --filter api test:cov:reviews` en `admin` + `support` con `pnpm --filter api test:cov:admin` y en `notifications` con `pnpm --filter api test:cov:notifications`; CI y `pnpm verify` fallan si alguna baja del 80 %.
 - e2e por cada RF de prioridad Alta, contra PostgreSQL real en Docker (no simular la base de datos).
 - **Prueba de concurrencia obligatoria** (RF-RES-007): dos peticiones simultáneas por el mismo turno → exactamente una tiene éxito. Está en `test/bookings/bookings.e2e-spec.ts`: 10 rondas por API, más las variantes de "cualquier barbero" y de la misma clave de idempotencia.
 - Pruebas de autorización: por cada endpoint privado, un caso que verifique que otro usuario **no** puede acceder.

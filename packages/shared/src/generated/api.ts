@@ -1607,6 +1607,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/refunds/failed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fase 10: reembolsos fallidos en la pasarela, para resolver */
+        get: operations["AdminOperationsController_failedRefunds_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/cancellation-reviews": {
         parameters: {
             query?: never;
@@ -1751,6 +1768,112 @@ export interface paths {
         patch: operations["AdminConfigController_updateCategory_v1"];
         trace?: never;
     };
+    "/api/v1/me/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-NOT-001: mis dispositivos con push (sin el token) */
+        get: operations["NotificationsController_listDevices_v1"];
+        /**
+         * RF-NOT-001: registrar o actualizar el dispositivo para recibir push
+         * @description El token de Expo va en el cuerpo (nunca en la URL). Idempotente por token. Queda ligado a la sesión: al cerrarla se borra. Máximo 10 por cuenta (se borran los menos usados).
+         */
+        put: operations["NotificationsController_registerDevice_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/devices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** RF-NOT-001: dejar de recibir push en un dispositivo (por su ID) */
+        delete: operations["NotificationsController_removeDevice_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-NOT-004: bandeja de avisos (los más recientes primero; se conservan 90 días) */
+        get: operations["NotificationsController_inbox_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-NOT-004: avisos sin leer */
+        get: operations["NotificationsController_unread_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-NOT-004: marcar un aviso como leído */
+        post: operations["NotificationsController_markRead_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-NOT-004: marcar todos como leídos */
+        post: operations["NotificationsController_markAllRead_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1788,6 +1911,11 @@ export interface components {
         NotificationChannel: "PUSH" | "EMAIL" | "IN_APP";
         NotificationPreferencesDto: {
             notificationChannels: components["schemas"]["NotificationChannel"][];
+            /**
+             * @description Fase 10: recordatorios de citas (24 y 2 h antes). Por defecto activos.
+             * @default true
+             */
+            reminders: boolean;
         };
         ProfileDto: {
             /** Format: uuid */
@@ -3259,6 +3387,23 @@ export interface components {
             /** Format: uuid */
             refundId: string;
         };
+        AdminFailedRefundDto: {
+            /** Format: uuid */
+            id: string;
+            amount: number;
+            currency: string;
+            reasonType: string;
+            /** Format: uuid */
+            paymentId: string;
+            /** Format: uuid */
+            bookingId: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminFailedRefundPageDto: {
+            items: components["schemas"]["AdminFailedRefundDto"][];
+            nextCursor: string | null;
+        };
         AdminCancellationReviewDto: {
             /** Format: uuid */
             id: string;
@@ -3371,6 +3516,60 @@ export interface components {
             sortOrder?: number;
             /** @description false la desactiva (nunca se borra). */
             isActive?: boolean;
+        };
+        RegisterDeviceDto: {
+            /** @example ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx] */
+            pushToken: string;
+            /** @enum {string} */
+            platform: "IOS" | "ANDROID";
+            /** @example 1.4.0 */
+            appVersion?: string;
+        };
+        DeviceDto: {
+            /**
+             * Format: uuid
+             * @description ID propio del dispositivo (para borrarlo).
+             */
+            id: string;
+            /** @enum {string} */
+            platform: "IOS" | "ANDROID" | "WEB";
+            appVersion: string | null;
+            /** Format: date-time */
+            lastSeenAt: string;
+        };
+        DeviceListDto: {
+            items: components["schemas"]["DeviceDto"][];
+        };
+        NotificationResourceDto: {
+            /**
+             * @description Pantalla que abre la app al tocar el aviso.
+             * @enum {string}
+             */
+            type: "booking" | "review" | "ticket" | "barbershop" | "account";
+            id: string | null;
+        };
+        NotificationDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example BOOKING_CONFIRMED */
+            type: string;
+            title: string;
+            body: string;
+            resource: components["schemas"]["NotificationResourceDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            readAt: string | null;
+        };
+        NotificationPageDto: {
+            items: components["schemas"]["NotificationDto"][];
+            nextCursor: string | null;
+        };
+        UnreadCountDto: {
+            unread: number;
+        };
+        MarkedReadDto: {
+            updated: number;
         };
     };
     responses: never;
@@ -7408,6 +7607,45 @@ export interface operations {
             };
         };
     };
+    AdminOperationsController_failedRefunds_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminFailedRefundPageDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     AdminOperationsController_cancellationReviews_v1: {
         parameters: {
             query?: {
@@ -7825,6 +8063,172 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    NotificationsController_listDevices_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceListDto"];
+                };
+            };
+        };
+    };
+    NotificationsController_registerDevice_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterDeviceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    NotificationsController_removeDevice_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    NotificationsController_inbox_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+                unreadOnly?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPageDto"];
+                };
+            };
+        };
+    };
+    NotificationsController_unread_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCountDto"];
+                };
+            };
+        };
+    };
+    NotificationsController_markRead_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    NotificationsController_markAllRead_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkedReadDto"];
                 };
             };
         };

@@ -1,0 +1,658 @@
+import { HttpStatus, Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
+import { CLOCK, type Clock } from '../../common/clock/clock';
+import { AppException } from '../../common/errors/app.exception';
+import { ErrorCode } from '../../common/errors/error-codes';
+import { MAILER, type Mailer } from '../../common/mail/mailer';
+import { IdempotentConsumerStore } from '../../common/outbox/idempotent-consumer';
+import { OutboxDispatcher } from '../../common/outbox/outbox.dispatcher';
+import type { OutboxMessage } from '../../common/outbox/outbox.service';
+import { DEFAULT_PAGE_SIZE, type Page } from '../../common/pagination/pagination';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import type { Prisma } from '../../generated/prisma/client';
+import type { NotificationChannel } from '../../generated/prisma/enums';
+import { SettingKey, SettingsService } from '../settings/settings.service';
+import { UsersService } from '../users/users.service';
+import { DevicesService } from './devices.service';
+import type { NotificationDto, NotificationQueryDto } from './dto/notification.dto';
+import {
+  type BookingContext,
+  planAccountDisabled,
+  planBarbershopSuspended,
+  planBookingEvent,
+  planNewReview,
+  type PlannedNotification,
+  planRefund,
+  planReminder,
+  planSupportReply,
+} from './notification-catalog';
+import {
+  isValidHhMm,
+  NOTIFICATION_DEFAULTS,
+  nextAllowedAt,
+  normalizeReminderHours,
+  type QuietHours,
+  reminderDue,
+} from './notification-schedule';
+import { DEVICE_NOT_REGISTERED, PUSH_SENDER, type PushSender } from './push-sender';
+
+export const NOTIFICATIONS_CONSUMER = 'notifications.dispatcher';
+export const NOTIFICATION_EVENTS = [
+  'booking.confirmed',
+  'booking.cancelled',
+  'booking.expired',
+  'booking.no_show',
+  'refund.succeeded',
+  'refund.failed',
+  'review.created',
+  'ticket.replied',
+  'user.disabled',
+  'barbershop.suspended',
+] as const;
+
+const DEFAULT_TIMEZONE = 'America/Lima';
+const MAX_ATTEMPTS = 5;
+const CLAIM_TIMEOUT_MS = 5 * 60_000;
+const RECEIPTS_AFTER_MS = 15 * 60_000;
+const CHANNELS: NotificationChannel[] = ['PUSH', 'IN_APP', 'EMAIL'];
+
+interface Recipient {
+  status: string;
+  deleted: boolean;
+  channels: Set<NotificationChannel>;
+  reminders: boolean;
+}
+
+/**
+ * Notificaciones (Fase 10, RF-NOT-001…004).
+ * 1. Un consumidor idempotente del outbox convierte cada evento en avisos (catálogo puro) y los
+ *    guarda en `notifications`, uno por persona y canal (`dedupe_key` único). La bandeja nace
+ *    enviada; push y correo quedan PENDING.
+ * 2. La entrega corre aparte, **fuera de toda transacción**: reclama un lote, llama al proveedor y
+ *    registra el resultado. Reintenta con espera creciente (5 intentos).
+ * 3. Preferencias por canal y de recordatorios; seguridad y pagos se envían siempre.
+ * 4. Horario silencioso para los push no urgentes; los recordatorios se adelantan.
+ */
+@Injectable()
+export class NotificationsService implements OnModuleInit {
+  private readonly logger = new Logger(NotificationsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly users: UsersService,
+    private readonly devices: DevicesService,
+    private readonly settings: SettingsService,
+    private readonly dispatcher: OutboxDispatcher,
+    private readonly store: IdempotentConsumerStore,
+    @Inject(PUSH_SENDER) private readonly push: PushSender,
+    @Inject(MAILER) private readonly mailer: Mailer,
+    @Inject(CLOCK) private readonly clock: Clock,
+  ) {}
+
+  onModuleInit(): void {
+    this.dispatcher.register({
+      name: NOTIFICATIONS_CONSUMER,
+      types: NOTIFICATION_EVENTS,
+      handle: async (message) => {
+        await this.store.runOnce(NOTIFICATIONS_CONSUMER, message.id, () => this.onEvent(message));
+      },
+    });
+  }
+
+  // ───────────── Eventos → avisos ─────────────
+
+  async onEvent(message: OutboxMessage): Promise<void> {
+    const plans = await this.plan(message);
+    if (plans.length === 0) return;
+    const timezone = await this.timezoneOf(message);
+    await this.persist(plans, message.id, timezone);
+  }
+
+  private async plan(message: OutboxMessage): Promise<PlannedNotification[]> {
+    const p = message.payload;
+    const id = (key: string) => (typeof p[key] === 'string' ? p[key] : null);
+    const now = this.clock.now();
+    if (message.type.startsWith('booking.')) {
+      const bookingId = id('bookingId');
+      const ctx = bookingId ? await this.bookingContext(bookingId) : null;
+      if (!ctx) return [];
+      return planBookingEvent(
+        { status: String(p.status), from: id('from'), actorRole: id('actorRole') },
+        ctx,
+        now,
+      );
+    }
+    switch (message.type) {
+      case 'refund.succeeded':
+      case 'refund.failed': {
+        const refund = await this.prisma.refund.findUnique({
+          where: { id: id('refundId') ?? '' },
+          select: {
+            amount: true,
+            payment: {
+              select: { currency: true, booking: { select: { id: true, clientId: true } } },
+            },
+          },
+        });
+        if (!refund) return [];
+        return [
+          planRefund({
+            outcome: message.type === 'refund.succeeded' ? 'SUCCEEDED' : 'FAILED',
+            clientId: refund.payment.booking.clientId,
+            bookingId: refund.payment.booking.id,
+            amount: refund.amount,
+            currency: refund.payment.currency,
+          }),
+        ];
+      }
+      case 'review.created': {
+        const barbershopId = id('barbershopId');
+        const reviewId = id('reviewId');
+        if (!barbershopId || !reviewId) return [];
+        return planNewReview({
+          staffIds: await this.staffOf(barbershopId),
+          reviewId,
+          rating: Number(p.rating),
+        });
+      }
+      case 'ticket.replied': {
+        const ticket = await this.prisma.supportTicket.findUnique({
+          where: { id: id('ticketId') ?? '' },
+          select: { id: true, userId: true, subject: true },
+        });
+        return ticket
+          ? [
+              planSupportReply({
+                userId: ticket.userId,
+                ticketId: ticket.id,
+                subject: ticket.subject,
+              }),
+            ]
+          : [];
+      }
+      case 'user.disabled': {
+        const userId = id('userId');
+        return userId ? [planAccountDisabled(userId)] : [];
+      }
+      case 'barbershop.suspended': {
+        const barbershopId = id('barbershopId');
+        const shop = barbershopId
+          ? await this.prisma.barbershop.findUnique({
+              where: { id: barbershopId },
+              select: { id: true, name: true },
+            })
+          : null;
+        if (!shop) return [];
+        return planBarbershopSuspended({
+          staffIds: await this.staffOf(shop.id),
+          barbershopId: shop.id,
+          barbershopName: shop.name,
+        });
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Guarda los avisos, uno por persona y canal permitido. Idempotente: la clave única
+   * (persona, `dedupe_key`, canal) evita duplicados aunque el evento llegue dos veces.
+   */
+  async persist(
+    plans: PlannedNotification[],
+    dedupeBase: string,
+    timezone: string,
+    extraData: Record<string, unknown> = {},
+  ): Promise<number> {
+    const recipients = await this.recipients(plans.map((p) => p.userId));
+    const quiet = await this.quietHours(timezone);
+    const now = this.clock.now();
+    const rows: Prisma.NotificationCreateManyInput[] = [];
+    for (const plan of plans) {
+      const who = recipients.get(plan.userId);
+      if (!who || who.deleted) continue;
+      // Una cuenta deshabilitada solo recibe el aviso de su deshabilitación.
+      if (who.status !== 'ACTIVE' && plan.type !== 'ACCOUNT_DISABLED') continue;
+      if (plan.reminder && !who.reminders) continue;
+      for (const channel of plan.channels) {
+        if (!plan.mandatory && !who.channels.has(channel)) continue;
+        const text =
+          channel === 'PUSH'
+            ? plan.push
+            : channel === 'EMAIL' && plan.email
+              ? { title: plan.email.subject, body: plan.email.text }
+              : plan.detail;
+        const sendAfter = channel === 'PUSH' && !plan.urgent ? nextAllowedAt(now, quiet) : now;
+        rows.push({
+          userId: plan.userId,
+          type: plan.type,
+          title: text.title,
+          body: text.body,
+          channel,
+          dedupeKey: `${dedupeBase}:${plan.type}`,
+          data: { type: plan.type, resource: plan.resource, ...extraData },
+          status: channel === 'IN_APP' ? 'SENT' : 'PENDING',
+          sentAt: channel === 'IN_APP' ? new Date(now) : null,
+          sendAfter: new Date(sendAfter),
+          createdAt: new Date(now),
+        });
+      }
+    }
+    if (rows.length === 0) return 0;
+    const { count } = await this.prisma.notification.createMany({
+      data: rows,
+      skipDuplicates: true,
+    });
+    return count;
+  }
+
+  // ───────────── Recordatorios ─────────────
+
+  /**
+   * Busca las reservas confirmadas cuyos recordatorios tocan ahora (24 y 2 h antes, adelantados
+   * si caen en el horario silencioso). Cada recordatorio se guarda una sola vez por reserva.
+   */
+  async scanReminders(): Promise<number> {
+    const hours = normalizeReminderHours(
+      await this.settings.get(SettingKey.NOTIFICATIONS_REMINDER_HOURS),
+    ) ?? [...NOTIFICATION_DEFAULTS.reminderHours];
+    if (hours.length === 0) return 0;
+    const now = this.clock.now();
+    // Hasta 12 h extra: un recordatorio adelantado por el horario silencioso sale antes.
+    const horizon = new Date(now + (Math.max(...hours) + 12) * 3_600_000);
+    const bookings = await this.prisma.booking.findMany({
+      where: { status: 'CONFIRMED', startAt: { gt: new Date(now), lte: horizon } },
+      select: { id: true },
+      orderBy: { startAt: 'asc' },
+      take: 2000,
+    });
+    let created = 0;
+    for (const { id } of bookings) {
+      const ctx = await this.bookingContext(id);
+      if (!ctx) continue;
+      const confirmed = await this.prisma.bookingStatusHistory.findFirst({
+        where: { bookingId: id, toStatus: 'CONFIRMED' },
+        orderBy: { createdAt: 'asc' },
+        select: { createdAt: true },
+      });
+      const quiet = await this.quietHours(ctx.timezone);
+      for (const h of hours) {
+        if (
+          !reminderDue({
+            startAt: ctx.startAt,
+            confirmedAt: confirmed?.createdAt.getTime() ?? 0,
+            hours: h,
+            now,
+            quiet,
+          })
+        ) {
+          continue;
+        }
+        created += await this.persist([planReminder(ctx, h)], `reminder:${h}:${id}`, ctx.timezone, {
+          reminderBookingId: id,
+        });
+      }
+    }
+    return created;
+  }
+
+  // ───────────── Entrega ─────────────
+
+  /** Entrega un lote de push y correos pendientes. Devuelve cuántos procesó. */
+  async deliverDue(limit = 50): Promise<number> {
+    const now = this.clock.now();
+    const claimed = await this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id::text AS id FROM notifications
+         WHERE channel <> 'IN_APP'
+           AND send_after <= ${new Date(now)}
+           AND (status = 'PENDING'
+                OR (status = 'SENDING' AND claimed_at < ${new Date(now - CLAIM_TIMEOUT_MS)}))
+         ORDER BY send_after, id
+         LIMIT ${limit}
+         FOR UPDATE SKIP LOCKED`;
+      if (rows.length === 0) return [];
+      const ids = rows.map((r) => r.id);
+      await tx.notification.updateMany({
+        where: { id: { in: ids } },
+        data: { status: 'SENDING', claimedAt: new Date(now), attempts: { increment: 1 } },
+      });
+      return tx.notification.findMany({ where: { id: { in: ids } } });
+    });
+    for (const row of claimed) {
+      try {
+        await this.deliverOne(row);
+      } catch (error) {
+        await this.retryLater(row.id, row.attempts, error);
+      }
+    }
+    return claimed.length;
+  }
+
+  private async deliverOne(row: {
+    id: string;
+    userId: string;
+    channel: NotificationChannel;
+    title: string;
+    body: string;
+    type: string;
+    data: Prisma.JsonValue;
+  }): Promise<void> {
+    const data = (row.data ?? {}) as Record<string, unknown>;
+    const reminderBookingId = data.reminderBookingId;
+    if (typeof reminderBookingId === 'string') {
+      // Nunca un recordatorio de una reserva cancelada o que ya empezó.
+      const booking = await this.prisma.booking.findUnique({
+        where: { id: reminderBookingId },
+        select: { status: true, startAt: true },
+      });
+      if (
+        !booking ||
+        booking.status !== 'CONFIRMED' ||
+        booking.startAt.getTime() <= this.clock.now()
+      ) {
+        await this.finish(row.id, 'SKIPPED', 'NOT_APPLICABLE');
+        return;
+      }
+    }
+
+    if (row.channel === 'EMAIL') {
+      const to = await this.users.contactEmail(row.userId);
+      if (!to) {
+        await this.finish(row.id, 'SKIPPED', 'NO_EMAIL');
+        return;
+      }
+      await this.mailer.send({
+        to,
+        subject: row.title,
+        text: row.body,
+        category: `notification:${row.type}`,
+      });
+      await this.finish(row.id, 'SENT');
+      return;
+    }
+
+    const targets = await this.devices.targets(row.userId);
+    if (targets.length === 0) {
+      await this.finish(row.id, 'SKIPPED', 'NO_DEVICES');
+      return;
+    }
+    const navigation = { type: data.type, resource: data.resource };
+    const results = await this.push.send(
+      targets.map((t) => ({ to: t.pushToken, title: row.title, body: row.body, data: navigation })),
+    );
+    const invalid: string[] = [];
+    const tickets: { ticketId: string; deviceId: string }[] = [];
+    let transient = false;
+    results.forEach((result, i) => {
+      const target = targets[i]!;
+      if (result.ok) tickets.push({ ticketId: result.ticketId, deviceId: target.id });
+      else if (result.error === DEVICE_NOT_REGISTERED) invalid.push(target.id);
+      else if (!result.permanent) transient = true;
+    });
+    await this.devices.removeInvalid(invalid);
+    if (tickets.length > 0) {
+      await this.finish(row.id, 'SENT', null, { tickets });
+    } else if (transient) {
+      throw new Error('PUSH_TRANSIENT');
+    } else {
+      await this.finish(
+        row.id,
+        invalid.length > 0 ? 'SKIPPED' : 'FAILED',
+        invalid.length > 0 ? 'NO_VALID_DEVICES' : 'PUSH_REJECTED',
+      );
+    }
+  }
+
+  private async finish(
+    id: string,
+    status: 'SENT' | 'SKIPPED' | 'FAILED',
+    lastError: string | null = null,
+    providerData?: Record<string, unknown>,
+  ): Promise<void> {
+    await this.prisma.notification.update({
+      where: { id },
+      data: {
+        status,
+        lastError,
+        claimedAt: null,
+        ...(status === 'SENT' ? { sentAt: new Date(this.clock.now()) } : {}),
+        ...(providerData ? { providerData: providerData as Prisma.InputJsonValue } : {}),
+      },
+    });
+  }
+
+  /** Reintento con espera creciente (1, 2, 4, 8 min); al quinto intento queda FAILED. */
+  private async retryLater(id: string, attempts: number, error: unknown): Promise<void> {
+    const code =
+      error instanceof Error && error.message === 'PUSH_TRANSIENT'
+        ? 'PUSH_TRANSIENT'
+        : 'PROVIDER_UNAVAILABLE';
+    if (attempts >= MAX_ATTEMPTS) {
+      await this.finish(id, 'FAILED', code);
+      this.logger.warn({ notificationId: id }, 'Notificación fallida tras varios intentos');
+      return;
+    }
+    await this.prisma.notification.update({
+      where: { id },
+      data: {
+        status: 'PENDING',
+        claimedAt: null,
+        lastError: code,
+        sendAfter: new Date(this.clock.now() + 2 ** (attempts - 1) * 60_000),
+      },
+    });
+  }
+
+  /** Recibos de Expo: los tokens marcados `DeviceNotRegistered` se borran. */
+  async checkReceipts(limit = 300): Promise<number> {
+    const pending = await this.prisma.$queryRaw<{ id: string; provider_data: Prisma.JsonObject }[]>`
+      SELECT id::text AS id, provider_data FROM notifications
+       WHERE channel = 'PUSH' AND status = 'SENT'
+         AND sent_at <= ${new Date(this.clock.now() - RECEIPTS_AFTER_MS)}
+         AND provider_data ? 'tickets' AND NOT provider_data ? 'receiptsCheckedAt'
+       ORDER BY sent_at LIMIT ${limit}`;
+    if (pending.length === 0) return 0;
+    const tickets = pending.flatMap(
+      (r) =>
+        (r.provider_data as { tickets?: { ticketId: string; deviceId: string }[] }).tickets ?? [],
+    );
+    const receipts = await this.push.receipts(tickets.map((t) => t.ticketId));
+    const invalid = tickets
+      .filter((t) => {
+        const receipt = receipts.get(t.ticketId);
+        return receipt && !receipt.ok && receipt.error === DEVICE_NOT_REGISTERED;
+      })
+      .map((t) => t.deviceId);
+    await this.devices.removeInvalid(invalid);
+    const checkedAt = new Date(this.clock.now()).toISOString();
+    for (const row of pending) {
+      await this.prisma.notification.update({
+        where: { id: row.id },
+        data: {
+          providerData: {
+            ...row.provider_data,
+            receiptsCheckedAt: checkedAt,
+          },
+        },
+      });
+    }
+    return pending.length;
+  }
+
+  /** Conservación: se borran los avisos con más de `notifications.retention_days` (90). */
+  async purgeOld(): Promise<number> {
+    const days = await this.settings.positiveInt(
+      SettingKey.NOTIFICATIONS_RETENTION_DAYS,
+      NOTIFICATION_DEFAULTS.retentionDays,
+    );
+    const { count } = await this.prisma.notification.deleteMany({
+      where: { createdAt: { lt: new Date(this.clock.now() - days * 24 * 3_600_000) } },
+    });
+    return count;
+  }
+
+  // ───────────── Bandeja ─────────────
+
+  async inbox(userId: string, query: NotificationQueryDto): Promise<Page<NotificationDto>> {
+    const limit = query.limit ?? DEFAULT_PAGE_SIZE;
+    const rows = await this.prisma.notification.findMany({
+      where: {
+        userId,
+        channel: 'IN_APP',
+        ...(query.unreadOnly ? { readAt: null } : {}),
+        ...(query.cursor ? { id: { lt: query.cursor } } : {}),
+      },
+      orderBy: { id: 'desc' },
+      take: limit + 1,
+    });
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    return {
+      items: page.map((n) => {
+        const resource = ((n.data ?? {}) as { resource?: { type: string; id: string | null } })
+          .resource ?? { type: 'account', id: null };
+        return {
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          body: n.body,
+          resource,
+          createdAt: n.createdAt.toISOString(),
+          readAt: n.readAt?.toISOString() ?? null,
+        };
+      }),
+      nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,
+    };
+  }
+
+  async unreadCount(userId: string): Promise<number> {
+    return this.prisma.notification.count({
+      where: { userId, channel: 'IN_APP', readAt: null },
+    });
+  }
+
+  async markRead(userId: string, id: string): Promise<void> {
+    const found = await this.prisma.notification.findFirst({
+      where: { id, userId, channel: 'IN_APP' },
+      select: { readAt: true },
+    });
+    if (!found) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'El aviso no existe.', HttpStatus.NOT_FOUND);
+    }
+    if (!found.readAt) {
+      await this.prisma.notification.update({
+        where: { id },
+        data: { readAt: new Date(this.clock.now()) },
+      });
+    }
+  }
+
+  async markAllRead(userId: string): Promise<number> {
+    const { count } = await this.prisma.notification.updateMany({
+      where: { userId, channel: 'IN_APP', readAt: null },
+      data: { readAt: new Date(this.clock.now()) },
+    });
+    return count;
+  }
+
+  // ───────────── Auxiliares ─────────────
+
+  private async bookingContext(bookingId: string): Promise<BookingContext | null> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        clientId: true,
+        barbershopId: true,
+        startAt: true,
+        serviceNameSnapshot: true,
+        barber: { select: { userId: true } },
+        barbershop: { select: { name: true, timezone: true } },
+        payments: {
+          select: {
+            currency: true,
+            refunds: {
+              where: { reasonType: { not: 'MANUAL' } },
+              orderBy: { createdAt: 'desc' },
+              select: { amount: true },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+    if (!booking) return null;
+    const refund = booking.payments
+      .flatMap((p) => p.refunds.map((r) => ({ amount: r.amount, currency: p.currency })))
+      .at(0);
+    return {
+      bookingId: booking.id,
+      clientId: booking.clientId,
+      barberUserId: booking.barber.userId,
+      staffIds: await this.staffOf(booking.barbershopId),
+      barbershopName: booking.barbershop.name,
+      timezone: booking.barbershop.timezone,
+      startAt: booking.startAt.getTime(),
+      serviceName: booking.serviceNameSnapshot,
+      refund: refund ?? null,
+    };
+  }
+
+  private async staffOf(barbershopId: string): Promise<string[]> {
+    const members = await this.prisma.barbershopMember.findMany({
+      where: { barbershopId, role: { in: ['OWNER', 'MANAGER'] } },
+      select: { userId: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    return members.map((m) => m.userId);
+  }
+
+  private async timezoneOf(message: OutboxMessage): Promise<string> {
+    const p = message.payload;
+    const barbershopId = typeof p.barbershopId === 'string' ? p.barbershopId : null;
+    if (!barbershopId) return DEFAULT_TIMEZONE;
+    const shop = await this.prisma.barbershop.findUnique({
+      where: { id: barbershopId },
+      select: { timezone: true },
+    });
+    return shop?.timezone ?? DEFAULT_TIMEZONE;
+  }
+
+  private async quietHours(timezone: string): Promise<QuietHours> {
+    const [start, end] = await Promise.all([
+      this.settings.get(SettingKey.NOTIFICATIONS_QUIET_START),
+      this.settings.get(SettingKey.NOTIFICATIONS_QUIET_END),
+    ]);
+    return {
+      start: isValidHhMm(start) ? start : NOTIFICATION_DEFAULTS.quietStart,
+      end: isValidHhMm(end) ? end : NOTIFICATION_DEFAULTS.quietEnd,
+      timezone,
+    };
+  }
+
+  /** Preferencias: canales (por defecto todos) e interruptor de recordatorios (por defecto sí). */
+  private async recipients(userIds: string[]): Promise<Map<string, Recipient>> {
+    const rows = await this.users.notificationTargets([...new Set(userIds)]);
+    return new Map(
+      rows.map((u) => {
+        const prefs = (u.preferences ?? {}) as {
+          notificationChannels?: unknown;
+          reminders?: unknown;
+        };
+        const channels = Array.isArray(prefs.notificationChannels)
+          ? prefs.notificationChannels.filter((c): c is NotificationChannel =>
+              CHANNELS.includes(c as NotificationChannel),
+            )
+          : CHANNELS;
+        return [
+          u.id,
+          {
+            status: u.status,
+            deleted: u.deleted,
+            channels: new Set(channels),
+            reminders: prefs.reminders !== false,
+          },
+        ];
+      }),
+    );
+  }
+}

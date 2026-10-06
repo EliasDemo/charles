@@ -2,7 +2,7 @@
 
 Punto de partida para retomar el trabajo en una conversación nueva. **Léelo antes de hacer nada**, junto con `CLAUDE.md` y `docs/pendientes-produccion.md`. Se actualiza al cerrar cada fase (CLAUDE.md §1).
 
-Última actualización: cierre de la Fase 12.
+Última actualización: cierre de la Fase 10.
 
 ## Resumen
 
@@ -30,6 +30,7 @@ Punto de partida para retomar el trabajo en una conversación nueva. **Léelo an
 | —    | Ajustes para la app: `dev:pay`, `dev:mail`, `GET /me/barber`, gracia de rotación (10 s)   | (ver `git log`)                                                                                |
 | 11   | Favoritos y valoraciones: respuesta, reportes, moderación, promedios por barbero          | (ver `git log`)                                                                                |
 | 12   | Soporte y operación: tickets, `/admin`, ADMIN, suspensión, reembolso manual, ajustes      | (ver `git log`)                                                                                |
+| 10   | Notificaciones: push (Expo), correo y bandeja; recordatorios; dispositivos                | (ver `git log`)                                                                                |
 
 ## Fase en curso
 
@@ -62,7 +63,14 @@ Implementada según el plan aprobado y sus precisiones (detalle en CLAUDE.md §8
 - **Bloqueantes de producción anotados:** verificación en dos pasos y sesiones más cortas para SUPPORT y ADMIN.
 - **Hallazgo:** la clave de idempotencia del reembolso manual usaba la hora: dos reembolsos manuales en el mismo milisegundo chocaban (500). Ahora es aleatoria.
 
-### Siguiente: Fase 10 (notificaciones): preguntas y plan presentados, esperando aprobación
+### 10 — Notificaciones: cerrada
+
+Implementada según el plan aprobado y sus precisiones (detalle en CLAUDE.md §8, "Notificaciones (Fase 10)"). Migración `20261014000000_notifications` y ajustes `notifications.*` aplicados en `charles`.
+
+- **Pendiente de producción:** dominio verificado para el correo real y credenciales de Firebase y Apple en Expo (`docs/pendientes-produccion.md`).
+- **Confirmado con pruebas:** `POST /auth/support-access` comparte el bloqueo por intentos (cuenta e IP) y el límite de peticiones del login, y su token se rechaza en todos los endpoints autenticados salvo los de sus tickets.
+
+### Siguiente: a definir por el usuario (8B en espera de la documentación de Izipay)
 
 ### Fases futuras registradas (no implementadas)
 
@@ -134,7 +142,7 @@ Las e2e usan `charles_test` (debe existir) y Redis en una base distinta de la 0.
 pnpm verify
 ```
 
-- **Pasos:** lint, typecheck, formato, unitarias, e2e, coberturas mínimas (`availability`, `search`, `bookings` + `payments` + `moderation`, `reviews`, `admin` + `support`), OpenAPI y tipos de `packages/shared` al día, y `pnpm audit --audit-level=high`.
+- **Pasos:** lint, typecheck, formato, unitarias, e2e, coberturas mínimas (`availability`, `search`, `bookings` + `payments` + `moderation`, `reviews`, `admin` + `support`, `notifications`), OpenAPI y tipos de `packages/shared` al día, y `pnpm audit --audit-level=high`.
 - **Duración:** unos 4 minutos. Necesita Docker levantado.
 - **Hook `.githooks/pre-commit`:** lo ejecuta en cada commit. Nunca se omite con `--no-verify`.
 - **Prueba de carga** (fuera de `verify`): `pnpm --filter api test:load:race`.

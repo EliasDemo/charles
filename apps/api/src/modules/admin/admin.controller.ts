@@ -53,6 +53,8 @@ import {
   AdminCancellationReviewPageDto,
   type AdminCancellationReviewDto,
   AdminCategoryDto,
+  type AdminFailedRefundDto,
+  AdminFailedRefundPageDto,
   type AdminReviewDto,
   AdminReviewPageDto,
   AdminSettingDto,
@@ -334,6 +336,13 @@ export class AdminOperationsController {
     @Body() dto: ManualRefundDto,
   ): Promise<RefundRequestedDto> {
     return this.operations.manualRefund(staff, id, dto);
+  }
+
+  @Get('refunds/failed')
+  @ApiOperation({ summary: 'Fase 10: reembolsos fallidos en la pasarela, para resolver' })
+  @ApiOkResponse({ type: AdminFailedRefundPageDto })
+  failedRefunds(@Query() query: PaginationQueryDto): Promise<Page<AdminFailedRefundDto>> {
+    return this.operations.failedRefunds(query);
   }
 
   @Get('cancellation-reviews')

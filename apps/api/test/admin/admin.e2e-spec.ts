@@ -55,6 +55,7 @@ const ADMIN_ENDPOINTS: Endpoint[] = [
     level: 'SUPPORT',
   },
   { method: 'post', path: `/admin/payments/${ID}/refunds`, body: {}, level: 'ADMIN' },
+  { method: 'get', path: '/admin/refunds/failed', level: 'SUPPORT' },
   { method: 'get', path: '/admin/cancellation-reviews', level: 'SUPPORT' },
   { method: 'post', path: `/admin/cancellation-reviews/${ID}/verdict`, body: {}, level: 'SUPPORT' },
   { method: 'get', path: '/admin/reviews/reported', level: 'SUPPORT' },
