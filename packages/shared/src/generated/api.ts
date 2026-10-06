@@ -90,6 +90,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/support-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fase 12: acceso limitado a soporte para una cuenta deshabilitada
+         * @description Con correo y contraseña de una cuenta DISABLED devuelve un token de acceso restringido: solo sirve para crear y seguir sus tickets de soporte. Sin token de renovación. Una cuenta activa recibe 409 y usa /auth/login.
+         */
+        post: operations["AuthController_supportAccess_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -1140,6 +1160,597 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/support/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * RF-SOP-001: abrir un ticket de soporte
+         * @description Relación opcional con una reserva, un pago o una barbería propios. Máximo support.max_open_tickets_per_user (5) abiertos a la vez.
+         */
+        post: operations["SupportController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/support/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-SOP-001: mis tickets (los más recientes primero) */
+        get: operations["SupportController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/support/tickets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-SOP-001: un ticket propio con sus mensajes (sin notas internas) */
+        get: operations["SupportController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/support/tickets/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * RF-SOP-001: responder en un ticket propio
+         * @description Un ticket RESOLVED se reabre si se responde dentro de support.ticket_reopen_days (7). Cerrado o fuera de plazo: 409 TICKET_CLOSED.
+         */
+        post: operations["SupportController_reply_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fase 12: reportar una barbería (una vez por cuenta)
+         * @description Sus miembros no la reportan (403). Comparte el límite de valoraciones y reportes.
+         */
+        post: operations["BarbershopReportsController_report_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-SOP-002: cola de tickets (los más antiguos primero) */
+        get: operations["AdminTicketsController_queue_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/tickets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-SOP-002: ticket con todos sus mensajes (incluidas notas internas) */
+        get: operations["AdminTicketsController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/tickets/{id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-SOP-002: tomar o reasignar un ticket */
+        post: operations["AdminTicketsController_assign_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/tickets/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-SOP-003: responder al usuario o dejar una nota interna */
+        post: operations["AdminTicketsController_reply_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/tickets/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** RF-SOP-003: cambiar el estado (resolver, reabrir, cerrar) */
+        patch: operations["AdminTicketsController_setStatus_v1"];
+        trace?: never;
+    };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-OPE-001: buscar una cuenta por correo exacto (datos mínimos) */
+        get: operations["AdminUsersController_find_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-OPE-001: datos mínimos (nombre, estado y roles) */
+        get: operations["AdminUsersController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/contact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-OPE-001: ver el contacto (correo y teléfono), con motivo; cada acceso se audita */
+        post: operations["AdminUsersController_contact_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * RF-OPE-001: deshabilitar la cuenta (revoca sus sesiones al instante)
+         * @description Sus reservas se mantienen; las barberías donde era el único OWNER quedan marcadas para revisión. Soporte no deshabilita cuentas de soporte ni ADMIN.
+         */
+        post: operations["AdminUsersController_disable_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-OPE-001: reactivar la cuenta (con motivo) */
+        post: operations["AdminUsersController_enable_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/roles/{role}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Solo ADMIN: asignar el rol SUPPORT o ADMIN */
+        post: operations["AdminUsersController_grant_v1"];
+        /**
+         * Solo ADMIN: quitar el rol SUPPORT o ADMIN
+         * @description Nadie se lo quita a sí mismo; nunca al último ADMIN activo (409 LAST_ADMIN).
+         */
+        delete: operations["AdminUsersController_revoke_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/barbershops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-OPE-002: barberías que necesitan atención (reportes, marcas, pendientes) */
+        get: operations["AdminBarbershopsController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/barbershops/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-OPE-002: barbería con sus reportes abiertos */
+        get: operations["AdminBarbershopsController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/barbershops/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-OPE-002: aprobar una barbería PENDING_REVIEW */
+        post: operations["AdminBarbershopsController_approve_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/barbershops/{id}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * RF-OPE-002: suspender, decidiendo qué pasa con las reservas futuras
+         * @description Por defecto se mantienen las de las próximas 48 h y se cancelan las demás con devolución total; las pendientes de pago se cancelan siempre.
+         */
+        post: operations["AdminBarbershopsController_suspend_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/barbershops/{id}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-OPE-002: reactivar una barbería suspendida */
+        post: operations["AdminBarbershopsController_reactivate_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/barbershops/{id}/reports/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-OPE-002: resolver los reportes abiertos y quitar la marca */
+        post: operations["AdminBarbershopsController_resolveReports_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/bookings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-OPE-003: reserva con historial y pagos (datos mínimos) */
+        get: operations["AdminOperationsController_booking_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/bookings/{id}/attendance-correction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-OPE-003: corregir ATTENDED ↔ NO_SHOW fuera del plazo de 48 h */
+        post: operations["AdminOperationsController_correct_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payments/{id}/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Solo ADMIN: reembolso manual, con motivo y hasta lo cobrado
+         * @description 409 REFUND_EXCEEDS_PAID si supera lo cobrado y aún no devuelto.
+         */
+        post: operations["AdminOperationsController_refund_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/cancellation-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-OPE-003: cancelaciones de barberías por calificar */
+        get: operations["AdminOperationsController_cancellationReviews_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/cancellation-reviews/{id}/verdict": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * RF-OPE-003: calificar una cancelación de la barbería (justificada o no)
+         * @description Con 3 injustificadas en 30 días la barbería queda suspendida.
+         */
+        post: operations["AdminOperationsController_verdict_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/reported": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-OPE-003: valoraciones o respuestas en revisión por reportes */
+        get: operations["AdminOperationsController_reportedReviews_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/{id}/moderation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-OPE-003: mantener, ocultar o restaurar una valoración o su respuesta */
+        post: operations["AdminOperationsController_moderate_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Solo ADMIN: ajustes con su esquema y si son editables */
+        get: operations["AdminConfigController_listSettings_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Solo ADMIN: un ajuste */
+        get: operations["AdminConfigController_getSetting_v1"];
+        /**
+         * Solo ADMIN: cambiar un ajuste (validado por su esquema y rango)
+         * @description Fuera de rango: 400. Claves de seguridad, pagos sensibles o decisiones pendientes: 403 SETTING_READ_ONLY. Queda el valor anterior y el nuevo en audit_log.
+         */
+        put: operations["AdminConfigController_updateSetting_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/service-categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Solo ADMIN: categorías de servicio, incluidas las inactivas */
+        get: operations["AdminConfigController_listCategories_v1"];
+        put?: never;
+        /** Solo ADMIN: crear una categoría de servicio */
+        post: operations["AdminConfigController_createCategory_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/service-categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Solo ADMIN: editar o desactivar (nunca borrar) una categoría */
+        patch: operations["AdminConfigController_updateCategory_v1"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1172,7 +1783,7 @@ export interface components {
             requestId: string;
         };
         /** @enum {string} */
-        Role: "CLIENT" | "BARBER" | "OWNER" | "SUPPORT";
+        Role: "CLIENT" | "BARBER" | "OWNER" | "SUPPORT" | "ADMIN";
         /** @enum {string} */
         NotificationChannel: "PUSH" | "EMAIL" | "IN_APP";
         NotificationPreferencesDto: {
@@ -1250,6 +1861,16 @@ export interface components {
             /** Format: date-time */
             refreshTokenExpiresAt: string;
             user: components["schemas"]["SessionUserDto"];
+        };
+        SupportAccessDto: {
+            /** @example Bearer */
+            tokenType: string;
+            /** @description Solo vale para /support/tickets y /me/support/tickets. */
+            accessToken: string;
+            /** Format: date-time */
+            accessTokenExpiresAt: string;
+            /** @example true */
+            restricted: boolean;
         };
         RefreshDto: {
             refreshToken: string;
@@ -1929,7 +2550,7 @@ export interface components {
         /** @enum {string} */
         RefundStatus: "PENDING" | "SUCCEEDED" | "FAILED";
         /** @enum {string} */
-        RefundReason: "CLIENT_CANCELLATION" | "BARBERSHOP_CANCELLATION" | "ORPHANED_PAYMENT" | "MANUAL";
+        RefundReason: "CLIENT_CANCELLATION" | "BARBERSHOP_CANCELLATION" | "ORPHANED_PAYMENT" | "MANUAL" | "SUPPORT_CANCELLATION";
         RefundViewDto: {
             /** Format: uuid */
             refundId: string;
@@ -2013,7 +2634,7 @@ export interface components {
         };
         CancellationDto: {
             /** @enum {string} */
-            byRole: "CLIENT" | "BARBERSHOP" | "SYSTEM";
+            byRole: "CLIENT" | "BARBERSHOP" | "SYSTEM" | "SUPPORT";
             reason: string | null;
         };
         CreatedBookingDto: {
@@ -2077,7 +2698,7 @@ export interface components {
             /** @example 50 */
             percent: number;
             /** @enum {string} */
-            rule: "NO_PAYMENT" | "BARBERSHOP_CANCELLATION" | "CLIENT_FULL" | "CLIENT_PARTIAL" | "CLIENT_NONE";
+            rule: "NO_PAYMENT" | "BARBERSHOP_CANCELLATION" | "SUPPORT_CANCELLATION" | "CLIENT_FULL" | "CLIENT_PARTIAL" | "CLIENT_NONE";
             /** @description Cobrado y aún no devuelto (base del cálculo). */
             paid: components["schemas"]["MoneyDto"];
         };
@@ -2303,6 +2924,454 @@ export interface components {
             items: components["schemas"]["FavoriteDto"][];
             nextCursor: string | null;
         };
+        CreateTicketDto: {
+            /** @enum {string} */
+            category: "ACCOUNT" | "BOOKING" | "PAYMENT" | "BARBERSHOP" | "REVIEW" | "APP" | "OTHER";
+            subject: string;
+            /** @description Primer mensaje. */
+            message: string;
+            /**
+             * @description Relación opcional con una reserva, un pago o una barbería propios.
+             * @enum {string}
+             */
+            relatedType?: "booking" | "payment" | "barbershop";
+            /**
+             * Format: uuid
+             * @description Obligatorio con relatedType.
+             */
+            relatedId?: string;
+        };
+        TicketRelatedDto: {
+            /** @enum {string} */
+            type: "booking" | "payment" | "barbershop";
+            /** Format: uuid */
+            id: string;
+        };
+        TicketMessageDto: {
+            /** Format: uuid */
+            id: string;
+            body: string;
+            /** @enum {string} */
+            from: "USER" | "SUPPORT";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        TicketDetailDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            category: "ACCOUNT" | "BOOKING" | "PAYMENT" | "BARBERSHOP" | "REVIEW" | "APP" | "OTHER";
+            subject: string;
+            /** @enum {string} */
+            status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+            related: components["schemas"]["TicketRelatedDto"] | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            resolvedAt: string | null;
+            /** Format: date-time */
+            closedAt: string | null;
+            messages: components["schemas"]["TicketMessageDto"][];
+            /** @description Si puede responder (abierto, o resuelto dentro del plazo). */
+            canReply: boolean;
+        };
+        TicketSummaryDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            category: "ACCOUNT" | "BOOKING" | "PAYMENT" | "BARBERSHOP" | "REVIEW" | "APP" | "OTHER";
+            subject: string;
+            /** @enum {string} */
+            status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+            related: components["schemas"]["TicketRelatedDto"] | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            resolvedAt: string | null;
+            /** Format: date-time */
+            closedAt: string | null;
+        };
+        TicketPageDto: {
+            items: components["schemas"]["TicketSummaryDto"][];
+            nextCursor: string | null;
+        };
+        TicketMessageInputDto: {
+            body: string;
+        };
+        CreateBarbershopReportDto: {
+            /** @enum {string} */
+            reason: "FRAUD" | "MISLEADING_INFO" | "INAPPROPRIATE" | "NOT_OPERATING" | "SAFETY" | "OTHER";
+            details?: string;
+        };
+        StaffPersonDto: {
+            /** Format: uuid */
+            id: string;
+            fullName: string;
+        };
+        StaffTicketDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            category: "ACCOUNT" | "BOOKING" | "PAYMENT" | "BARBERSHOP" | "REVIEW" | "APP" | "OTHER";
+            subject: string;
+            /** @enum {string} */
+            status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+            related: components["schemas"]["TicketRelatedDto"] | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            resolvedAt: string | null;
+            /** Format: date-time */
+            closedAt: string | null;
+            requester: components["schemas"]["StaffPersonDto"];
+            assignedTo: components["schemas"]["StaffPersonDto"] | null;
+        };
+        StaffTicketPageDto: {
+            items: components["schemas"]["StaffTicketDto"][];
+            nextCursor: string | null;
+        };
+        StaffTicketMessageDto: {
+            /** Format: uuid */
+            id: string;
+            body: string;
+            /** @enum {string} */
+            from: "USER" | "SUPPORT";
+            /** Format: date-time */
+            createdAt: string;
+            isInternal: boolean;
+            author: components["schemas"]["StaffPersonDto"];
+        };
+        StaffTicketDetailDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            category: "ACCOUNT" | "BOOKING" | "PAYMENT" | "BARBERSHOP" | "REVIEW" | "APP" | "OTHER";
+            subject: string;
+            /** @enum {string} */
+            status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+            related: components["schemas"]["TicketRelatedDto"] | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            resolvedAt: string | null;
+            /** Format: date-time */
+            closedAt: string | null;
+            requester: components["schemas"]["StaffPersonDto"];
+            assignedTo: components["schemas"]["StaffPersonDto"] | null;
+            messages: components["schemas"]["StaffTicketMessageDto"][];
+        };
+        AssignTicketDto: {
+            /**
+             * Format: uuid
+             * @description Cuenta de soporte o ADMIN; por defecto, quien hace la petición.
+             */
+            assigneeId?: string;
+        };
+        StaffTicketMessageInputDto: {
+            body: string;
+            /**
+             * @description Nota interna: nunca la ve el usuario y no cambia el estado.
+             * @default false
+             */
+            isInternal: boolean;
+        };
+        UpdateTicketStatusDto: {
+            /** @enum {string} */
+            status: "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+            /** @description Obligatorio al cerrar un ticket que no está resuelto. */
+            reason?: string;
+        };
+        StaffUserDto: {
+            /** Format: uuid */
+            id: string;
+            fullName: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "DISABLED";
+            roles: ("CLIENT" | "BARBER" | "OWNER" | "SUPPORT" | "ADMIN")[];
+            emailVerified: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            deleted: boolean;
+        };
+        ContactAccessDto: {
+            reason: string;
+            /**
+             * Format: uuid
+             * @description Ticket de esa cuenta que lo justifica.
+             */
+            ticketId?: string;
+        };
+        ContactDto: {
+            email: string;
+            phone: string | null;
+        };
+        ReasonDto: {
+            reason: string;
+        };
+        AdminBarbershopDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            status: "OPEN" | "TEMPORARILY_CLOSED" | "SUSPENDED" | "PENDING_REVIEW";
+            /** @enum {string} */
+            type: "BARBERSHOP" | "INDEPENDENT";
+            /** @description Marca del sistema, p. ej. owner_disabled. */
+            flaggedReason: string | null;
+            /** Format: date-time */
+            flaggedAt: string | null;
+            openReports: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminBarbershopPageDto: {
+            items: components["schemas"]["AdminBarbershopDto"][];
+            nextCursor: string | null;
+        };
+        BarbershopReportDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            reason: "FRAUD" | "MISLEADING_INFO" | "INAPPROPRIATE" | "NOT_OPERATING" | "SAFETY" | "OTHER";
+            details: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminBarbershopDetailDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            status: "OPEN" | "TEMPORARILY_CLOSED" | "SUSPENDED" | "PENDING_REVIEW";
+            /** @enum {string} */
+            type: "BARBERSHOP" | "INDEPENDENT";
+            /** @description Marca del sistema, p. ej. owner_disabled. */
+            flaggedReason: string | null;
+            /** Format: date-time */
+            flaggedAt: string | null;
+            openReports: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Reportes abiertos. */
+            reports: components["schemas"]["BarbershopReportDto"][];
+        };
+        SuspendBarbershopDto: {
+            reason: string;
+            /**
+             * @description Reservas futuras: KEEP_UPCOMING mantiene las de las próximas support.suspension_keep_hours (48) y cancela el resto con devolución total. Las pendientes de pago se cancelan siempre.
+             * @default KEEP_UPCOMING
+             * @enum {string}
+             */
+            bookings: "KEEP_UPCOMING" | "CANCEL_ALL" | "KEEP_ALL";
+        };
+        SuspensionResultDto: {
+            /** @enum {string} */
+            status: "SUSPENDED";
+            /** @enum {string} */
+            mode: "KEEP_UPCOMING" | "CANCEL_ALL" | "KEEP_ALL";
+            cancelledBookings: number;
+            /** @description Reservas confirmadas futuras que se mantienen. */
+            keptBookings: number;
+        };
+        ResolveReportsDto: {
+            /** @description Resolución (queda en los reportes). */
+            resolution: string;
+        };
+        RefNameDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        RefBarberDto: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+        };
+        RefPersonDto: {
+            /** Format: uuid */
+            id: string;
+            fullName: string;
+        };
+        AdminHistoryDto: {
+            from: string | null;
+            to: string;
+            reason: string | null;
+            /** Format: date-time */
+            at: string;
+        };
+        AdminRefundDto: {
+            /** Format: uuid */
+            id: string;
+            amount: number;
+            status: string;
+            reasonType: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminPaymentDto: {
+            /** Format: uuid */
+            id: string;
+            status: string;
+            amount: number;
+            currency: string;
+            provider: string;
+            /** @description Cobrado y aún no devuelto. */
+            refundable: number;
+            refunds: components["schemas"]["AdminRefundDto"][];
+        };
+        AdminBookingDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "PENDING_PAYMENT" | "CONFIRMED" | "ATTENDED" | "CANCELLED" | "NO_SHOW" | "EXPIRED";
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
+            serviceName: string;
+            totalAmount: number;
+            currency: string;
+            barbershop: components["schemas"]["RefNameDto"];
+            barber: components["schemas"]["RefBarberDto"];
+            client: components["schemas"]["RefPersonDto"];
+            history: components["schemas"]["AdminHistoryDto"][];
+            payments: components["schemas"]["AdminPaymentDto"][];
+        };
+        SupportAttendanceCorrectionDto: {
+            reason: string;
+            /** @enum {string} */
+            status: "ATTENDED" | "NO_SHOW";
+        };
+        ManualRefundDto: {
+            reason: string;
+            /** @description Céntimos; hasta lo cobrado y aún no devuelto. */
+            amount: number;
+        };
+        RefundRequestedDto: {
+            /** Format: uuid */
+            refundId: string;
+        };
+        AdminCancellationReviewDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            bookingId: string;
+            barbershop: components["schemas"]["RefNameDto"];
+            reason: string;
+            /** Format: date-time */
+            cancelledAt: string;
+            /** @enum {string} */
+            status: "PENDING_REVIEW" | "JUSTIFIED" | "UNJUSTIFIED";
+        };
+        AdminCancellationReviewPageDto: {
+            items: components["schemas"]["AdminCancellationReviewDto"][];
+            nextCursor: string | null;
+        };
+        CancellationVerdictDto: {
+            reason: string;
+            /** @enum {string} */
+            verdict: "JUSTIFIED" | "UNJUSTIFIED";
+        };
+        VerdictResultDto: {
+            /** @enum {string} */
+            verdict: "JUSTIFIED" | "UNJUSTIFIED";
+            /** @description Si este veredicto suspendió la barbería. */
+            barbershopSuspended: boolean;
+        };
+        ReportCountDto: {
+            reason: string;
+            count: number;
+        };
+        AdminReviewDto: {
+            /** Format: uuid */
+            id: string;
+            rating: number;
+            comment: string | null;
+            /** @enum {string} */
+            status: "VISIBLE" | "HIDDEN" | "UNDER_REVIEW";
+            responseText: string | null;
+            /** @enum {string|null} */
+            responseStatus: "VISIBLE" | "HIDDEN" | "UNDER_REVIEW" | null;
+            barbershop: components["schemas"]["RefNameDto"];
+            /** @description Reportes abiertos de la valoración. */
+            reviewReports: components["schemas"]["ReportCountDto"][];
+            /** @description Reportes abiertos de la respuesta. */
+            responseReports: components["schemas"]["ReportCountDto"][];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminReviewPageDto: {
+            items: components["schemas"]["AdminReviewDto"][];
+            nextCursor: string | null;
+        };
+        ReviewModerationDto: {
+            reason: string;
+            /**
+             * @default REVIEW
+             * @enum {string}
+             */
+            target: "REVIEW" | "RESPONSE";
+            /**
+             * @description KEEP: vuelve a visible. HIDE: oculta. RESTORE: muestra lo que ocultó soporte.
+             * @enum {string}
+             */
+            decision: "KEEP" | "HIDE" | "RESTORE";
+        };
+        ModerationResultDto: {
+            /** @enum {string} */
+            status: "VISIBLE" | "HIDDEN" | "UNDER_REVIEW";
+            resolvedReports: number;
+        };
+        AdminSettingDto: {
+            key: string;
+            value: Record<string, never> | null;
+            description: string | null;
+            editable: boolean;
+            readOnlyReason: string | null;
+            /** @description type y rango (min, max, multipleOf) o longitud. */
+            schema: Record<string, never> | null;
+            /** Format: date-time */
+            updatedAt: string | null;
+        };
+        UpdateSettingDto: {
+            reason: string;
+            /** @description Nuevo valor, según el esquema del ajuste. */
+            value: Record<string, never>;
+        };
+        AdminCategoryDto: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            name: string;
+            sortOrder: number;
+            isActive: boolean;
+            /** @description Servicios que la usan. */
+            servicesCount: number;
+        };
+        CreateCategoryDto: {
+            /**
+             * @description Clave estable en minúsculas.
+             * @example beard
+             */
+            key: string;
+            name: string;
+            /** @default 0 */
+            sortOrder: number;
+        };
+        UpdateCategoryDto: {
+            name?: string;
+            sortOrder?: number;
+            /** @description false la desactiva (nunca se borra). */
+            isActive?: boolean;
+        };
     };
     responses: never;
     parameters: never;
@@ -2494,6 +3563,53 @@ export interface operations {
             };
             /** @description Cuenta deshabilitada */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AuthController_supportAccess_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportAccessDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5135,6 +6251,1580 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FavoritePageDto"];
+                };
+            };
+        };
+    };
+    SupportController_create_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTicketDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetailDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    SupportController_list_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketPageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    SupportController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetailDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    SupportController_reply_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketMessageInputDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetailDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbershopReportsController_report_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBarbershopReportDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminTicketsController_queue_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+                /** @description Por defecto, los abiertos (OPEN e IN_PROGRESS). */
+                status?: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+                category?: "ACCOUNT" | "BOOKING" | "PAYMENT" | "BARBERSHOP" | "REVIEW" | "APP" | "OTHER";
+                assigned?: "me" | "unassigned" | "any";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffTicketPageDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminTicketsController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffTicketDetailDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminTicketsController_assign_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignTicketDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffTicketDetailDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminTicketsController_reply_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffTicketMessageInputDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffTicketDetailDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminTicketsController_setStatus_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTicketStatusDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffTicketDetailDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminUsersController_find_v1: {
+        parameters: {
+            query: {
+                /** @description Correo exacto. */
+                email: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffUserDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminUsersController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffUserDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminUsersController_contact_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactAccessDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminUsersController_disable_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffUserDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminUsersController_enable_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffUserDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminUsersController_grant_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                role: "support" | "admin";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffUserDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminUsersController_revoke_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                role: "support" | "admin";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffUserDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminBarbershopsController_list_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+                /** @description Sin estado: las que necesitan atención (reportes, marcas, pendientes). */
+                status?: "OPEN" | "TEMPORARILY_CLOSED" | "SUSPENDED" | "PENDING_REVIEW";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBarbershopPageDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminBarbershopsController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBarbershopDetailDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminBarbershopsController_approve_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBarbershopDetailDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminBarbershopsController_suspend_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuspendBarbershopDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuspensionResultDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminBarbershopsController_reactivate_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBarbershopDetailDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminBarbershopsController_resolveReports_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveReportsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBarbershopDetailDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOperationsController_booking_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBookingDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOperationsController_correct_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupportAttendanceCorrectionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBookingDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOperationsController_refund_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualRefundDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundRequestedDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOperationsController_cancellationReviews_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+                status?: "PENDING_REVIEW" | "JUSTIFIED" | "UNJUSTIFIED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCancellationReviewPageDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOperationsController_verdict_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancellationVerdictDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerdictResultDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOperationsController_reportedReviews_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReviewPageDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOperationsController_moderate_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewModerationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModerationResultDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminConfigController_listSettings_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSettingDto"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminConfigController_getSetting_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSettingDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminConfigController_updateSetting_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSettingDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSettingDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminConfigController_listCategories_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCategoryDto"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminConfigController_createCategory_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCategoryDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCategoryDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminConfigController_updateCategory_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCategoryDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCategoryDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
                 };
             };
         };

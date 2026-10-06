@@ -84,7 +84,8 @@ describe('TokenService (JWT ES256)', () => {
   });
 
   it.each([
-    ['rol desconocido', { sid: randomUUID(), roles: ['ADMIN'] }],
+    ['rol desconocido', { sid: randomUUID(), roles: ['ROOT'] }],
+    ['alcance desconocido', { sid: randomUUID(), roles: ['CLIENT'], scp: 'admin' }],
     ['sin sesión', { roles: ['CLIENT'] }],
     ['roles no es lista', { sid: randomUUID(), roles: 'CLIENT' }],
   ])('rechaza claims inválidos: %s', (_case, claims) => {
@@ -96,6 +97,22 @@ describe('TokenService (JWT ES256)', () => {
       expiresIn: 60,
     });
     expect(service.verifyAccessToken(token)).toBeUndefined();
+  });
+
+  it('Fase 12: sesión restringida (scp=support): sin roles y marcada como restringida', () => {
+    const signed = service.signAccessToken(
+      { id: user.id, roles: ['CLIENT', 'OWNER'] },
+      randomUUID(),
+      {
+        restricted: true,
+      },
+    );
+    expect(service.verifyAccessToken(signed.token)).toEqual({
+      id: user.id,
+      sessionId: expect.any(String),
+      roles: [],
+      restricted: true,
+    });
   });
 
   it.each(['', 'abc', 'a.b.c'])('rechaza texto que no es un JWT: %p', (token) => {

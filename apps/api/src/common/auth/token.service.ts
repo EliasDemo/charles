@@ -14,6 +14,8 @@ interface AccessTokenClaims {
   sub: string;
   sid: string;
   roles: Role[];
+  /** Fase 12: `support` = sesión restringida de una cuenta deshabilitada (solo tickets). */
+  scp?: 'support';
 }
 
 export interface SignedAccessToken {
@@ -26,9 +28,15 @@ export interface SignedAccessToken {
 export class TokenService {
   constructor(@Inject(APP_CONFIG) private readonly config: AppConfig) {}
 
-  signAccessToken(user: { id: string; roles: Role[] }, sessionId: string): SignedAccessToken {
+  signAccessToken(
+    user: { id: string; roles: Role[] },
+    sessionId: string,
+    options: { restricted?: boolean } = {},
+  ): SignedAccessToken {
     const { jwtKeys, issuer, audience, accessTokenTtlSeconds } = this.config.auth;
-    const claims: Omit<AccessTokenClaims, 'sub'> = { sid: sessionId, roles: user.roles };
+    const claims: Omit<AccessTokenClaims, 'sub'> = options.restricted
+      ? { sid: sessionId, roles: [], scp: 'support' }
+      : { sid: sessionId, roles: user.roles };
     const token = sign(claims, jwtKeys.privateKey, {
       algorithm: ALGORITHM,
       subject: user.id,
@@ -50,18 +58,21 @@ export class TokenService {
         clockTolerance: CLOCK_TOLERANCE_SECONDS,
       });
       if (typeof payload === 'string') return undefined;
-      const { sub, sid, roles } = payload as Partial<AccessTokenClaims>;
+      const { sub, sid, roles, scp } = payload as Partial<AccessTokenClaims>;
       if (
         typeof sub !== 'string' ||
         !UUID.test(sub) ||
         typeof sid !== 'string' ||
         !UUID.test(sid) ||
         !Array.isArray(roles) ||
-        !roles.every((r) => VALID_ROLES.has(r))
+        !roles.every((r) => VALID_ROLES.has(r)) ||
+        (scp !== undefined && scp !== 'support')
       ) {
         return undefined;
       }
-      return { id: sub, sessionId: sid, roles };
+      return scp === 'support'
+        ? { id: sub, sessionId: sid, roles: [], restricted: true }
+        : { id: sub, sessionId: sid, roles };
     } catch {
       return undefined;
     }

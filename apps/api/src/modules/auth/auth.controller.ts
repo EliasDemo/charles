@@ -3,6 +3,7 @@ import {
   ApiAcceptedResponse,
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiOkResponse,
@@ -29,6 +30,7 @@ import {
   PasswordResetRequestDto,
   RefreshDto,
   RegisterDto,
+  SupportAccessDto,
   TermsDto,
 } from './dto/auth.dto';
 
@@ -75,6 +77,23 @@ export class AuthController {
   @ApiForbiddenResponse({ type: ErrorResponseDto, description: 'Cuenta deshabilitada' })
   login(@Body() dto: LoginDto, @Req() req: Request): Promise<AuthTokensDto> {
     return this.auth.login(dto, contextOf(req));
+  }
+
+  @Public()
+  @Post('support-access')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Fase 12: acceso limitado a soporte para una cuenta deshabilitada',
+    description:
+      'Con correo y contraseña de una cuenta DISABLED devuelve un token de acceso restringido: ' +
+      'solo sirve para crear y seguir sus tickets de soporte. Sin token de renovación. ' +
+      'Una cuenta activa recibe 409 y usa /auth/login.',
+  })
+  @ApiOkResponse({ type: SupportAccessDto })
+  @ApiUnauthorizedResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
+  supportAccess(@Body() dto: LoginDto, @Req() req: Request): Promise<SupportAccessDto> {
+    return this.auth.supportAccess(dto, contextOf(req));
   }
 
   @Public()

@@ -44,6 +44,6 @@ import { BookingsService } from './bookings.service';
     BookingCreationRateLimitGuard,
     BookingRateLimitRefresher,
   ],
-  exports: [BookingExpirationService],
+  exports: [BookingExpirationService, BookingAttendanceService],
 })
 export class BookingsManagementModule {}

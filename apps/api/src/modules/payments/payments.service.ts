@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import { CLOCK, type Clock } from '../../common/clock/clock';
@@ -17,6 +18,7 @@ import {
   type PaymentOutcome,
 } from './payment-gateway';
 import {
+  type CancelledBy,
   normalizeRefundSettings,
   type RefundPolicySettings,
   type RefundQuote,
@@ -36,6 +38,12 @@ export interface PaymentStartDto {
 export type ResultSource = 'WEBHOOK' | 'RECONCILIATION';
 
 export const REFUND_REQUESTED_EVENT = 'refund.requested';
+
+const REFUND_REASON_BY: Record<CancelledBy, RefundReason> = {
+  CLIENT: 'CLIENT_CANCELLATION',
+  BARBERSHOP: 'BARBERSHOP_CANCELLATION',
+  SUPPORT: 'SUPPORT_CANCELLATION',
+};
 
 /** Estado final y si esta llamada cambió algo (false = ya estaba resuelto: idempotente). */
 export interface ApplyResult<S> {
@@ -241,7 +249,7 @@ export class PaymentsService {
   /** Cuánto se devolvería si se cancela ahora (vista previa y cancelación usan lo mismo). */
   async quoteCancellation(
     booking: { id: string; startAt: Date },
-    by: 'CLIENT' | 'BARBERSHOP',
+    by: CancelledBy,
     tx: Prisma.TransactionClient = this.prisma,
   ): Promise<RefundQuote & { paymentId: string | null }> {
     const [refundable, settings] = await Promise.all([
@@ -265,14 +273,14 @@ export class PaymentsService {
   async onBookingCancelled(
     tx: Prisma.TransactionClient,
     booking: { id: string; startAt: Date },
-    by: 'CLIENT' | 'BARBERSHOP',
+    by: CancelledBy,
   ): Promise<RefundQuote> {
     const quote = await this.quoteCancellation(booking, by, tx);
     if (quote.paymentId && quote.amount > 0) {
       await this.requestRefundInTx(tx, {
         paymentId: quote.paymentId,
         amount: quote.amount,
-        reasonType: by === 'CLIENT' ? 'CLIENT_CANCELLATION' : 'BARBERSHOP_CANCELLATION',
+        reasonType: REFUND_REASON_BY[by],
         reason: quote.rule.toLowerCase(),
         idempotencyKey: `refund:cancellation:${booking.id}`,
       });
@@ -313,7 +321,10 @@ export class PaymentsService {
     return refund.id;
   }
 
-  /** Reembolso manual (soporte, Fase 12): queda auditado. */
+  /**
+   * Reembolso manual (solo ADMIN, Fase 12), con motivo, hasta lo cobrado y aún no devuelto, y
+   * auditado. Bloquea el pago: dos reembolsos manuales simultáneos no superan el límite.
+   */
   async requestManualRefund(input: {
     actorId: string;
     paymentId: string;
@@ -321,12 +332,36 @@ export class PaymentsService {
     reason: string;
   }): Promise<string> {
     return this.prisma.$transaction(async (tx) => {
+      const [payment] = await tx.$queryRaw<{ booking_id: string; status: string }[]>`
+        SELECT booking_id::text AS booking_id, status::text AS status
+          FROM payments WHERE id = ${input.paymentId}::uuid FOR UPDATE`;
+      if (!payment) {
+        throw new AppException(ErrorCode.NOT_FOUND, 'El pago no existe.', HttpStatus.NOT_FOUND);
+      }
+      const refundable = await this.refundableOf(payment.booking_id, tx);
+      if (!refundable || refundable.paymentId !== input.paymentId) {
+        throw new AppException(
+          ErrorCode.REFUND_EXCEEDS_PAID,
+          'Este pago no tiene un cobro confirmado que se pueda devolver.',
+          HttpStatus.CONFLICT,
+          [{ refundable: 0 }],
+        );
+      }
+      if (input.amount > refundable.refundable) {
+        throw new AppException(
+          ErrorCode.REFUND_EXCEEDS_PAID,
+          'El importe supera lo cobrado y aún no devuelto.',
+          HttpStatus.CONFLICT,
+          [{ refundable: refundable.refundable }],
+        );
+      }
       const refundId = await this.requestRefundInTx(tx, {
         paymentId: input.paymentId,
         amount: input.amount,
         reasonType: 'MANUAL',
         reason: input.reason,
-        idempotencyKey: `refund:manual:${input.paymentId}:${this.clock.now()}`,
+        // Cada reembolso manual es una solicitud distinta (dos en el mismo milisegundo no chocan).
+        idempotencyKey: `refund:manual:${input.paymentId}:${randomUUID()}`,
       });
       await this.audit.record(
         {
@@ -334,7 +369,7 @@ export class PaymentsService {
           action: 'refund.manual_requested',
           entityType: 'payment',
           entityId: input.paymentId,
-          changes: { refundId, amount: input.amount },
+          changes: { refundId, amount: input.amount, reason: input.reason, actorRole: 'ADMIN' },
         },
         tx,
       );

@@ -32,6 +32,8 @@ import { OutboxModule } from './common/outbox/outbox.module';
 import { ServicesModule } from './modules/services/services.module';
 import { UsersModule } from './modules/users/users.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { SupportModule } from './modules/support/support.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -68,6 +70,8 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
     PaymentsModule,
     BookingsManagementModule,
     ReviewsModule,
+    SupportModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

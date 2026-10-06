@@ -183,6 +183,42 @@ export class BookingAttendanceService {
     });
   }
 
+  /**
+   * Fase 12: corrección por soporte, sin el plazo de 48 h (con motivo). Mismo camino que la del
+   * responsable: máquina de estados, historial, evento y auditoría. El conflicto de interés lo
+   * comprueba quien llama.
+   */
+  async correctBySupport(
+    staffId: string,
+    staffRole: 'SUPPORT' | 'ADMIN',
+    bookingId: string,
+    dto: AttendanceCorrectionDto,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const from = await this.stateMachine.correct(
+        tx,
+        bookingId,
+        dto.status,
+        { userId: staffId, role: 'SUPPORT' },
+        dto.reason,
+      );
+      await this.audit.record(
+        {
+          actorId: staffId,
+          action: 'booking.attendance_corrected',
+          entityType: 'booking',
+          entityId: bookingId,
+          changes: {
+            values: { status: { from, to: dto.status } },
+            actorRole: staffRole,
+            reason: dto.reason,
+          },
+        },
+        tx,
+      );
+    });
+  }
+
   // ───────────── Cierre automático ─────────────
 
   /**

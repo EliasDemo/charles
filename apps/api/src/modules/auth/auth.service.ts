@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import type { AuthUser } from '../../common/auth/auth-user';
@@ -7,7 +8,13 @@ import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { SettingsService } from '../settings/settings.service';
 import { type UserCredentials, UsersService } from '../users/users.service';
-import type { AcceptedResponseDto, AuthTokensDto, LoginDto, RegisterDto } from './dto/auth.dto';
+import type {
+  AcceptedResponseDto,
+  AuthTokensDto,
+  LoginDto,
+  RegisterDto,
+  SupportAccessDto,
+} from './dto/auth.dto';
 import { LoginAttemptsService } from './login-attempts.service';
 import { AuthMailProducer } from './mail/auth-mail.producer';
 import { SessionsService } from './sessions.service';
@@ -91,6 +98,60 @@ export class AuthService {
 
   /** RF-AUT-002. Mensaje genérico ante cualquier fallo de credenciales. */
   async login(dto: LoginDto, ctx: RequestContext): Promise<AuthTokensDto> {
+    const user = await this.verifyCredentials(dto, ctx);
+
+    // Contraseña correcta: recién ahora se puede revelar que la cuenta está deshabilitada.
+    if (user.status !== 'ACTIVE') {
+      throw new AppException(
+        ErrorCode.ACCOUNT_DISABLED,
+        'Tu cuenta está deshabilitada. Contacta a soporte para más información.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    const session = await this.sessions.create(user.id, {
+      name: dto.deviceName ?? null,
+      userAgent: ctx.userAgent?.slice(0, 200) ?? null,
+    });
+    return this.buildTokens(user, session.sessionId, session.refreshToken, session.expiresAt);
+  }
+
+  /**
+   * Fase 12: acceso limitado a soporte para una cuenta **deshabilitada**. Mismas comprobaciones
+   * que el inicio de sesión (bloqueo por intentos, contraseña); devuelve solo un token de acceso
+   * restringido a los tickets propios, sin token de renovación. Una cuenta activa usa `login`.
+   */
+  async supportAccess(dto: LoginDto, ctx: RequestContext): Promise<SupportAccessDto> {
+    const user = await this.verifyCredentials(dto, ctx);
+    if (user.status === 'ACTIVE') {
+      throw new AppException(
+        ErrorCode.CONFLICT,
+        'Tu cuenta está activa: inicia sesión normalmente.',
+        HttpStatus.CONFLICT,
+      );
+    }
+    const signed = this.tokens.signAccessToken(user, randomUUID(), { restricted: true });
+    await this.audit.record({
+      actorId: user.id,
+      action: 'auth.support_access',
+      entityType: 'user',
+      entityId: user.id,
+      ip: ctx.ip,
+      changes: {},
+    });
+    return {
+      tokenType: 'Bearer',
+      accessToken: signed.token,
+      accessTokenExpiresAt: signed.expiresAt,
+      restricted: true,
+    };
+  }
+
+  /** Bloqueo por intentos y contraseña; el estado de la cuenta lo decide quien llama. */
+  private async verifyCredentials(
+    dto: LoginDto,
+    ctx: RequestContext,
+  ): Promise<NonNullable<Awaited<ReturnType<UsersService['findCredentialsByEmailHash']>>>> {
     const emailHash = this.users.emailHash(dto.email);
     const subject = { accountKey: emailHash.toString('hex'), ip: ctx.ip };
     await this.attempts.assertNotLocked(subject);
@@ -112,22 +173,8 @@ export class AuthService {
       }
       throw invalidCredentials();
     }
-
-    // Contraseña correcta: recién ahora se puede revelar que la cuenta está deshabilitada.
-    if (user.status !== 'ACTIVE') {
-      throw new AppException(
-        ErrorCode.ACCOUNT_DISABLED,
-        'Tu cuenta está deshabilitada. Contacta a soporte para más información.',
-        HttpStatus.FORBIDDEN,
-      );
-    }
-
     await this.attempts.recordSuccess(subject.accountKey);
-    const session = await this.sessions.create(user.id, {
-      name: dto.deviceName ?? null,
-      userAgent: ctx.userAgent?.slice(0, 200) ?? null,
-    });
-    return this.buildTokens(user, session.sessionId, session.refreshToken, session.expiresAt);
+    return user;
   }
 
   /** Rota el token de renovación (sesión de 30 días que se renueva con el uso). */

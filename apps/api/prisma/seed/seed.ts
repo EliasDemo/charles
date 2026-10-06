@@ -320,6 +320,27 @@ export const SEED_SETTINGS: {
     description: 'Valoraciones y reportes que una misma cuenta puede crear por minuto.',
   },
   {
+    key: 'support.ticket_reopen_days',
+    value: 7,
+    description: 'Días tras resolver un ticket en que el usuario lo reabre respondiendo.',
+  },
+  {
+    key: 'support.ticket_auto_close_days',
+    value: 7,
+    description: 'Días tras resolver un ticket en que se cierra solo si nadie responde.',
+  },
+  {
+    key: 'support.max_open_tickets_per_user',
+    value: 5,
+    description: 'Tickets abiertos (OPEN o IN_PROGRESS) que una cuenta puede tener a la vez.',
+  },
+  {
+    key: 'support.suspension_keep_hours',
+    value: 48,
+    description:
+      'Al suspender una barbería con la opción por defecto, se mantienen las reservas de estas próximas horas y se cancelan las demás.',
+  },
+  {
     key: 'payments.webhook_rate_limit_per_minute',
     value: 600,
     description:

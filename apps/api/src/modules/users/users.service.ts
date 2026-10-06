@@ -35,6 +35,16 @@ export interface UserCredentials {
 
 type Tx = Prisma.TransactionClient;
 
+export interface StaffUserView {
+  id: string;
+  fullName: string;
+  status: UserStatus;
+  roles: Role[];
+  emailVerified: boolean;
+  createdAt: Date;
+  deleted: boolean;
+}
+
 /** Única puerta a la tabla `users` (CLAUDE.md §3: los módulos no tocan tablas ajenas). */
 @Injectable()
 export class UsersService {
@@ -132,6 +142,65 @@ export class UsersService {
 
   async removeRole(userId: string, role: Role, tx: Tx = this.prisma): Promise<void> {
     await tx.userRole.deleteMany({ where: { userId, role } });
+  }
+
+  /** Fase 12: datos mínimos para soporte (nunca correo, teléfono ni documento). */
+  async staffView(id: string): Promise<StaffUserView | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        fullName: true,
+        status: true,
+        emailVerifiedAt: true,
+        createdAt: true,
+        deletedAt: true,
+        roles: { select: { role: true } },
+      },
+    });
+    if (!user) return null;
+    return {
+      id: user.id,
+      fullName: user.fullName,
+      status: user.status,
+      roles: user.roles.map((r) => r.role),
+      emailVerified: user.emailVerifiedAt !== null,
+      createdAt: user.createdAt,
+      deleted: user.deletedAt !== null,
+    };
+  }
+
+  /** Fase 12: contacto en claro, solo para el acceso auditado de soporte. */
+  async contact(id: string): Promise<{ email: string; phone: string | null } | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { emailEnc: true, phoneEnc: true },
+    });
+    if (!user) return null;
+    return {
+      email: this.encryption.decrypt(user.emailEnc, EncryptedField.USER_EMAIL),
+      phone: user.phoneEnc
+        ? this.encryption.decrypt(user.phoneEnc, EncryptedField.USER_PHONE)
+        : null,
+    };
+  }
+
+  async setStatus(id: string, status: UserStatus, tx: Tx = this.prisma): Promise<void> {
+    await tx.user.update({ where: { id }, data: { status } });
+  }
+
+  /** Cuentas activas (no eliminadas) con el rol, excluyendo opcionalmente una. */
+  async countActiveWithRole(role: Role, excludeId?: string, tx: Tx = this.prisma): Promise<number> {
+    return tx.userRole.count({
+      where: {
+        role,
+        user: {
+          status: 'ACTIVE',
+          deletedAt: null,
+          ...(excludeId ? { id: { not: excludeId } } : {}),
+        },
+      },
+    });
   }
 
   /** Nombres visibles (no son datos sensibles cifrados) para listas de miembros. */

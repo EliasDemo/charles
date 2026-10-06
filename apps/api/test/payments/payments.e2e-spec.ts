@@ -513,14 +513,27 @@ describe('RF-PAG-001…004 Pagos, webhooks, reembolsos, conciliación y sancione
         amount: 2000,
         reason: 'ajuste',
       });
-      let error: unknown;
-      try {
-        await payments.requestManualRefund({
+      // Fase 12: el servicio lo rechaza antes, con lo que aún se puede devolver.
+      await expect(
+        payments.requestManualRefund({
           actorId: shop.owner.userId,
           paymentId: booking.payment.paymentId,
           amount: 600,
           reason: 'excede',
-        });
+        }),
+      ).rejects.toMatchObject({ code: 'REFUND_EXCEEDS_PAID', details: [{ refundable: 525 }] });
+      // Y si algo se saltara esa comprobación, la base lo impide igual.
+      let error: unknown;
+      try {
+        await prisma.$transaction((tx) =>
+          payments.requestRefundInTx(tx, {
+            paymentId: booking.payment.paymentId,
+            amount: 600,
+            reasonType: 'MANUAL',
+            reason: 'excede',
+            idempotencyKey: randomUUID(),
+          }),
+        );
       } catch (caught) {
         error = caught;
       }

@@ -26,6 +26,8 @@ enum Role {
   BARBER
   OWNER
   SUPPORT
+  /// Fase 12: administra roles de soporte, ajustes, categorías y reembolsos manuales.
+  ADMIN
 }
 
 enum UserStatus {
@@ -85,6 +87,8 @@ enum CancelledByRole {
   CLIENT
   BARBERSHOP
   SYSTEM
+  /// Fase 12: cancelada por soporte (suspensión de la barbería), con devolución total.
+  SUPPORT
 }
 
 enum PriceLineType {
@@ -115,6 +119,8 @@ enum RefundReason {
   BARBERSHOP_CANCELLATION
   ORPHANED_PAYMENT
   MANUAL
+  /// Fase 12: cancelación por soporte (suspensión de la barbería).
+  SUPPORT_CANCELLATION
 }
 
 /// Revisión de soporte de una cancelación hecha por la barbería (sanción, Fase 8A/12).
@@ -128,6 +134,16 @@ enum ReviewStatus {
   VISIBLE
   HIDDEN
   UNDER_REVIEW
+}
+
+/// Fase 12: motivo de un reporte de barbería (lista cerrada).
+enum BarbershopReportReason {
+  FRAUD
+  MISLEADING_INFO
+  INAPPROPRIATE
+  NOT_OPERATING
+  SAFETY
+  OTHER
 }
 
 /// Fase 11: motivo de un reporte de valoración o de su respuesta (lista cerrada).
@@ -232,31 +248,32 @@ model User {
   updatedAt         DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt         DateTime?  @map("deleted_at") @db.Timestamptz(3)
 
-  roles                  UserRole[]
-  refreshTokens          RefreshToken[]
-  passwordResetTokens    PasswordResetToken[]
-  emailVerificationCodes EmailVerificationCode[]
-  deviceTokens           DeviceToken[]
-  memberships            BarbershopMember[]
-  invitationsReceived    BarbershopInvitation[]         @relation("InvitationInvitee")
-  invitationsSent        BarbershopInvitation[]         @relation("InvitationInviter")
-  barberProfiles         Barber[]
-  bookings               Booking[]                      @relation("BookingClient")
-  cancelledBookings      Booking[]                      @relation("BookingCancelledBy")
-  cancellationsByMe      BarbershopCancellationReview[] @relation("CancellationReviewCancelledBy")
-  cancellationsReviewed  BarbershopCancellationReview[] @relation("CancellationReviewReviewedBy")
-  bookingStatusChanges   BookingStatusHistory[]
-  favorites              Favorite[]
-  reviews                Review[]                       @relation("ReviewClient")
-  reviewResponses        Review[]                       @relation("ReviewResponder")
-  reviewReports          ReviewReport[]
-  notifications          Notification[]
-  supportTickets         SupportTicket[]                @relation("TicketRequester")
-  assignedTickets        SupportTicket[]                @relation("TicketAssignee")
-  ticketMessages         TicketMessage[]
-  barbershopReports      BarbershopReport[]
-  couponRedemptions      CouponRedemption[]
-  sponsorEvents          SponsorEvent[]
+  roles                     UserRole[]
+  refreshTokens             RefreshToken[]
+  passwordResetTokens       PasswordResetToken[]
+  emailVerificationCodes    EmailVerificationCode[]
+  deviceTokens              DeviceToken[]
+  memberships               BarbershopMember[]
+  invitationsReceived       BarbershopInvitation[]         @relation("InvitationInvitee")
+  invitationsSent           BarbershopInvitation[]         @relation("InvitationInviter")
+  barberProfiles            Barber[]
+  bookings                  Booking[]                      @relation("BookingClient")
+  cancelledBookings         Booking[]                      @relation("BookingCancelledBy")
+  cancellationsByMe         BarbershopCancellationReview[] @relation("CancellationReviewCancelledBy")
+  cancellationsReviewed     BarbershopCancellationReview[] @relation("CancellationReviewReviewedBy")
+  bookingStatusChanges      BookingStatusHistory[]
+  favorites                 Favorite[]
+  reviews                   Review[]                       @relation("ReviewClient")
+  reviewResponses           Review[]                       @relation("ReviewResponder")
+  reviewReports             ReviewReport[]
+  notifications             Notification[]
+  supportTickets            SupportTicket[]                @relation("TicketRequester")
+  assignedTickets           SupportTicket[]                @relation("TicketAssignee")
+  ticketMessages            TicketMessage[]
+  barbershopReports         BarbershopReport[]             @relation("BarbershopReportReporter")
+  barbershopReportsResolved BarbershopReport[]             @relation("BarbershopReportResolver")
+  couponRedemptions         CouponRedemption[]
+  sponsorEvents             SponsorEvent[]
 
   @@index([phoneHash])
   @@map("users")
@@ -368,6 +385,9 @@ model Barbershop {
   expectedReopenAt DateTime?                             @map("expected_reopen_at") @db.Timestamptz(3)
   ratingAvg        Decimal                               @default(0) @map("rating_avg") @db.Decimal(3, 2)
   ratingCount      Int                                   @default(0) @map("rating_count")
+  /// Fase 12: marcada para revisión de soporte por el sistema (por ejemplo `owner_disabled`).
+  flaggedReason    String?                               @map("flagged_reason")
+  flaggedAt        DateTime?                             @map("flagged_at") @db.Timestamptz(3)
   metadata         Json                                  @default("{}")
   createdAt        DateTime                              @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime                              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -871,6 +891,9 @@ model SupportTicket {
   assignedToId String?        @map("assigned_to") @db.Uuid
   relatedType  String?        @map("related_type")
   relatedId    String?        @map("related_id") @db.Uuid
+  /// Fase 12: cuándo pasó a RESOLVED (plazo de reapertura y cierre automático) y a CLOSED.
+  resolvedAt   DateTime?      @map("resolved_at") @db.Timestamptz(3)
+  closedAt     DateTime?      @map("closed_at") @db.Timestamptz(3)
   metadata     Json           @default("{}")
   createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -881,6 +904,7 @@ model SupportTicket {
 
   @@index([userId])
   @@index([assignedToId, status])
+  @@index([status, createdAt])
   @@map("support_tickets")
 }
 
@@ -902,20 +926,27 @@ model TicketMessage {
 }
 
 model BarbershopReport {
-  id           String       @id @default(uuid(7)) @db.Uuid
-  barbershopId String       @map("barbershop_id") @db.Uuid
-  reportedById String       @map("reported_by") @db.Uuid
-  reason       String
-  status       ReportStatus @default(OPEN)
+  id           String                 @id @default(uuid(7)) @db.Uuid
+  barbershopId String                 @map("barbershop_id") @db.Uuid
+  reportedById String                 @map("reported_by") @db.Uuid
+  reason       BarbershopReportReason
+  /// Texto libre opcional (hasta 500).
+  details      String?
+  status       ReportStatus           @default(OPEN)
   resolution   String?
-  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  resolvedById String?                @map("resolved_by") @db.Uuid
+  resolvedAt   DateTime?              @map("resolved_at") @db.Timestamptz(3)
+  createdAt    DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   barbershop Barbershop @relation(fields: [barbershopId], references: [id])
-  reportedBy User       @relation(fields: [reportedById], references: [id])
+  reportedBy User       @relation("BarbershopReportReporter", fields: [reportedById], references: [id])
+  resolvedBy User?      @relation("BarbershopReportResolver", fields: [resolvedById], references: [id], onDelete: Restrict)
 
-  @@index([barbershopId])
+  @@unique([barbershopId, reportedById])
   @@index([reportedById])
+  @@index([resolvedById])
+  @@index([status, createdAt])
   @@map("barbershop_reports")
 }
 

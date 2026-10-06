@@ -184,3 +184,18 @@ export class AuthTokensDto {
   @ApiProperty({ type: SessionUserDto })
   user!: SessionUserDto;
 }
+
+/** Fase 12: acceso restringido de una cuenta deshabilitada (solo sus tickets de soporte). */
+export class SupportAccessDto {
+  @ApiProperty({ example: 'Bearer' })
+  tokenType!: 'Bearer';
+
+  @ApiProperty({ description: 'Solo vale para /support/tickets y /me/support/tickets.' })
+  accessToken!: string;
+
+  @ApiProperty()
+  accessTokenExpiresAt!: Date;
+
+  @ApiProperty({ example: true })
+  restricted!: true;
+}

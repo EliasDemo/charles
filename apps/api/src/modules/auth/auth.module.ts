@@ -25,6 +25,6 @@ import { SessionsService } from './sessions.service';
     AuthMailProcessor,
   ],
   // Reutilizados por otros módulos para códigos de invitación (mismas reglas de bloqueo).
-  exports: [LoginAttemptsService],
+  exports: [LoginAttemptsService, SessionsService],
 })
 export class AuthModule {}

@@ -58,14 +58,15 @@ export class CancellationReviewsService {
     return review.id;
   }
 
-  /** Solo SUPPORT. Calificar dos veces la misma cancelación da 409. */
+  /** Solo SUPPORT o ADMIN. Calificar dos veces la misma cancelación da 409. */
   async review(
     reviewerId: string,
     reviewId: string,
     verdict: 'JUSTIFIED' | 'UNJUSTIFIED',
+    reason?: string,
   ): Promise<ReviewResult> {
     const reviewer = await this.users.findCredentialsById(reviewerId);
-    if (!reviewer?.roles.includes('SUPPORT')) {
+    if (!reviewer?.roles.some((role) => role === 'SUPPORT' || role === 'ADMIN')) {
       throw new AppException(
         ErrorCode.FORBIDDEN,
         'Solo soporte puede calificar cancelaciones.',
@@ -110,7 +111,10 @@ export class CancellationReviewsService {
           action: 'barbershop.cancellation_reviewed',
           entityType: 'barbershop_cancellation_review',
           entityId: reviewId,
-          changes: { values: { status: { from: 'PENDING_REVIEW', to: verdict } } },
+          changes: {
+            values: { status: { from: 'PENDING_REVIEW', to: verdict } },
+            ...(reason ? { reason } : {}),
+          },
         },
         tx,
       );

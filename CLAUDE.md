@@ -575,6 +575,24 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
   - Se bloquea la barbería y luego el barbero con `FOR NO KEY UPDATE` (no `FOR UPDATE`: chocaría con el `FOR KEY SHARE` de las claves foráneas y daría interbloqueos).
   - Una verificación nocturna (03:30 de Lima) corrige descuadres y los audita (`rating.corrected`).
 
+### Soporte y operación (Fase 12)
+
+- **Roles:** `ADMIN` se suma a `SUPPORT`. `/api/v1/admin` exige SUPPORT o ADMIN (`@SupportOrAdmin()`); roles, ajustes, categorías y reembolso manual, solo ADMIN (`@AdminOnly()`). `AdminAccessGuard` **relee de la base** roles y estado en cada petición (no confía en el JWT).
+  - Primer ADMIN: `pnpm --filter api admin:grant <correo> [--role admin|support]` en el servidor, auditado sin actor; nunca un endpoint.
+  - Nadie se quita a sí mismo un rol; nunca quedan cero ADMIN activos (`LAST_ADMIN`, serializado con un bloqueo).
+- **Conflicto de interés:** soporte y ADMIN nunca actúan sobre su propia cuenta, sobre una barbería de la que son miembros, ni sobre reservas, pagos, valoraciones o tickets que los involucran (403 `CONFLICT_OF_INTEREST`).
+- **Motivo y auditoría:** toda acción sensible lleva `reason` y queda en `audit_log` con el actor y su rol (`actorRole`).
+- **Tickets (RF-SOP):** cola común (`GET /admin/tickets`), tomar o reasignar, respuesta o nota interna (`isInternal`), estados `OPEN → IN_PROGRESS → RESOLVED → CLOSED`; cerrar sin resolver exige motivo.
+  - El usuario reabre un `RESOLVED` respondiendo dentro de `support.ticket_reopen_days` (7); se cierran solos tras `support.ticket_auto_close_days` (7). Máximo `support.max_open_tickets_per_user` (5) abiertos.
+  - Mensajes cifrados (`TICKET_MESSAGE_BODY`); el usuario nunca ve notas internas ni quién respondió.
+  - Cuenta deshabilitada: `POST /auth/support-access` da un token restringido (`scp: support`, sin renovación) válido solo en los endpoints con `@AllowRestrictedSession()` (sus tickets).
+- **Cuentas:** datos mínimos; contacto en `POST /admin/users/{id}/contact` con motivo, sin caché y auditado. Deshabilitar revoca las sesiones al instante, mantiene sus reservas, marca para revisión (`flagged_reason = owner_disabled`) las barberías donde era el único OWNER y publica `user.disabled`. Soporte no deshabilita cuentas de soporte ni ADMIN.
+- **Barberías:** aprobar (`PENDING_REVIEW → OPEN`), reactivar y resolver reportes (los usuarios reportan con `POST /barbershops/{id}/reports`, motivo cerrado, uno por cuenta).
+  - Suspender: por defecto `KEEP_UPCOMING` (se mantienen las de las próximas `support.suspension_keep_hours`, 48 h, y se cancelan las demás), o `CANCEL_ALL` / `KEEP_ALL`. Las pendientes de pago se cancelan siempre. Cancelación con rol `SUPPORT` y devolución total (`SUPPORT_CANCELLATION`), sin revisión de cancelación de la barbería; todo en una transacción, con `barbershop.suspended` y `booking.cancelled` en el outbox (los avisos llegan con la Fase 10).
+- **Reservas y pagos:** vista mínima, corrección de asistencia sin plazo, reembolso manual (solo ADMIN, con motivo, hasta lo cobrado y no devuelto: `REFUND_EXCEEDS_PAID`, con el pago bloqueado), calificación de cancelaciones de la barbería y moderación de valoraciones (`ReviewModerationService`).
+- **Ajustes:** `PUT /admin/settings/{key}` con esquema y rango por clave (`SETTING_RULES`), reglas cruzadas (p. ej. devolución parcial ≤ total) y valor anterior y nuevo en `audit_log`. Seguridad, pagos sensibles y decisiones pendientes: solo lectura (`SETTING_READ_ONLY`). Una prueba exige que toda clave sembrada tenga regla.
+- **Categorías:** crear, editar y desactivar (nunca borrar).
+
 ---
 
 ## 9. Motor de disponibilidad (RF-DIS-001 a 004, RF-BRB-003)
@@ -613,7 +631,7 @@ Servicio único `AvailabilityService`. Para una barbería, servicio, fecha y (op
 
 ## 11. Pruebas
 
-- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings`, `payments` y `reviews`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) en `search` con `pnpm --filter api test:cov:search` y en `bookings` + `payments` + `moderation` con `pnpm --filter api test:cov:bookings`, y en `reviews` con `pnpm --filter api test:cov:reviews`; CI y `pnpm verify` fallan si alguna baja del 80 %.
+- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings`, `payments`, `reviews`, `admin` y `support`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) en `search` con `pnpm --filter api test:cov:search` y en `bookings` + `payments` + `moderation` con `pnpm --filter api test:cov:bookings`, en `reviews` con `pnpm --filter api test:cov:reviews` y en `admin` + `support` con `pnpm --filter api test:cov:admin`; CI y `pnpm verify` fallan si alguna baja del 80 %.
 - e2e por cada RF de prioridad Alta, contra PostgreSQL real en Docker (no simular la base de datos).
 - **Prueba de concurrencia obligatoria** (RF-RES-007): dos peticiones simultáneas por el mismo turno → exactamente una tiene éxito. Está en `test/bookings/bookings.e2e-spec.ts`: 10 rondas por API, más las variantes de "cualquier barbero" y de la misma clave de idempotencia.
 - Pruebas de autorización: por cada endpoint privado, un caso que verifique que otro usuario **no** puede acceder.

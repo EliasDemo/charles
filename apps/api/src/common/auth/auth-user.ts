@@ -8,6 +8,11 @@ export interface AuthUser {
   roles: Role[];
   /** Familia de sesión (`refresh_tokens.family_id`). */
   sessionId: string;
+  /**
+   * Fase 12: sesión restringida de una cuenta deshabilitada. Solo sirve en los endpoints marcados
+   * con `@AllowRestrictedSession()` (tickets de soporte propios); sin roles.
+   */
+  restricted?: true;
 }
 
 export type AuthenticatedRequest = Request & { user?: AuthUser };

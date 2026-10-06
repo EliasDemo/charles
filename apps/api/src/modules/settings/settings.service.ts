@@ -37,6 +37,10 @@ export const SettingKey = {
   REVIEWS_WINDOW_DAYS: 'reviews.window_days',
   REVIEWS_REPORT_THRESHOLD: 'reviews.report_threshold',
   REVIEWS_RATE_LIMIT_PER_MINUTE: 'reviews.rate_limit_per_minute',
+  SUPPORT_TICKET_REOPEN_DAYS: 'support.ticket_reopen_days',
+  SUPPORT_TICKET_AUTO_CLOSE_DAYS: 'support.ticket_auto_close_days',
+  SUPPORT_MAX_OPEN_TICKETS_PER_USER: 'support.max_open_tickets_per_user',
+  SUPPORT_SUSPENSION_KEEP_HOURS: 'support.suspension_keep_hours',
 } as const;
 
 /** Lectura de `app_settings` (clave/valor). Las políticas pendientes valen JSON `null`. */

@@ -126,8 +126,8 @@ export class BookingPriceDto {
 }
 
 export class CancellationDto {
-  @ApiProperty({ enum: ['CLIENT', 'BARBERSHOP', 'SYSTEM'] })
-  byRole!: 'CLIENT' | 'BARBERSHOP' | 'SYSTEM';
+  @ApiProperty({ enum: ['CLIENT', 'BARBERSHOP', 'SYSTEM', 'SUPPORT'] })
+  byRole!: 'CLIENT' | 'BARBERSHOP' | 'SYSTEM' | 'SUPPORT';
 
   @ApiProperty({ nullable: true, type: String })
   reason!: string | null;
@@ -189,7 +189,14 @@ export class RefundQuoteDto {
   percent!: number;
 
   @ApiProperty({
-    enum: ['NO_PAYMENT', 'BARBERSHOP_CANCELLATION', 'CLIENT_FULL', 'CLIENT_PARTIAL', 'CLIENT_NONE'],
+    enum: [
+      'NO_PAYMENT',
+      'BARBERSHOP_CANCELLATION',
+      'SUPPORT_CANCELLATION',
+      'CLIENT_FULL',
+      'CLIENT_PARTIAL',
+      'CLIENT_NONE',
+    ],
   })
   rule!: string;
 

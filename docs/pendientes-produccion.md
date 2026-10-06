@@ -56,6 +56,9 @@ Resueltas en la Fase 8A: devoluciones al cancelar, plazo para cancelar, no-show 
 | **Versión mínima de la app** | Sin mecanismo hoy. Antes del lanzamiento: cabecera `X-App-Version` y respuesta `426` o `APP_UPDATE_REQUIRED` para obligar a actualizar cuando cambie el contrato. |
 | **Textos de validación en español** | `VALIDATION_ERROR` devuelve `field` y `constraints` con nombres de reglas en inglés. Definir mensajes por campo en español (backend o tabla en la app) antes del lanzamiento. |
 
+| **Verificación en dos pasos para SUPPORT y ADMIN** (bloqueante) | **No se puede salir a producción sin esto.** Hoy soporte y ADMIN entran solo con contraseña. Exigir un segundo factor (TOTP o similar) a esas cuentas. |
+| **Sesiones más cortas para SUPPORT y ADMIN** (bloqueante) | **No se puede salir a producción sin esto.** Hoy usan la misma sesión de 30 días que un cliente. Definir una vida corta del token de renovación y reautenticación para acciones sensibles. |
+
 ## Operación
 
 | Pendiente                                | Situación actual                                                                                                                                                            |

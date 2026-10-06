@@ -10,6 +10,7 @@ import { AppException } from '../errors/app.exception';
 import { ErrorCode } from '../errors/error-codes';
 import type { AuthenticatedRequest } from './auth-user';
 import { IS_PUBLIC_KEY } from './public.decorator';
+import { ALLOW_RESTRICTED_SESSION_KEY } from './restricted-session.decorator';
 import { SessionRevocationStore } from './session-revocation.store';
 import { TokenService } from './token.service';
 
@@ -58,6 +59,20 @@ export class JwtAuthGuard implements CanActivate {
       );
     }
     if (revoked) throw unauthorized();
+
+    if (
+      user.restricted &&
+      !this.reflector.getAllAndOverride<boolean>(ALLOW_RESTRICTED_SESSION_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ])
+    ) {
+      throw new AppException(
+        ErrorCode.ACCOUNT_DISABLED,
+        'Tu cuenta está deshabilitada. Solo puedes comunicarte con soporte.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
 
     request.user = user;
     return true;

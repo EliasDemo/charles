@@ -23,7 +23,7 @@ export const BOOKING_TRANSITIONS: Readonly<Record<BookingStatus, readonly Bookin
 export interface BookingActor {
   /** null = el sistema (vencimiento, resultado del pago). */
   userId: string | null;
-  role: 'CLIENT' | 'BARBERSHOP' | 'SYSTEM';
+  role: 'CLIENT' | 'BARBERSHOP' | 'SYSTEM' | 'SUPPORT';
 }
 
 export const SYSTEM_ACTOR: BookingActor = { userId: null, role: 'SYSTEM' };

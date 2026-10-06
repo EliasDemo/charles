@@ -10,7 +10,7 @@ import {
   toPage,
 } from '../../common/pagination/pagination';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import type { Prisma, Service } from '../../generated/prisma/client';
+import { Prisma, type Service } from '../../generated/prisma/client';
 import { BarbershopAccessService } from '../barbershops/barbershop-access.service';
 import {
   type CreateServiceDto,
@@ -56,6 +56,15 @@ function toPublicDto(service: ServiceRow): ServicePublicDto {
     durationMinutes: service.durationMinutes,
     category: { key: service.category.key, name: service.category.name },
   };
+}
+
+export interface AdminCategory {
+  id: string;
+  key: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  servicesCount: number;
 }
 
 @Injectable()
@@ -236,6 +245,60 @@ export class ServicesService {
         tx,
       );
     });
+  }
+
+  // ───────────── Categorías (ADMIN, Fase 12) ─────────────
+
+  /** Todas, incluidas las inactivas, con cuántos servicios las usan. */
+  async listAllCategories(): Promise<AdminCategory[]> {
+    const rows = await this.prisma.serviceCategory.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { key: 'asc' }],
+      include: { _count: { select: { services: { where: { deletedAt: null } } } } },
+    });
+    return rows.map((c) => ({
+      id: c.id,
+      key: c.key,
+      name: c.name,
+      sortOrder: c.sortOrder,
+      isActive: c.isActive,
+      servicesCount: c._count.services,
+    }));
+  }
+
+  async createCategory(input: { key: string; name: string; sortOrder: number }): Promise<string> {
+    try {
+      const created = await this.prisma.serviceCategory.create({
+        data: input,
+        select: { id: true },
+      });
+      return created.id;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new AppException(
+          ErrorCode.CONFLICT,
+          'Ya existe una categoría con esa clave.',
+          HttpStatus.CONFLICT,
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Editar nombre, orden o estado. Nunca se borra: desactivar la saca de la lista pública y de los
+   * servicios nuevos; los servicios que ya la usan la conservan.
+   */
+  async updateCategory(
+    id: string,
+    input: { name?: string; sortOrder?: number; isActive?: boolean },
+  ): Promise<{ before: AdminCategory; after: AdminCategory }> {
+    const before = (await this.listAllCategories()).find((c) => c.id === id);
+    if (!before) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'La categoría no existe.', HttpStatus.NOT_FOUND);
+    }
+    await this.prisma.serviceCategory.update({ where: { id }, data: input });
+    const after = (await this.listAllCategories()).find((c) => c.id === id)!;
+    return { before, after };
   }
 
   /** Categorías activas, en orden (público). */

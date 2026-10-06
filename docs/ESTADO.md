@@ -2,7 +2,7 @@
 
 Punto de partida para retomar el trabajo en una conversación nueva. **Léelo antes de hacer nada**, junto con `CLAUDE.md` y `docs/pendientes-produccion.md`. Se actualiza al cerrar cada fase (CLAUDE.md §1).
 
-Última actualización: cierre de la Fase 11.
+Última actualización: cierre de la Fase 12.
 
 ## Resumen
 
@@ -29,6 +29,7 @@ Punto de partida para retomar el trabajo en una conversación nueva. **Léelo an
 | 9    | Atención, inasistencias, corrección y agenda del día                                      | `e546048`                                                                                      |
 | —    | Ajustes para la app: `dev:pay`, `dev:mail`, `GET /me/barber`, gracia de rotación (10 s)   | (ver `git log`)                                                                                |
 | 11   | Favoritos y valoraciones: respuesta, reportes, moderación, promedios por barbero          | (ver `git log`)                                                                                |
+| 12   | Soporte y operación: tickets, `/admin`, ADMIN, suspensión, reembolso manual, ajustes      | (ver `git log`)                                                                                |
 
 ## Fase en curso
 
@@ -46,8 +47,6 @@ Implementada en `e546048` según el plan aprobado (detalle en CLAUDE.md §8, "At
 
 Queda para otras fases:
 
-- **Fase 12:** corrección por soporte pasado el plazo de 48 h.
-
 ### 11 — Favoritos y valoraciones: cerrada
 
 Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Favoritos y valoraciones (Fase 11)"). Migraciones `20261012000000_reviews_favorites` y `20261012000001_reviews_response_by_index`, y ajustes `reviews.window_days` (14), `reviews.report_threshold` (3) y `reviews.rate_limit_per_minute` (10), aplicados en `charles`.
@@ -56,7 +55,14 @@ Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Favoritos y val
 - **Para la Fase 12:** los endpoints de soporte sobre `ReviewModerationService` (`GET /admin/reviews/reported` y la moderación).
 - **Hallazgo:** el recálculo de promedios con `FOR UPDATE` producía interbloqueos con el `FOR KEY SHARE` de las claves foráneas al insertar valoraciones simultáneas; se usa `FOR NO KEY UPDATE`.
 
-### Siguiente: Fase 12 (soporte y operación), plan aprobado
+### 12 — Soporte y operación: cerrada
+
+Implementada según el plan aprobado y sus precisiones (detalle en CLAUDE.md §8, "Soporte y operación (Fase 12)"). Migración `20261013000000_support_operations` y ajustes `support.*` aplicados en `charles`. ADMIN asignado en `charles` a `soporte.demo@example.com` con `admin:grant`.
+
+- **Bloqueantes de producción anotados:** verificación en dos pasos y sesiones más cortas para SUPPORT y ADMIN.
+- **Hallazgo:** la clave de idempotencia del reembolso manual usaba la hora: dos reembolsos manuales en el mismo milisegundo chocaban (500). Ahora es aleatoria.
+
+### Siguiente: Fase 10 (notificaciones): preguntas y plan presentados, esperando aprobación
 
 ### Fases futuras registradas (no implementadas)
 
@@ -128,7 +134,7 @@ Las e2e usan `charles_test` (debe existir) y Redis en una base distinta de la 0.
 pnpm verify
 ```
 
-- **Pasos:** lint, typecheck, formato, unitarias, e2e, coberturas mínimas (`availability`, `search`, `bookings` + `payments` + `moderation`, `reviews`), OpenAPI y tipos de `packages/shared` al día, y `pnpm audit --audit-level=high`.
+- **Pasos:** lint, typecheck, formato, unitarias, e2e, coberturas mínimas (`availability`, `search`, `bookings` + `payments` + `moderation`, `reviews`, `admin` + `support`), OpenAPI y tipos de `packages/shared` al día, y `pnpm audit --audit-level=high`.
 - **Duración:** unos 4 minutos. Necesita Docker levantado.
 - **Hook `.githooks/pre-commit`:** lo ejecuta en cada commit. Nunca se omite con `--no-verify`.
 - **Prueba de carga** (fuera de `verify`): `pnpm --filter api test:load:race`.

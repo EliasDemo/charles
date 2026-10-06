@@ -15,7 +15,15 @@ export const REFUND_POLICY_DEFAULTS: RefundPolicySettings = {
 };
 
 export type RefundRule =
-  'NO_PAYMENT' | 'BARBERSHOP_CANCELLATION' | 'CLIENT_FULL' | 'CLIENT_PARTIAL' | 'CLIENT_NONE';
+  | 'NO_PAYMENT'
+  | 'BARBERSHOP_CANCELLATION'
+  | 'SUPPORT_CANCELLATION'
+  | 'CLIENT_FULL'
+  | 'CLIENT_PARTIAL'
+  | 'CLIENT_NONE';
+
+/** Quién cancela, para la política de devolución. */
+export type CancelledBy = 'CLIENT' | 'BARBERSHOP' | 'SUPPORT';
 
 export interface RefundQuote {
   rule: RefundRule;
@@ -29,14 +37,14 @@ export interface RefundQuote {
 /**
  * Cuánto se devuelve al cancelar (Fase 8A). Función pura: la usan la vista previa que ve el
  * cliente y la cancelación, así ambas siempre coinciden.
- * - La barbería cancela: devolución total.
+ * - La barbería cancela, o soporte (suspensión, Fase 12): devolución total.
  * - El cliente cancela con `fullRefundMinMinutes` o más de anticipación: total; con
  *   `partialRefundMinMinutes` o más: parcial; con menos: nada. Límites inclusivos; la anticipación
  *   se mide desde el momento de cancelar hasta `start_at`.
  */
 export function refundQuote(input: {
   refundableAmount: number;
-  by: 'CLIENT' | 'BARBERSHOP';
+  by: CancelledBy;
   startAt: number;
   now: number;
   settings: RefundPolicySettings;
@@ -50,6 +58,7 @@ export function refundQuote(input: {
   });
   if (refundableAmount <= 0) return { ...quote('NO_PAYMENT', 0), amount: 0 };
   if (by === 'BARBERSHOP') return quote('BARBERSHOP_CANCELLATION', 100);
+  if (by === 'SUPPORT') return quote('SUPPORT_CANCELLATION', 100);
   const notice = startAt - now;
   if (notice >= settings.fullRefundMinMinutes * 60_000) return quote('CLIENT_FULL', 100);
   if (notice >= settings.partialRefundMinMinutes * 60_000) {
