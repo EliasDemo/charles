@@ -11,6 +11,7 @@ import {
   Post,
   Query,
   Req,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -28,6 +29,7 @@ import type { Request } from 'express';
 import { type AuthUser, CurrentUser, OptionalUser } from '../../common/auth/auth-user';
 import { Public } from '../../common/auth/public.decorator';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
+import { PersonalizedResponseInterceptor } from '../../common/http/personalized-response.interceptor';
 import { PaginationQueryDto } from '../../common/pagination/pagination';
 import { RateLimit } from '../../common/throttling/rate-limit.decorator';
 import { BarbershopsService } from './barbershops.service';
@@ -89,6 +91,7 @@ export class BarbershopsController {
   @Public()
   @RateLimit('public')
   @Get('barbershops/:id')
+  @UseInterceptors(PersonalizedResponseInterceptor)
   @ApiOperation({ summary: 'RF-BAR-002: información pública de una barbería' })
   @ApiOkResponse({ type: BarbershopPublicDto })
   @ApiTooManyRequestsResponse({ type: ErrorResponseDto })

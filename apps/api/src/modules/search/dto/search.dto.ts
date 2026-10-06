@@ -233,6 +233,12 @@ export class SearchResultDto {
   featured!: boolean;
 
   @ApiProperty({
+    example: 'America/Lima',
+    description: 'Zona IANA de la barbería: sus horas (turnos, horario) se muestran en esta zona.',
+  })
+  timezone!: string;
+
+  @ApiProperty({
     description: 'Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false.',
   })
   isFavorite!: boolean;

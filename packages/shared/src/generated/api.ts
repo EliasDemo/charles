@@ -2745,6 +2745,11 @@ export interface components {
             availableNow: boolean;
             /** @description Resultado destacado (pagado). Hoy siempre false (Fase 13). */
             featured: boolean;
+            /**
+             * @description Zona IANA de la barbería: sus horas (turnos, horario) se muestran en esta zona.
+             * @example America/Lima
+             */
+            timezone: string;
             /** @description Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false. */
             isFavorite: boolean;
         };

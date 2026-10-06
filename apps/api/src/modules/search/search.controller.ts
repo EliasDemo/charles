@@ -1,5 +1,6 @@
 import { type AuthUser, OptionalUser } from '../../common/auth/auth-user';
-import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query, UseInterceptors } from '@nestjs/common';
+import { PersonalizedResponseInterceptor } from '../../common/http/personalized-response.interceptor';
 import {
   ApiBadRequestResponse,
   ApiNotFoundResponse,
@@ -30,6 +31,7 @@ export class SearchController {
   constructor(private readonly search: SearchService) {}
 
   @Get('search/barbershops')
+  @UseInterceptors(PersonalizedResponseInterceptor)
   @ApiOperation({
     summary: 'RF-BUS-001…003: buscar barberías (cercanía, texto, categoría, precio, valoración…)',
     description:

@@ -335,6 +335,7 @@ export class SearchService {
         longitude: c.longitude,
         rating: { average: c.ratingAverage, count: c.ratingCount },
         isFavorite: favorites.has(c.id),
+        timezone: c.timezone,
         distanceMeters: c.distanceMeters,
         priceFrom: c.minPrice === null ? null : { amount: c.minPrice, currency: SERVICE_CURRENCY },
         isOpenNow: evaluation?.isOpenNow ?? openNow.get(c.id) ?? false,

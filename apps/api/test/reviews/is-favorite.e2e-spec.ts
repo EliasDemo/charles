@@ -75,6 +75,18 @@ describe('RF-FAV-001 isFavorite en la ficha y en la búsqueda (e2e)', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
+  it('nunca se guarda en una caché compartida: privada y sin almacenar con sesión, Vary: Authorization', async () => {
+    const { tag, a, me } = await setup();
+    for (const url of [`${API}/barbershops/${a.shopId}`, searchUrl(tag)]) {
+      const withSession = await new AuthClient(app).get(url, me.token).expect(200);
+      expect(withSession.headers['cache-control']).toBe('private, no-store');
+      expect(withSession.headers.vary).toMatch(/Authorization/);
+      const anonymous = await new AuthClient(app).get(url).expect(200);
+      expect(anonymous.headers['cache-control']).toBe('no-cache');
+      expect(anonymous.headers.vary).toMatch(/Authorization/);
+    }
+  });
+
   it('una sesión restringida (cuenta deshabilitada) no personaliza', async () => {
     const { a } = await setup();
     const client = new AuthClient(app);

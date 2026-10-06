@@ -9744,6 +9744,11 @@
             "type": "boolean",
             "description": "Resultado destacado (pagado). Hoy siempre false (Fase 13)."
           },
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima",
+            "description": "Zona IANA de la barbería: sus horas (turnos, horario) se muestran en esta zona."
+          },
           "isFavorite": {
             "type": "boolean",
             "description": "Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false."
@@ -9763,6 +9768,7 @@
           "isOpenNow",
           "availableNow",
           "featured",
+          "timezone",
           "isFavorite"
         ]
       },

@@ -633,6 +633,29 @@ describe('RF-BUS-001…004 Búsqueda, cercanía, filtros y alternativas (e2e)', 
       expect(items[1]!.service).toMatchObject({ name: 'Corte simple', price: { amount: 2000 } });
     });
 
+    it('RF-BUS-004 cada alternativa trae la zona horaria de su propia barbería', async () => {
+      // Bogotá tiene el mismo desfase que Lima: la disponibilidad no cambia, solo la zona.
+      await prisma.barbershop.update({
+        where: { id: ids['TRU 6'] },
+        data: { timezone: 'America/Bogota' },
+      });
+      try {
+        const res = await alternatives('TRU origen', 'Corte').expect(200);
+        const zones = Object.fromEntries(
+          (res.body.items as { barbershop: { name: string; timezone: string } }[]).map((i) => [
+            i.barbershop.name,
+            i.barbershop.timezone,
+          ]),
+        );
+        expect(zones).toEqual({ 'TRU 1': 'America/Lima', 'TRU 6': 'America/Bogota' });
+      } finally {
+        await prisma.barbershop.update({
+          where: { id: ids['TRU 6'] },
+          data: { timezone: 'America/Lima' },
+        });
+      }
+    });
+
     it('RF-BUS-004 una fecha sin turnos en ninguna devuelve la lista vacía (nunca "disponible" falso)', async () => {
       const res = await alternatives('TRU origen', 'Corte', `&date=${TUESDAY}`).expect(200);
       expect(res.body.items).toEqual([]);

@@ -553,7 +553,7 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
 
 ### Favoritos y valoraciones (Fase 11)
 
-- **`isFavorite`:** `GET /barbershops/{id}` y `GET /search/barbershops` son públicos con sesión opcional (el guard adjunta la cuenta si el token es válido, no está revocado ni es restringido; si no, sigue anónimo sin error). Una sola consulta de favoritos por página (`FavoritesService.favoriteIds`); sin sesión, `false`.
+- **`isFavorite`:** `GET /barbershops/{id}` y `GET /search/barbershops` son públicos con sesión opcional (el guard adjunta la cuenta si el token es válido, no está revocado ni es restringido; si no, sigue anónimo sin error). Una sola consulta de favoritos por página (`FavoritesService.favoriteIds`); sin sesión, `false`. Como dependen de quién consulta, `PersonalizedResponseInterceptor` envía `Cache-Control: private, no-store` con sesión, `no-cache` sin ella, y siempre `Vary: Authorization`.
 - **Favoritos (RF-FAV-001…003):** `PUT` y `DELETE /me/favorites/{barbershopId}` (idempotentes) y `GET /me/favorites` (por cursor, los más recientes primero).
   - Solo se marca una barbería visible públicamente.
   - Una barbería suspendida, pendiente de revisión o eliminada desaparece de la lista sin borrar el favorito: vuelve si se reactiva.
