@@ -18,7 +18,7 @@ Este archivo es la fuente de verdad técnica. Los requerimientos funcionales (55
 8. Cita el ID del RF (por ejemplo `RF-RES-007`) en el nombre de las pruebas y en los commits.
 9. Al terminar una fase, resume: qué se hizo, qué RF cubre, qué quedó pendiente.
 10. Nunca modifiques ni borres datos de la base directamente (incluida `_prisma_migrations`) sin pedir autorización antes.
-11. **Ningún commit sin que `pnpm verify` pase.** Ejecuta lint, typecheck, formato, pruebas unitarias y e2e, las coberturas mínimas, la verificación de que el OpenAPI y los tipos de `packages/shared` están al día y `pnpm audit --audit-level=high`. Requiere PostgreSQL y Redis levantados. El hook `.githooks/pre-commit` lo ejecuta; `pnpm install` lo activa (`core.hooksPath`). No se omite con `--no-verify`.
+11. **Ningún commit sin que `pnpm verify` pase.** Ejecuta lint, typecheck, formato, pruebas unitarias y e2e, las coberturas mínimas, la verificación de que el OpenAPI y los tipos de `packages/shared` están al día y `pnpm audit --audit-level=high`. Requiere PostgreSQL y Redis levantados. El hook `.githooks/pre-commit` lo ejecuta; `pnpm install` lo activa (`core.hooksPath`). No se omite con `--no-verify`. Las validaciones de producción no tienen interruptores: `main.ts` se niega a arrancar con `NODE_ENV=test` (`bootstrap-guard.ts`), y los reemplazos de proveedores (`overrides`) existen solo en `test/support/create-test-app.ts`.
 12. **Ninguna llamada a servicios externos (pasarela de pagos, correo, APIs de terceros) dentro de una transacción de base de datos.** La transacción deja el estado listo (por ejemplo, el pago en `PENDING`); la llamada externa va después del commit, con su clave de idempotencia, y debe poder reintentarse. Los efectos asíncronos van por el outbox.
 13. Mantén al día `docs/pendientes-produccion.md`: todo lo que bloquea salir a producción. Revísalo al cerrar cada fase.
 
@@ -453,7 +453,7 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
   - el cliente, o el OWNER/MANAGER con motivo obligatorio; el barbero no (403);
   - con `booking.cancellation_deadline_minutes = null` (provisional): el cliente cancela una `PENDING_PAYMENT` siempre y una `CONFIRMED` hasta que empiece; con un número N, hasta N minutos antes;
   - la barbería cancela hasta que empiece;
-  - se guarda quién canceló (`cancelled_by`) y con qué rol (`metadata.cancelledByRole`: `CLIENT`, `BARBERSHOP` o `SYSTEM`);
+  - se guarda quién canceló (`cancelled_by`) y con qué rol (columna `cancelled_by_role`: `CLIENT`, `BARBERSHOP` o `SYSTEM`; un `CHECK` exige que exista si y solo si la reserva está `CANCELLED`);
   - **no se devuelve dinero:** un pago cobrado queda con `refundDecision: PENDING_POLICY` y se emite `payment.refund_decision_pending`, a la espera de la política y de la Fase 8.
 - **Consultar:**
   - `GET /me/bookings`, `GET /me/barber/bookings` y `GET /barbershops/{id}/bookings`, con `scope=upcoming|history` y cursor;

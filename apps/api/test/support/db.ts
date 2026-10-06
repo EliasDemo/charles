@@ -133,6 +133,8 @@ export function fixtures(prisma: PrismaClient) {
           startAt,
           endAt: overrides.endAt ?? new Date(startAt.getTime() + 30 * 60_000),
           status: overrides.status ?? 'CONFIRMED',
+          // CHECK bookings_cancelled_by_role_check: el rol existe si y solo si está cancelada.
+          cancelledByRole: overrides.status === 'CANCELLED' ? 'CLIENT' : null,
           expiresAt: overrides.expiresAt === undefined ? null : overrides.expiresAt,
           barberChosenByClient: true,
           serviceNameSnapshot: 'Corte',

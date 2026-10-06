@@ -55,7 +55,6 @@ describe('BookingStateMachine (RF-RES-006, CLAUDE.md §8)', () => {
                     barbershop_id: 'shop',
                     client_id: 'client',
                     barber_id: 'barber',
-                    metadata: { request: { a: 1 } },
                   },
                 ]
               : [],
@@ -115,7 +114,7 @@ describe('BookingStateMachine (RF-RES-006, CLAUDE.md §8)', () => {
       });
     });
 
-    it('al cancelar guarda quién y con qué rol (sin perder el resto de metadata)', async () => {
+    it('al cancelar guarda quién y con qué rol (columna cancelled_by_role)', async () => {
       const { machine, tx, writes } = build({ status: 'CONFIRMED' });
       await machine.transition(
         tx,
@@ -130,7 +129,7 @@ describe('BookingStateMachine (RF-RES-006, CLAUDE.md §8)', () => {
           status: 'CANCELLED',
           cancelledById: 'u1',
           cancelReason: 'motivo',
-          metadata: { request: { a: 1 }, cancelledByRole: 'BARBERSHOP' },
+          cancelledByRole: 'BARBERSHOP',
         },
       });
     });

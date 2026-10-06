@@ -87,6 +87,7 @@ describe('RF-DIS-001…004 y RF-BRB-003 Horarios, bloqueos y disponibilidad (e2e
         startAt: new Date(start),
         endAt: new Date(start + 30 * 60_000),
         status: overrides.status ?? 'CONFIRMED',
+        cancelledByRole: overrides.status === 'CANCELLED' ? 'CLIENT' : null,
         expiresAt:
           overrides.expiresAt ??
           (overrides.status === 'PENDING_PAYMENT' ? new Date(clock.current + 600_000) : null),
@@ -237,7 +238,10 @@ describe('RF-DIS-001…004 y RF-BRB-003 Horarios, bloqueos y disponibilidad (e2e
       expect(starts).not.toContain('10:15');
       expect(starts).toContain('10:30');
 
-      await prisma.booking.update({ where: { id: b.id }, data: { status: 'CANCELLED' } });
+      await prisma.booking.update({
+        where: { id: b.id },
+        data: { status: 'CANCELLED', cancelledByRole: 'CLIENT' },
+      });
       starts = startsOf(await s.day(MONDAY).expect(200));
       expect(starts).toContain('10:00');
     });

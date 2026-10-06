@@ -42,7 +42,6 @@ interface LockedBooking {
   barbershop_id: string;
   client_id: string;
   barber_id: string;
-  metadata: Prisma.JsonObject;
 }
 
 /**
@@ -90,7 +89,7 @@ export class BookingStateMachine {
   ): Promise<BookingStatus> {
     const [booking] = await tx.$queryRaw<LockedBooking[]>`
       SELECT status::text AS status, start_at, barbershop_id::text AS barbershop_id,
-             client_id::text AS client_id, barber_id::text AS barber_id, metadata
+             client_id::text AS client_id, barber_id::text AS barber_id
         FROM bookings WHERE id = ${bookingId}::uuid FOR UPDATE`;
     if (!booking) {
       throw new AppException(ErrorCode.NOT_FOUND, 'La reserva no existe.', HttpStatus.NOT_FOUND);
@@ -122,7 +121,7 @@ export class BookingStateMachine {
           ? {
               cancelledById: actor.userId,
               cancelReason: reason,
-              metadata: { ...booking.metadata, cancelledByRole: actor.role },
+              cancelledByRole: actor.role,
             }
           : {}),
       },

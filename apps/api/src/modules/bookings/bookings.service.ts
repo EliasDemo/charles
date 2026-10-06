@@ -550,7 +550,6 @@ export class BookingsService {
     ]);
     const money = (amount: number, currency: string) => ({ amount, currency });
     return bookings.map((b) => {
-      const meta = b.metadata as { cancelledByRole?: 'CLIENT' | 'BARBERSHOP' | 'SYSTEM' };
       return {
         id: b.id,
         status: b.status,
@@ -578,7 +577,7 @@ export class BookingsService {
         expiresAt: b.status === 'PENDING_PAYMENT' ? b.expiresAt : null,
         cancellation:
           b.status === 'CANCELLED'
-            ? { byRole: meta.cancelledByRole ?? 'SYSTEM', reason: b.cancelReason }
+            ? { byRole: b.cancelledByRole ?? 'SYSTEM', reason: b.cancelReason }
             : null,
         createdAt: b.createdAt,
       };

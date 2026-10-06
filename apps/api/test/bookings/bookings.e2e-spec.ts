@@ -13,6 +13,7 @@ import { FakeGateway } from '../../src/modules/payments/fake-gateway';
 import { AuthClient, codeFrom, createAuthTestApp, waitForMail } from '../support/auth';
 import { ownerWithShop } from '../support/barbershops';
 import { createTestApp } from '../support/create-test-app';
+import { expectConstraintViolation } from '../support/db';
 
 const API = '/api/v1';
 const SHOPS = `${API}/barbershops`;
@@ -637,8 +638,24 @@ describe('RF-RES-001…008 Reservas, máquina de estados, outbox y expiración (
       ]);
       const row = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
       expect(row.cancelledById).toBe(me.userId);
+      expect(row.cancelledByRole).toBe('CLIENT');
+      expect(row.metadata).not.toHaveProperty('cancelledByRole');
       // El turno vuelve a estar libre.
       await book(await verifiedClient(), shop, at('10:00')).expect(201);
+    });
+
+    it('la base exige el rol si y solo si la reserva está cancelada (bookings_cancelled_by_role_check)', async () => {
+      const shop = await shopReady();
+      const me = await verifiedClient();
+      const res = await book(me, shop, at('10:00')).expect(201);
+      await expectConstraintViolation(
+        prisma.booking.update({ where: { id: res.body.id }, data: { status: 'CANCELLED' } }),
+        'bookings_cancelled_by_role_check',
+      );
+      await expectConstraintViolation(
+        prisma.booking.update({ where: { id: res.body.id }, data: { cancelledByRole: 'CLIENT' } }),
+        'bookings_cancelled_by_role_check',
+      );
     });
 
     it('RF-RES-005 el cliente cancela una pendiente de pago siempre', async () => {

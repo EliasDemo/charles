@@ -80,6 +80,13 @@ enum BookingStatus {
   EXPIRED
 }
 
+/// Quién canceló una reserva: la devolución depende de ello (Fase 8).
+enum CancelledByRole {
+  CLIENT
+  BARBERSHOP
+  SYSTEM
+}
+
 enum PriceLineType {
   SERVICE
   DISCOUNT
@@ -540,29 +547,30 @@ model TimeBlock {
 
 /// Solapamiento imposible para reservas activas del mismo barbero: EXCLUDE `bookings_no_overlap` (§7.3).
 model Booking {
-  id                      String        @id @default(uuid(7)) @db.Uuid
-  clientId                String        @map("client_id") @db.Uuid
-  barbershopId            String        @map("barbershop_id") @db.Uuid
-  barberId                String        @map("barber_id") @db.Uuid
-  serviceId               String        @map("service_id") @db.Uuid
-  startAt                 DateTime      @map("start_at") @db.Timestamptz(3)
-  endAt                   DateTime      @map("end_at") @db.Timestamptz(3)
-  status                  BookingStatus @default(PENDING_PAYMENT)
-  barberChosenByClient    Boolean       @map("barber_chosen_by_client")
-  serviceNameSnapshot     String        @map("service_name_snapshot")
-  durationMinutesSnapshot Int           @map("duration_minutes_snapshot")
-  subtotalAmount          Int           @map("subtotal_amount")
-  discountTotalAmount     Int           @default(0) @map("discount_total_amount")
-  feeTotalAmount          Int           @default(0) @map("fee_total_amount")
-  totalAmount             Int           @map("total_amount")
-  currency                String        @db.Char(3)
-  expiresAt               DateTime?     @map("expires_at") @db.Timestamptz(3)
-  cancelledById           String?       @map("cancelled_by") @db.Uuid
-  cancelReason            String?       @map("cancel_reason")
-  idempotencyKey          String        @map("idempotency_key")
-  metadata                Json          @default("{}")
-  createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt               DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                      String           @id @default(uuid(7)) @db.Uuid
+  clientId                String           @map("client_id") @db.Uuid
+  barbershopId            String           @map("barbershop_id") @db.Uuid
+  barberId                String           @map("barber_id") @db.Uuid
+  serviceId               String           @map("service_id") @db.Uuid
+  startAt                 DateTime         @map("start_at") @db.Timestamptz(3)
+  endAt                   DateTime         @map("end_at") @db.Timestamptz(3)
+  status                  BookingStatus    @default(PENDING_PAYMENT)
+  barberChosenByClient    Boolean          @map("barber_chosen_by_client")
+  serviceNameSnapshot     String           @map("service_name_snapshot")
+  durationMinutesSnapshot Int              @map("duration_minutes_snapshot")
+  subtotalAmount          Int              @map("subtotal_amount")
+  discountTotalAmount     Int              @default(0) @map("discount_total_amount")
+  feeTotalAmount          Int              @default(0) @map("fee_total_amount")
+  totalAmount             Int              @map("total_amount")
+  currency                String           @db.Char(3)
+  expiresAt               DateTime?        @map("expires_at") @db.Timestamptz(3)
+  cancelledById           String?          @map("cancelled_by") @db.Uuid
+  cancelledByRole         CancelledByRole? @map("cancelled_by_role")
+  cancelReason            String?          @map("cancel_reason")
+  idempotencyKey          String           @map("idempotency_key")
+  metadata                Json             @default("{}")
+  createdAt               DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   client            User                   @relation("BookingClient", fields: [clientId], references: [id])
   barbershop        Barbershop             @relation(fields: [barbershopId], references: [id])
