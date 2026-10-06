@@ -36,6 +36,8 @@ import {
   BarbershopPublicDto,
   CreateBarbershopDto,
   CreatedBarbershopDto,
+  CreatedIndependentDto,
+  CreateIndependentDto,
   MyBarbershopPageDto,
   UpdateBarbershopDto,
   UpdateBarbershopStatusDto,
@@ -66,6 +68,22 @@ export class BarbershopsController {
     @Req() req: Request,
   ): Promise<CreatedBarbershopDto> {
     return this.barbershops.create(user.id, dto, req.ip ?? null);
+  }
+
+  @ApiBearerAuth()
+  @Post('barbershops/independent')
+  @ApiOperation({
+    summary:
+      'Barbero independiente: crea su negocio (INDEPENDENT), queda como OWNER y como su único barbero',
+  })
+  @ApiCreatedResponse({ type: CreatedIndependentDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
+  createIndependent(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateIndependentDto,
+    @Req() req: Request,
+  ): Promise<CreatedIndependentDto> {
+    return this.barbershops.createIndependent(user.id, dto, req.ip ?? null);
   }
 
   @Public()

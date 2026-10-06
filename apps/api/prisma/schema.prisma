@@ -48,6 +48,12 @@ enum BarbershopStatus {
   PENDING_REVIEW
 }
 
+/// INDEPENDENT: barbero independiente, un solo barbero activo (trigger en SQL manual).
+enum BarbershopType {
+  BARBERSHOP
+  INDEPENDENT
+}
+
 enum InvitationKind {
   MEMBER
   BARBER
@@ -315,6 +321,7 @@ model Barbershop {
   websiteUrl       String?                               @map("website_url")
   instagramUrl     String?                               @map("instagram_url")
   facebookUrl      String?                               @map("facebook_url")
+  type             BarbershopType                        @default(BARBERSHOP)
   status           BarbershopStatus                      @default(OPEN)
   /// Solo con TEMPORARILY_CLOSED (CHECK en SQL manual).
   closureReason    String?                               @map("closure_reason")

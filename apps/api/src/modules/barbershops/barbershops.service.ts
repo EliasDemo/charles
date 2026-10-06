@@ -10,7 +10,7 @@ import {
   toPage,
 } from '../../common/pagination/pagination';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import type { Barbershop, Prisma } from '../../generated/prisma/client';
+import { type Barbershop, Prisma } from '../../generated/prisma/client';
 import type { BarbershopMemberRole } from '../../generated/prisma/enums';
 import { BarbersService } from '../barbers/barbers.service';
 import { BookingsReadService } from '../bookings/bookings-read.service';
@@ -23,6 +23,8 @@ import {
   type BarbershopPublicDto,
   type CreateBarbershopDto,
   type CreatedBarbershopDto,
+  type CreatedIndependentDto,
+  type CreateIndependentDto,
   DEFAULT_TIMEZONE,
   type MyBarbershopDto,
   type UpdateBarbershopDto,
@@ -57,6 +59,7 @@ export function toPublicDto(shop: Barbershop): BarbershopPublicDto {
     latitude: shop.latitude,
     longitude: shop.longitude,
     timezone: shop.timezone,
+    type: shop.type,
     phone: shop.phone,
     status: shop.status,
     closure:
@@ -102,39 +105,106 @@ export class BarbershopsService {
     const credentials = await this.users.findCredentialsById(userId);
     const ownerRoleGranted = !credentials?.roles.includes('OWNER');
 
-    const shop = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.barbershop.create({
-        data: {
-          name: dto.name,
-          description: dto.description ?? null,
-          address: dto.address,
-          latitude: dto.latitude,
-          longitude: dto.longitude,
-          timezone: dto.timezone ?? DEFAULT_TIMEZONE,
-          phone: dto.phone,
-          ruc: dto.ruc ?? null,
-          websiteUrl: dto.websiteUrl ?? null,
-          instagramUrl: dto.instagramUrl ?? null,
-          facebookUrl: dto.facebookUrl ?? null,
-          status: requireReview ? 'PENDING_REVIEW' : 'OPEN',
-          members: { create: { userId, role: 'OWNER' } },
-        },
-      });
-      await this.users.addRole(userId, 'OWNER', tx);
-      await this.audit.record(
-        {
-          actorId: userId,
-          action: 'barbershop.created',
-          entityType: 'barbershop',
-          entityId: created.id,
-          changes: { values: { status: { from: null, to: created.status } } },
-          ip,
-        },
-        tx,
-      );
-      return created;
-    });
+    const shop = await this.prisma.$transaction((tx) =>
+      this.createShop(tx, userId, dto, 'BARBERSHOP', requireReview, ip),
+    );
     return { ...toManageDto(shop, 'OWNER'), ownerRoleGranted };
+  }
+
+  /**
+   * Barbero independiente: en una sola transacción crea la barbería INDEPENDENT, deja a la cuenta
+   * como OWNER y la vincula como su único barbero activo. Se mantiene la regla de un barbero
+   * activo en una sola barbería.
+   */
+  async createIndependent(
+    userId: string,
+    dto: CreateIndependentDto,
+    ip: string | null,
+  ): Promise<CreatedIndependentDto> {
+    const requireReview = await this.settings.boolean(SettingKey.BARBERSHOPS_REQUIRE_REVIEW, false);
+    const credentials = await this.users.findCredentialsById(userId);
+    const roles = credentials?.roles ?? [];
+    const { displayName, bio, ...shopData } = dto;
+
+    try {
+      const { shop, barberId } = await this.prisma.$transaction(async (tx) => {
+        const created = await this.createShop(
+          tx,
+          userId,
+          shopData,
+          'INDEPENDENT',
+          requireReview,
+          ip,
+        );
+        const profile = await this.barbers.createIndependentProfile(tx, {
+          barbershopId: created.id,
+          userId,
+          displayName: displayName ?? credentials?.fullName ?? dto.name,
+          bio: bio ?? null,
+          ip,
+        });
+        return { shop: created, barberId: profile.barberId };
+      });
+      return {
+        ...toManageDto(shop, 'OWNER'),
+        ownerRoleGranted: !roles.includes('OWNER'),
+        barberId,
+        barberRoleGranted: !roles.includes('BARBER'),
+      };
+    } catch (error) {
+      // Carrera con otra vinculación de la misma cuenta: índice único de barberos activos.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new AppException(
+          ErrorCode.BARBER_ALREADY_ACTIVE_ELSEWHERE,
+          'Esta cuenta ya es barbero en una barbería. En esta etapa, un barbero trabaja en una sola barbería.',
+          HttpStatus.CONFLICT,
+        );
+      }
+      throw error;
+    }
+  }
+
+  private async createShop(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    dto: CreateBarbershopDto,
+    type: 'BARBERSHOP' | 'INDEPENDENT',
+    requireReview: boolean,
+    ip: string | null,
+  ): Promise<Barbershop> {
+    const created = await tx.barbershop.create({
+      data: {
+        name: dto.name,
+        description: dto.description ?? null,
+        address: dto.address,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        timezone: dto.timezone ?? DEFAULT_TIMEZONE,
+        phone: dto.phone,
+        ruc: dto.ruc ?? null,
+        websiteUrl: dto.websiteUrl ?? null,
+        instagramUrl: dto.instagramUrl ?? null,
+        facebookUrl: dto.facebookUrl ?? null,
+        type,
+        status: requireReview ? 'PENDING_REVIEW' : 'OPEN',
+        members: { create: { userId, role: 'OWNER' } },
+      },
+    });
+    await this.users.addRole(userId, 'OWNER', tx);
+    await this.audit.record(
+      {
+        actorId: userId,
+        action: 'barbershop.created',
+        entityType: 'barbershop',
+        entityId: created.id,
+        changes: {
+          values: { type: { from: null, to: type }, status: { from: null, to: created.status } },
+        },
+        ip,
+      },
+      tx,
+    );
+    return created;
   }
 
   /** RF-BAR-002: consulta pública (solo barberías visibles). */
@@ -156,11 +226,12 @@ export class BarbershopsService {
       where: { userId, barbershop: { deletedAt: null }, ...args.where },
       orderBy: args.orderBy,
       take: args.take,
-      include: { barbershop: { select: { id: true, name: true, status: true } } },
+      include: { barbershop: { select: { id: true, name: true, type: true, status: true } } },
     });
     return toPage(rows, query, (m) => ({
       id: m.barbershop.id,
       name: m.barbershop.name,
+      type: m.barbershop.type,
       status: m.barbershop.status,
       myRole: m.role,
     }));

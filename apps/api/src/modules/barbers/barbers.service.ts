@@ -38,6 +38,13 @@ const activeElsewhere = (): AppException =>
     HttpStatus.CONFLICT,
   );
 
+const independentLimit = (): AppException =>
+  new AppException(
+    ErrorCode.INDEPENDENT_SINGLE_BARBER,
+    'Un barbero independiente tiene un solo barbero activo.',
+    HttpStatus.CONFLICT,
+  );
+
 const barberWithServices = {
   services: {
     where: { service: { deletedAt: null } },
@@ -173,6 +180,9 @@ export class BarbersService {
             HttpStatus.CONFLICT,
           );
         }
+      }
+      if (dto.isActive === true && !before.isActive) {
+        await this.assertIndependentAllowsActive(tx, barbershopId, barberId);
       }
       const barber = await tx.barber.update({
         where: { id: barberId },
@@ -388,6 +398,7 @@ export class BarbersService {
       ) {
         throw activeElsewhere();
       }
+      await this.assertIndependentAllowsActive(tx, barbershopId);
       if (dto.serviceIds?.length)
         await this.services.assertBelongTo(barbershopId, dto.serviceIds, tx);
       const created = await tx.barber.create({
@@ -419,6 +430,72 @@ export class BarbersService {
     });
     const names = await this.users.fullNames(linkedUserId ? [linkedUserId] : []);
     return this.toManage(barber, names);
+  }
+
+  /**
+   * Perfil del barbero independiente, vinculado a su cuenta, dentro de la transacción que crea
+   * la barbería.
+   */
+  async createIndependentProfile(
+    tx: Prisma.TransactionClient,
+    input: {
+      barbershopId: string;
+      userId: string;
+      displayName: string;
+      bio: string | null;
+      ip: string | null;
+    },
+  ): Promise<{ barberId: string }> {
+    if ((await tx.barber.count({ where: { userId: input.userId, deletedAt: null } })) > 0)
+      throw activeElsewhere();
+    const created = await tx.barber.create({
+      data: {
+        barbershopId: input.barbershopId,
+        userId: input.userId,
+        displayName: input.displayName,
+        bio: input.bio,
+      },
+      select: { id: true },
+    });
+    await this.users.addRole(input.userId, 'BARBER', tx);
+    await this.audit.record(
+      {
+        actorId: input.userId,
+        action: 'barber.self_linked',
+        entityType: 'barber',
+        entityId: created.id,
+        changes: {
+          barbershopId: input.barbershopId,
+          values: { isActive: { from: null, to: true } },
+        },
+        ip: input.ip,
+      },
+      tx,
+    );
+    return { barberId: created.id };
+  }
+
+  /**
+   * Una barbería INDEPENDENT admite un solo barbero activo. Bloquea la fila de la barbería para
+   * serializar altas y reactivaciones concurrentes (el trigger de la base es la red de respaldo).
+   */
+  private async assertIndependentAllowsActive(
+    tx: Prisma.TransactionClient,
+    barbershopId: string,
+    exceptBarberId?: string,
+  ): Promise<void> {
+    const [shop] = await tx.$queryRaw<{ type: string }[]>`
+      SELECT "type"::text AS "type" FROM "barbershops" WHERE "id" = ${barbershopId}::uuid FOR UPDATE`;
+    if (shop?.type !== 'INDEPENDENT') return;
+    const others = await tx.barber.count({
+      where: {
+        barbershopId,
+        isActive: true,
+        deletedAt: null,
+        ...(exceptBarberId ? { id: { not: exceptBarberId } } : {}),
+      },
+    });
+    if (others > 0) throw independentLimit();
   }
 
   private async findOwned(barbershopId: string, barberId: string): Promise<BarberRow> {

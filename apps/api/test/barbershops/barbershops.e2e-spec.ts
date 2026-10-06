@@ -52,7 +52,9 @@ describe('RF-BAR-001…004 Gestión de barberías (e2e)', () => {
       const audit = await prisma.auditLog.findFirstOrThrow({
         where: { action: 'barbershop.created', entityId: res.body.id },
       });
-      expect(audit.changes).toEqual({ values: { status: { from: null, to: 'OPEN' } } });
+      expect(audit.changes).toEqual({
+        values: { type: { from: null, to: 'BARBERSHOP' }, status: { from: null, to: 'OPEN' } },
+      });
 
       await new AuthClient(app).get(`${SHOPS}/${res.body.id}`).expect(200);
     });
@@ -143,6 +145,7 @@ describe('RF-BAR-001…004 Gestión de barberías (e2e)', () => {
         latitude: -12.12,
         longitude: -77.03,
         timezone: 'America/Lima',
+        type: 'BARBERSHOP',
         phone: '+51 1 234 5678',
         status: 'OPEN',
         closure: null,

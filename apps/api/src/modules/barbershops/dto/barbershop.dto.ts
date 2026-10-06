@@ -16,7 +16,11 @@ import {
   ValidateIf,
   registerDecorator,
 } from 'class-validator';
-import { BarbershopMemberRole, BarbershopStatus } from '../../../generated/prisma/enums';
+import {
+  BarbershopMemberRole,
+  BarbershopStatus,
+  BarbershopType,
+} from '../../../generated/prisma/enums';
 import { PHONE_PATTERN } from '../../users/dto/profile.dto';
 
 /** Ámbito del MVP: solo Perú (CLAUDE.md §4.1). Rectángulo amplio que contiene al país. */
@@ -124,6 +128,29 @@ export class CreateBarbershopDto {
 }
 
 /**
+ * Barbero independiente: los datos de su negocio más su perfil de barbero. El perfil se crea
+ * vinculado a la cuenta y activo; la atención a domicilio está fuera de alcance.
+ */
+export class CreateIndependentDto extends CreateBarbershopDto {
+  @ApiPropertyOptional({
+    description: 'Nombre visible como barbero. Por defecto, el de la cuenta.',
+  })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @Length(2, 80)
+  displayName?: string;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  @IsOptional()
+  @Transform(emptyToNull)
+  @ValidateIf((_o, v) => v !== null)
+  @IsString()
+  @MaxLength(500)
+  bio?: string | null;
+}
+
+/**
  * RF-BAR-003. Todos opcionales; los no enviados no cambian. Los campos obligatorios no se
  * pueden vaciar (`null` se rechaza en el servicio).
  */
@@ -216,6 +243,13 @@ export class BarbershopPublicDto {
   @ApiProperty({ example: DEFAULT_TIMEZONE })
   timezone!: string;
 
+  @ApiProperty({
+    enum: BarbershopType,
+    enumName: 'BarbershopType',
+    description: 'BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero).',
+  })
+  type!: BarbershopType;
+
   @ApiProperty({ nullable: true, type: String, description: 'Teléfono del negocio.' })
   phone!: string | null;
 
@@ -251,12 +285,25 @@ export class CreatedBarbershopDto extends BarbershopManageDto {
   ownerRoleGranted!: boolean;
 }
 
+export class CreatedIndependentDto extends CreatedBarbershopDto {
+  @ApiProperty({ format: 'uuid', description: 'Perfil de barbero creado y vinculado a la cuenta.' })
+  barberId!: string;
+
+  @ApiProperty({
+    description: 'true si se agregó el rol BARBER a la cuenta: renueva el token para verlo.',
+  })
+  barberRoleGranted!: boolean;
+}
+
 export class MyBarbershopDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
   @ApiProperty()
   name!: string;
+
+  @ApiProperty({ enum: BarbershopType, enumName: 'BarbershopType' })
+  type!: BarbershopType;
 
   @ApiProperty({ enum: BarbershopStatus, enumName: 'BarbershopStatus' })
   status!: BarbershopStatus;
