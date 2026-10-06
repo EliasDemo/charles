@@ -1,7 +1,8 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
+import { dbErrorInfo, isContention, isExclusionViolation } from '../../common/errors/db-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { AvailabilityService } from '../availability/availability.service';
@@ -14,7 +15,7 @@ import { ServicesService } from '../services/services.service';
 import { SettingKey, SettingsService } from '../settings/settings.service';
 import { UsersService } from '../users/users.service';
 import { cancellationDecision, NO_SHOW_DEFAULTS, noShowAllowed } from './booking-policy';
-import { type BookingActor, BookingStateMachine } from './booking-state-machine';
+import { type BookingActor, BookingStateMachine, SYSTEM_ACTOR } from './booking-state-machine';
 import type {
   BookingDto,
   BookingListQueryDto,
@@ -76,6 +77,7 @@ function sameRequest(stored: unknown, current: Prisma.InputJsonObject): boolean 
 }
 
 function isOverlapViolation(error: unknown): boolean {
+  if (isExclusionViolation(dbErrorInfo(error))) return true;
   const text = `${error instanceof Error ? error.message : ''} ${JSON.stringify(error) ?? ''}`;
   return text.includes('bookings_no_overlap');
 }
@@ -87,10 +89,8 @@ function isOverlapViolation(error: unknown): boolean {
  */
 export const BOOKING_TX_OPTIONS = { maxWait: 10_000, timeout: 20_000 } as const;
 
-/** P2028: la transacción interactiva no pudo empezar o expiró. */
-export function isTransactionTimeout(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2028';
-}
+/** Espera máxima de un bloqueo dentro de la transacción de creación (SQLSTATE 55P03 si se excede). */
+export const LOCK_TIMEOUT_MS = 5_000;
 
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
@@ -112,6 +112,8 @@ export function orderByLoad(candidates: string[], activeCount: Map<string, numbe
  */
 @Injectable()
 export class BookingsService {
+  private readonly logger = new Logger(BookingsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly stateMachine: BookingStateMachine,
@@ -177,72 +179,81 @@ export class BookingsService {
 
     let created: { bookingId: string; paymentId: string } | { replayId: string };
     try {
-      created = await this.prisma.$transaction(async (tx) => {
-        // Serializa las reservas de un mismo cliente (límite de pendientes e idempotencia).
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking-client:${clientId}`}))`;
-        const existing = await tx.booking.findUnique({
-          where: { clientId_idempotencyKey: { clientId, idempotencyKey } },
-          select: { id: true },
-        });
-        if (existing) return { replayId: existing.id };
+      created = await this.withContentionRetry(() =>
+        this.prisma.$transaction(async (tx) => {
+          // Una espera de bloqueo nunca retiene la transacción más de LOCK_TIMEOUT_MS (55P03).
+          await tx.$executeRawUnsafe(`SET LOCAL lock_timeout = '${LOCK_TIMEOUT_MS}ms'`);
+          // Orden de bloqueos (siempre el mismo, sin ciclos): 1) cliente (consultivo);
+          // 2) reservas vencidas que se solapan, por id; 3) inserción (restricción de exclusión).
+          // Serializa las reservas de un mismo cliente (límite de pendientes e idempotencia).
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking-client:${clientId}`}))`;
+          const existing = await tx.booking.findUnique({
+            where: { clientId_idempotencyKey: { clientId, idempotencyKey } },
+            select: { id: true },
+          });
+          if (existing) return { replayId: existing.id };
 
-        const pending = await tx.booking.count({
-          where: { clientId, status: 'PENDING_PAYMENT', expiresAt: { gt: new Date(now) } },
-        });
-        if (pending >= maxPending) {
-          throw new AppException(
-            ErrorCode.TOO_MANY_PENDING_BOOKINGS,
-            `Tienes ${pending} reservas pendientes de pago. Paga o cancela alguna antes de reservar otra.`,
-            HttpStatus.CONFLICT,
-            [{ maxPending }],
-          );
-        }
+          const pending = await tx.booking.count({
+            where: { clientId, status: 'PENDING_PAYMENT', expiresAt: { gt: new Date(now) } },
+          });
+          if (pending >= maxPending) {
+            throw new AppException(
+              ErrorCode.TOO_MANY_PENDING_BOOKINGS,
+              `Tienes ${pending} reservas pendientes de pago. Paga o cancela alguna antes de reservar otra.`,
+              HttpStatus.CONFLICT,
+              [{ maxPending }],
+            );
+          }
 
-        // Requisito de la Fase 5: una PENDING_PAYMENT vencida aún ocupa el turno en la
-        // restricción de exclusión hasta marcarse EXPIRED. Se expira aquí, en esta transacción.
-        await this.expireOverlapping(tx, candidates, startAt, endAt, now);
+          // Requisito de la Fase 5: una PENDING_PAYMENT vencida aún ocupa el turno en la
+          // restricción de exclusión hasta marcarse EXPIRED. Se expira aquí, en esta transacción.
+          await this.expireOverlapping(tx, candidates, startAt, endAt, now);
 
-        const bookingId = await this.insertWithFirstFreeBarber(tx, candidates, {
-          clientId,
-          dto,
-          idempotencyKey,
-          startAt,
-          endAt,
-          service,
-          expiresAt: now + ttlMinutes * 60_000,
-        });
-        await this.stateMachine.recordCreation(
-          tx,
-          {
-            id: bookingId.id,
-            barbershopId: dto.barbershopId,
-            barberId: bookingId.barberId,
+          const bookingId = await this.insertWithFirstFreeBarber(tx, candidates, {
             clientId,
-          },
-          actor,
-        );
-        const paymentId = await this.payments.createPendingInTx(tx, {
-          id: bookingId.id,
-          totalAmount: service.priceAmount,
-          currency: service.currency,
-        });
-        return { bookingId: bookingId.id, paymentId };
-      }, BOOKING_TX_OPTIONS);
+            dto,
+            idempotencyKey,
+            startAt,
+            endAt,
+            service,
+            expiresAt: now + ttlMinutes * 60_000,
+          });
+          await this.stateMachine.recordCreation(
+            tx,
+            {
+              id: bookingId.id,
+              barbershopId: dto.barbershopId,
+              barberId: bookingId.barberId,
+              clientId,
+            },
+            actor,
+          );
+          const paymentId = await this.payments.createPendingInTx(tx, {
+            id: bookingId.id,
+            totalAmount: service.priceAmount,
+            currency: service.currency,
+          });
+          return { bookingId: bookingId.id, paymentId };
+        }, BOOKING_TX_OPTIONS),
+      );
     } catch (error) {
       // Dos peticiones con la misma clave a la vez: la segunda devuelve la reserva de la primera.
       if (isUniqueViolation(error)) {
         const again = await this.findReplay(clientId, idempotencyKey, dto);
         if (again) return { booking: again, replayed: true };
       }
-      // Bajo mucha carga, la espera del bloqueo puede agotar el plazo de la transacción: el
-      // cliente puede reintentar con la misma Idempotency-Key (nunca un 500).
-      if (isTransactionTimeout(error)) {
+      const info = dbErrorInfo(error);
+      // Contención que persistió tras el reintento: 503 reintentable (misma Idempotency-Key).
+      if (isContention(info)) {
         throw new AppException(
           ErrorCode.SERVICE_UNAVAILABLE,
-          'No pudimos completar la reserva a tiempo. Inténtalo de nuevo.',
+          'Hay mucha demanda en este momento. Inténtalo de nuevo en unos segundos.',
           HttpStatus.SERVICE_UNAVAILABLE,
+          [{ retryable: true }],
         );
       }
+      // La restricción de exclusión fuera del recorrido de candidatos sigue siendo 409.
+      if (isExclusionViolation(info)) throw slotNotAvailable();
       throw error;
     }
 
@@ -255,6 +266,24 @@ export class BookingsService {
     const payment = await this.payments.startAfterCreation(created.paymentId, service.name);
     const booking = await this.loadOne(created.bookingId);
     return { booking: { ...(await this.toDto(booking, 'CLIENT')), payment }, replayed: false };
+  }
+
+  /**
+   * Ejecuta la transacción y, si falla por contención de la base (bloqueo mutuo 40P01,
+   * serialización 40001, espera de bloqueo 55P03, o los equivalentes de Prisma), la reintenta una
+   * vez. Si vuelve a fallar, el error sube y se responde 503 reintentable.
+   */
+  private async withContentionRetry<T>(run: () => Promise<T>): Promise<T> {
+    try {
+      return await run();
+    } catch (error) {
+      const info = dbErrorInfo(error);
+      if (!isContention(info)) throw error;
+      this.logger.warn(
+        `Contención al crear una reserva (prisma=${info?.prismaCode ?? '-'}, pg=${info?.pgCode ?? '-'}); se reintenta una vez`,
+      );
+      return run();
+    }
   }
 
   /**
@@ -324,6 +353,12 @@ export class BookingsService {
     for (const payment of due) await this.reconciliation.checkPayment(payment.id);
   }
 
+  /**
+   * Vence, dentro de la transacción, las PENDING_PAYMENT vencidas que se solapan con el turno.
+   * Las bloquea en una sola consulta, **ordenadas por id** (orden fijo: sin bloqueos mutuos entre
+   * dos creaciones que vencen las mismas reservas). Tras esperar un bloqueo, PostgreSQL vuelve a
+   * evaluar la condición: las que otra transacción ya venció no se devuelven.
+   */
   private async expireOverlapping(
     tx: Prisma.TransactionClient,
     barberIds: string[],
@@ -331,21 +366,18 @@ export class BookingsService {
     endAt: number,
     now: number,
   ): Promise<void> {
-    const due = await tx.booking.findMany({
-      where: {
-        barberId: { in: barberIds },
-        status: 'PENDING_PAYMENT',
-        expiresAt: { lte: new Date(now) },
-        startAt: { lt: new Date(endAt) },
-        endAt: { gt: new Date(startAt) },
-      },
-      select: { id: true },
-    });
+    if (barberIds.length === 0) return;
+    const due = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id::text AS id FROM bookings
+       WHERE barber_id = ANY(${barberIds}::uuid[])
+         AND status = 'PENDING_PAYMENT'
+         AND expires_at <= ${new Date(now)}
+         AND start_at < ${new Date(endAt)}
+         AND end_at > ${new Date(startAt)}
+       ORDER BY id
+       FOR UPDATE`;
     for (const booking of due) {
-      await this.stateMachine.transition(tx, booking.id, 'EXPIRED', {
-        userId: null,
-        role: 'SYSTEM',
-      });
+      await this.stateMachine.transition(tx, booking.id, 'EXPIRED', SYSTEM_ACTOR);
     }
   }
 

@@ -17,6 +17,7 @@
     "postinstall": "prisma generate",
     "test:cov:availability": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e-coverage.config.ts --runInBand",
     "test:cov:search": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e-coverage-search.config.ts --runInBand",
+    "test:load:race": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-load.config.ts --runInBand",
     "test:cov:bookings": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e-coverage-bookings.config.ts --runInBand"
   },
   "dependencies": {

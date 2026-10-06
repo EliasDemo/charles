@@ -82,6 +82,7 @@ pnpm --filter api start:dev
 pnpm --filter api seed:reference      # categorías de servicio (datos de referencia)
 pnpm test | pnpm test:e2e | pnpm lint | pnpm typecheck
 pnpm verify                           # todo lo anterior + coberturas + OpenAPI + audit
+pnpm --filter api test:load:race      # carrera por un turno bajo carga (fuera de verify)
 ```
 
 ---
@@ -271,6 +272,9 @@ El objetivo es agregar funciones nuevas **sin modificar los módulos existentes*
 
 ### 6.6 Operación
 
+- **Pool de PostgreSQL:** `DATABASE_POOL_MAX` (por defecto y recomendado: 10 por instancia, mínimo 2, máximo 100). La suma de todas las instancias más las migraciones y los trabajos debe quedar por debajo de `max_connections` del servidor, con margen. Las transacciones de reserva retienen una conexión como máximo 20 s; las esperas de bloqueo, como máximo 5 s.
+- **Errores 500:** el filtro global registra los de base de datos con el código de Prisma, el SQLSTATE de PostgreSQL y la restricción, nunca con el mensaje (puede contener valores de la consulta).
+
 - Variables de entorno validadas al arrancar; la aplicación no inicia si falta alguna. Se entrega `.env.example` sin valores reales.
 - Logs estructurados con ID de petición. **Prohibido** registrar contraseñas, tokens, datos personales o cuerpos de pago; aplicar enmascarado automático.
 - `audit_log` para acciones sensibles: cambios de estado de cuenta, cancelaciones, reembolsos, acciones de soporte, cambios de precio.
@@ -424,7 +428,19 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
 #### Reservas (Fase 7)
 
 - **Crear (`POST /bookings`):**
-  - la transacción tiene plazos explícitos (`BOOKING_TX_OPTIONS`: 10 s para obtener conexión, 20 s de duración); si aun así se agotan bajo carga (`P2028`), responde 503 reintentable con la misma `Idempotency-Key`, nunca 500;
+  - **Plazos de la transacción:** `BOOKING_TX_OPTIONS` da 10 s para obtener conexión y 20 s de duración, y `SET LOCAL lock_timeout` limita cada espera de bloqueo a 5 s (`LOCK_TIMEOUT_MS`).
+  - **Orden de bloqueos, siempre el mismo:**
+    1. consultivo del cliente;
+    2. reservas vencidas que se solapan, en **una** consulta `FOR UPDATE` ordenada por id;
+    3. inserción (restricción de exclusión).
+
+    PostgreSQL vuelve a evaluar la condición tras esperar, así que una reserva que otra transacción ya venció no se procesa dos veces.
+
+  - **Contención:**
+    - bloqueo mutuo `40P01`, serialización `40001` y espera de bloqueo `55P03` (y los equivalentes de Prisma `P2034`/`P2028`): se reintenta una vez dentro del servidor; si persiste, 503 `SERVICE_UNAVAILABLE` con `retryable: true`;
+    - exclusión `23P01`: 409 `SLOT_NOT_AVAILABLE`;
+    - ningún error de contención llega como 500 (`common/errors/db-error.ts`);
+  - **Prueba de carga** (no forma parte de `verify`): `pnpm --filter api test:load:race`, con `RACE_ROUNDS` (200), `RACE_EXPIRE_ROUNDS` (100) y `RACE_POOL_MAX`. Usa su propia base, `charles_race`, para correr en paralelo con la suite e2e.
   - **Cabecera `Idempotency-Key` (UUID) obligatoria:** la misma petición devuelve la misma reserva (200); otra petición con la misma clave da 409 `IDEMPOTENCY_KEY_REUSED`.
   - **Correo verificado:** obligatorio (403 `EMAIL_NOT_VERIFIED`).
   - **Validación del turno:** `startAt` debe ser futuro, respetar la anticipación mínima y coincidir exactamente con un turno del motor. Si no, 409 `SLOT_NOT_AVAILABLE`, también para fechas pasadas, fuera del horizonte o en una barbería no `OPEN`.

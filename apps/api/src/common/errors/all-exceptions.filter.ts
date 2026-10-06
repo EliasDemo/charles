@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AppException } from './app.exception';
+import { dbErrorInfo } from './db-error';
 import { defaultErrorFor } from './error-codes';
 import { ErrorResponseDto } from './error-response.dto';
 
@@ -32,8 +33,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const { status, body } = toErrorResponse(exception, requestIdOf(req));
 
     if (status >= 500) {
+      const db = dbErrorInfo(exception);
+      // Errores de base de datos: solo los códigos (Prisma, PostgreSQL y restricción). El mensaje
+      // de Prisma puede incluir valores de la consulta (datos personales): no se registra.
       this.logger.error(
-        { err: exception, code: body.code, requestId: body.requestId },
+        db
+          ? {
+              db,
+              errorName: exception instanceof Error ? exception.name : typeof exception,
+              code: body.code,
+              requestId: body.requestId,
+              route: `${req.method} ${(req.route as { path?: string } | undefined)?.path ?? ''}`,
+            }
+          : { err: exception, code: body.code, requestId: body.requestId },
         'Error no controlado',
       );
     }

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
+import { Prisma } from '../../generated/prisma/client';
 import { AllExceptionsFilter, toErrorResponse } from './all-exceptions.filter';
 import { AppException } from './app.exception';
 
@@ -75,5 +76,39 @@ describe('AllExceptionsFilter', () => {
     const { host, res } = hostFor(true);
     new AllExceptionsFilter().catch(new NotFoundException(), host);
     expect(res.status).not.toHaveBeenCalled();
+  });
+});
+
+describe('AllExceptionsFilter: registro de errores de base de datos (sin datos personales)', () => {
+  function host(): ArgumentsHost {
+    const res = { headersSent: false, status: jest.fn().mockReturnThis(), json: jest.fn() };
+    const req = { id: 'req-9', method: 'POST', route: { path: '/api/v1/bookings' } };
+    return {
+      switchToHttp: () => ({ getRequest: () => req, getResponse: () => res }),
+    } as unknown as ArgumentsHost;
+  }
+
+  it('un 500 de Prisma se registra con los códigos de Prisma y PostgreSQL, sin el mensaje', () => {
+    const filter = new AllExceptionsFilter();
+    const logger = jest
+      .spyOn((filter as unknown as { logger: { error: jest.Mock } }).logger, 'error')
+      .mockImplementation(() => undefined);
+    const error = new Prisma.PrismaClientKnownRequestError(
+      'Invalid `tx.booking.create()` invocation: email ana@example.com',
+      {
+        code: 'P2003',
+        clientVersion: 'test',
+        meta: { driverAdapterError: { cause: { originalCode: '23503', constraint: 'fk_x' } } },
+      },
+    );
+    filter.catch(error, host());
+    const [entry] = logger.mock.calls[0] as [Record<string, unknown>];
+    expect(entry).toMatchObject({
+      db: { prismaCode: 'P2003', pgCode: '23503', constraint: 'fk_x' },
+      code: 'INTERNAL_ERROR',
+      requestId: 'req-9',
+      route: 'POST /api/v1/bookings',
+    });
+    expect(JSON.stringify(entry)).not.toContain('ana@example.com');
   });
 });

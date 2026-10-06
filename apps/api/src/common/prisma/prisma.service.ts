@@ -7,7 +7,13 @@ import type { AppConfig } from '../config/env.validation';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor(@Inject(APP_CONFIG) config: AppConfig) {
-    super({ adapter: new PrismaPg({ connectionString: config.databaseUrl }) });
+    super({
+      adapter: new PrismaPg({
+        connectionString: config.databaseUrl,
+        // Tamaño del pool configurable (DATABASE_POOL_MAX); las transacciones largas lo agotan.
+        max: config.databasePoolMax,
+      }),
+    });
   }
 
   async onModuleInit(): Promise<void> {

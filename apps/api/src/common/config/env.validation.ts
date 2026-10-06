@@ -68,6 +68,16 @@ export class EnvironmentVariables {
   @Matches(/^postgres(ql)?:\/\/\S+$/, { message: 'debe ser una URL postgresql://' })
   DATABASE_URL!: string;
 
+  /**
+   * Conexiones máximas del pool de PostgreSQL por instancia de la API. Recomendado: 10 (ver
+   * CLAUDE.md §2). Total del servidor = instancias × este valor, por debajo de max_connections.
+   */
+  @Transform(toInt)
+  @IsInt()
+  @Min(2)
+  @Max(100)
+  DATABASE_POOL_MAX = 10;
+
   @IsString()
   @Matches(/^rediss?:\/\/\S+$/, { message: 'debe ser una URL redis:// o rediss://' })
   REDIS_URL!: string;
@@ -139,6 +149,7 @@ export interface AppConfig {
   isProduction: boolean;
   port: number;
   databaseUrl: string;
+  databasePoolMax: number;
   redisUrl: string;
   corsOrigins: string[];
   trustProxy: TrustProxySetting;
@@ -284,6 +295,7 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
     isProduction: env.NODE_ENV === NodeEnv.Production,
     port: env.PORT,
     databaseUrl: env.DATABASE_URL,
+    databasePoolMax: env.DATABASE_POOL_MAX,
     redisUrl: env.REDIS_URL,
     corsOrigins: cors.value,
     trustProxy: trustProxy.value,

@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DateTime } from 'luxon';
 import { OutboxService } from '../../src/common/outbox/outbox.service';
+import { Client as PgClient } from 'pg';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
+import { Prisma } from '../../src/generated/prisma/client';
+import { LOCK_TIMEOUT_MS } from '../../src/modules/bookings/bookings.service';
 import { BookingExpirationService } from '../../src/modules/bookings/booking-expiration';
 import {
   BOOKING_RATE_LIMIT,
@@ -455,6 +458,92 @@ describe('RF-RES-001…008 Reservas, máquina de estados, outbox y expiración (
       expect(responses[0].body.id).toBe(responses[1].body.id);
       expect(await prisma.booking.count({ where: { clientId: me.userId } })).toBe(1);
     });
+  });
+
+  describe('contención de la base en POST /bookings (nunca 500)', () => {
+    const dbError = (pgCode: string) =>
+      new Prisma.PrismaClientKnownRequestError('contención simulada', {
+        code: 'P2010',
+        clientVersion: 'test',
+        meta: { driverAdapterError: { cause: { originalCode: pgCode } } },
+      });
+
+    it.each(['40P01', '40001', '55P03'])(
+      '%s una vez: se reintenta dentro del servidor y la reserva sale (una sola)',
+      async (pgCode) => {
+        const shop = await shopReady();
+        const me = await verifiedClient();
+        const db = app.get(PrismaService);
+        const original = db.$transaction.bind(db);
+        const spy = jest
+          .spyOn(db, '$transaction')
+          .mockImplementationOnce(() => Promise.reject(dbError(pgCode)))
+          .mockImplementation(original);
+        try {
+          await book(me, shop, at('10:00')).expect(201);
+        } finally {
+          spy.mockRestore();
+        }
+        expect(await prisma.booking.count({ where: { clientId: me.userId } })).toBe(1);
+      },
+    );
+
+    it('si la contención persiste tras el reintento: 503 reintentable', async () => {
+      const shop = await shopReady();
+      const me = await verifiedClient();
+      const db = app.get(PrismaService);
+      const spy = jest.spyOn(db, '$transaction').mockRejectedValue(dbError('40P01'));
+      let res;
+      let calls: number | undefined;
+      try {
+        res = await book(me, shop, at('10:00')).expect(503);
+      } finally {
+        calls = spy.mock.calls.length;
+        spy.mockRestore();
+      }
+      expect(res.body).toMatchObject({
+        code: 'SERVICE_UNAVAILABLE',
+        details: [{ retryable: true }],
+      });
+      expect(calls).toBe(2); // un intento y un reintento
+      // Reintentar con la misma petición funciona.
+      await book(me, shop, at('10:00')).expect(201);
+    });
+
+    it('la violación de exclusión que escapa del recorrido de candidatos sigue siendo 409', async () => {
+      const shop = await shopReady();
+      const me = await verifiedClient();
+      const db = app.get(PrismaService);
+      const spy = jest.spyOn(db, '$transaction').mockRejectedValue(dbError('23P01'));
+      try {
+        const res = await book(me, shop, at('10:00')).expect(409);
+        expect(res.body.code).toBe('SLOT_NOT_AVAILABLE');
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('55P03 real: un bloqueo retenido por otra conexión agota lock_timeout → 503, luego 201', async () => {
+      const shop = await shopReady();
+      const me = await verifiedClient();
+      // Otra conexión retiene el bloqueo consultivo del cliente (el primero que toma la reserva).
+      const holder = new PgClient({ connectionString: process.env.DATABASE_URL });
+      await holder.connect();
+      await holder.query('SELECT pg_advisory_lock(hashtext($1))', [`booking-client:${me.userId}`]);
+      const started = Date.now();
+      try {
+        const res = await book(me, shop, at('10:00')).expect(503);
+        expect(res.body.code).toBe('SERVICE_UNAVAILABLE');
+        // Dos intentos de LOCK_TIMEOUT_MS cada uno, no los 20 s del plazo de la transacción.
+        expect(Date.now() - started).toBeLessThan(2 * LOCK_TIMEOUT_MS + 5_000);
+      } finally {
+        await holder.query('SELECT pg_advisory_unlock(hashtext($1))', [
+          `booking-client:${me.userId}`,
+        ]);
+        await holder.end();
+      }
+      await book(me, shop, at('10:00')).expect(201);
+    }, 60_000);
   });
 
   describe('vencimiento de reservas sin pago', () => {

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { OTHER_CATEGORY_ID } from '../../prisma/seed/categories';
+import { dbErrorInfo, isContention, isExclusionViolation } from '../../src/common/errors/db-error';
 import type { PrismaClient } from '../../src/generated/prisma/client';
 import {
   bookingScenario,
@@ -30,6 +31,21 @@ describe('Restricciones de la base de datos (integración, charles_test)', () =>
         f.booking(ids(), { startAt: at('2030-01-07T15:15:00Z') }),
         'bookings_no_overlap',
       );
+    });
+
+    it('dbErrorInfo extrae el SQLSTATE 23P01 y la restricción del error real de Prisma', async () => {
+      const { f, ids } = await bookingScenario(prisma);
+      await f.booking(ids(), { startAt: at('2030-01-07T15:00:00Z') });
+      let error: unknown;
+      try {
+        await f.booking(ids(), { startAt: at('2030-01-07T15:15:00Z') });
+      } catch (caught) {
+        error = caught;
+      }
+      const info = dbErrorInfo(error);
+      expect(info?.pgCode).toBe('23P01');
+      expect(isExclusionViolation(info)).toBe(true);
+      expect(isContention(info)).toBe(false);
     });
 
     it('PENDING_PAYMENT también bloquea el horario', async () => {
