@@ -18,6 +18,18 @@ Resueltas en la Fase 8A: devoluciones al cancelar, plazo para cancelar, no-show 
 | **Reservas de una barbería suspendida**         | Las reservas futuras se dejan como están. Falta decidir si se cancelan y se devuelven, y cómo se avisa al cliente.                              | Fase 12                        |
 | **Medios de pago**                              | `payments.methods = null` (Yape, Plin y QR por confirmar en el SDK).                                                                            | Fase 8B                        |
 
+## Fases de crecimiento (13 a 16, ADR 0004)
+
+| Pendiente                                   | Situación actual                                                                                                                                                                             |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Proveedor de almacenamiento de imágenes** | Sin decidir. La Fase 14 usará la interfaz `ImageStorage`, con una implementación local para desarrollo.                                                                                      |
+| **Planes y precios**                        | Sin definir qué planes habrá ni sus precios mensual y anual.                                                                                                                                 |
+| **Beneficios por plan**                     | Sin definir qué derechos y límites tiene cada plan (barberos, sedes, fotos, días destacados, mensajes, membresías, promociones, estadísticas, insignia, soporte prioritario).                |
+| **Comisión por plan**                       | Sin definir la comisión de Charles por reserva en cada plan (hoy línea `FEE` en 0).                                                                                                          |
+| **Periodo de prueba**                       | Sin definir si habrá prueba gratuita, de cuántos días y en qué planes.                                                                                                                       |
+| **Cobro recurrente en Izipay**              | Por confirmar si Izipay ofrece cobros recurrentes programados. Si no, Charles programaría el cobro con un token guardado.                                                                    |
+| **Apple y Google**                          | Revisar sus políticas sobre suscripciones dentro de la app: si la suscripción de la barbería y las membresías de clientes pueden cobrarse fuera de las tiendas o exigen su sistema de pagos. |
+
 ## Integraciones reales
 
 | Pendiente                                        | Situación actual                                                                                                                                                                                                                                            |

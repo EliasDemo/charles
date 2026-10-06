@@ -6,13 +6,13 @@ Punto de partida para retomar el trabajo en una conversación nueva. **Léelo an
 
 ## Resumen
 
-|                           |                                                                                            |
-| ------------------------- | ------------------------------------------------------------------------------------------ |
-| Fase cerrada más reciente | **9** (atención e inasistencias)                                                           |
-| En espera                 | **8B** (adaptador de Izipay): falta documentación de Izipay que enviará el usuario         |
-| Siguiente a implementar   | **10** (notificaciones y recordatorios): presentar preguntas y plan; la 8B sigue en espera |
-| Pruebas al cierre         | 369 unitarias y 399 e2e, todas en verde; `pnpm verify` pasa                                |
-| Repositorio               | solo commits locales: **sin remoto y sin push** hasta que el usuario lo indique            |
+|                           |                                                                                                                            |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Fase cerrada más reciente | **9** (atención e inasistencias)                                                                                           |
+| En espera                 | **8B** (adaptador de Izipay): falta documentación de Izipay que enviará el usuario                                         |
+| Siguiente a implementar   | **11 y 12** (valoraciones y soporte): preguntas y plan presentados, pendientes de aprobación. La 10 y la 8B siguen después |
+| Pruebas al cierre         | 369 unitarias y 399 e2e, todas en verde; `pnpm verify` pasa                                                                |
+| Repositorio               | solo commits locales: **sin remoto y sin push** hasta que el usuario lo indique                                            |
 
 ## Fases cerradas y sus commits
 
@@ -46,6 +46,17 @@ Queda para otras fases:
 
 - **Fase 11:** ocultar la valoración si una reserva se corrige a `NO_SHOW`, y reactivarla si vuelve a `ATTENDED`.
 - **Fase 12:** corrección por soporte pasado el plazo de 48 h.
+
+### Fases futuras registradas (no implementadas)
+
+Diseño previsto en [ADR 0004](adr/0004-fases-de-crecimiento.md):
+
+- **13 (ampliación):** campañas con público, espacios en pantallas de la barbería y catálogo de productos con enlace externo.
+- **14:** galería y perfiles. **Debe estar lista antes de la app móvil.** Categoría obligatoria y hasta 3 estilos por foto (listas cerradas de `ADMIN`); fotos fijadas al inicio.
+- **15:** planes de suscripción como datos, derechos (`EntitlementsService`), comisión por plan y cobro recurrente.
+- **16:** membresías para clientes.
+
+Sus decisiones abiertas están en `docs/pendientes-produccion.md`.
 
 ## Decisiones tomadas que no están en CLAUDE.md
 
