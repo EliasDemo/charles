@@ -1,0 +1,26 @@
+import type { Config } from 'jest';
+
+/**
+ * Cobertura del módulo search (CLAUDE.md §11: mínimo 80 %), medida con las pruebas
+ * unitarias del motor y las e2e contra la base real. Falla si baja del mínimo.
+ * Misma base que jest-e2e.config.ts (Jest no permite importarla aquí sin extensión).
+ */
+const config: Config = {
+  rootDir: '..',
+  testEnvironment: 'node',
+  moduleFileExtensions: ['ts', 'js', 'json'],
+  testRegex: ['test/search/.*\\.e2e-spec\\.ts$', 'src/modules/search/.*\\.spec\\.ts$'],
+  transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }] },
+  setupFiles: ['<rootDir>/test/support/load-test-env.ts'],
+  globalSetup: '<rootDir>/test/support/global-setup.ts',
+  testTimeout: 30_000,
+  collectCoverage: true,
+  collectCoverageFrom: ['src/modules/search/**/*.ts', '!**/*.spec.ts'],
+  coverageDirectory: '<rootDir>/coverage/search',
+  coverageReporters: ['text', 'text-summary'],
+  coverageThreshold: {
+    global: { statements: 80, branches: 80, functions: 80, lines: 80 },
+  },
+};
+
+export default config;

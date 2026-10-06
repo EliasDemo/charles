@@ -54,7 +54,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/api/prisma/seed.ts'],
+    files: ['apps/api/prisma/seed.ts', 'apps/api/prisma/seed-reference.ts'],
     rules: { 'no-console': 'off' },
   },
 );

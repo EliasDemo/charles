@@ -35,6 +35,8 @@ export const ErrorCode = {
   // Horarios y disponibilidad (Fase 5)
   DATE_OUT_OF_RANGE: 'DATE_OUT_OF_RANGE',
   BLOCK_OVERLAPS_BOOKINGS: 'BLOCK_OVERLAPS_BOOKINGS',
+  // Búsqueda (Fase 6)
+  INVALID_CURSOR: 'INVALID_CURSOR',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode] | (string & {});

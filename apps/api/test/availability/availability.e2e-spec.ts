@@ -45,7 +45,7 @@ describe('RF-DIS-001…004 y RF-BRB-003 Horarios, bloqueos y disponibilidad (e2e
     const service = await client
       .post(
         `${SHOPS}/${owner.shopId}/services`,
-        { name: 'Corte', priceAmount: 2500, durationMinutes: 30 },
+        { name: 'Corte', priceAmount: 2500, durationMinutes: 30, categoryKey: 'haircut' },
         owner.token,
       )
       .expect(201);

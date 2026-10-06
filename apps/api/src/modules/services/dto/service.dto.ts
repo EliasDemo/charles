@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   Length,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -30,6 +31,9 @@ const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
 const emptyToNull = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' && value.trim() === '' ? null : trim({ value });
+
+/** Clave estable de una categoría de servicio (por ejemplo `haircut`). */
+export const CATEGORY_KEY_PATTERN = /^[a-z][a-z0-9_]{1,39}$/;
 
 /** RF-SER-001. Moneda fija: PEN. */
 export class CreateServiceDto {
@@ -59,6 +63,14 @@ export class CreateServiceDto {
   @IsDivisibleBy(SERVICE_RULES.durationStep)
   durationMinutes!: number;
 
+  @ApiProperty({
+    example: 'haircut',
+    description: 'Clave de una categoría activa (GET /service-categories).',
+  })
+  @IsString()
+  @Matches(CATEGORY_KEY_PATTERN)
+  categoryKey!: string;
+
   @ApiPropertyOptional({ default: true })
   @IsOptional()
   @IsBoolean()
@@ -67,6 +79,19 @@ export class CreateServiceDto {
 
 /** RF-SER-002. No altera reservas ya confirmadas: guardan copia del nombre, la duración y el precio. */
 export class UpdateServiceDto extends PartialType(CreateServiceDto) {}
+
+export class ServiceCategoryDto {
+  @ApiProperty({ example: 'haircut' })
+  key!: string;
+
+  @ApiProperty({ example: 'Corte de cabello' })
+  name!: string;
+}
+
+export class ServiceCategoryListDto {
+  @ApiProperty({ type: [ServiceCategoryDto], description: 'Categorías activas, en orden.' })
+  items!: ServiceCategoryDto[];
+}
 
 export class ServicePublicDto {
   @ApiProperty({ format: 'uuid' })
@@ -83,6 +108,9 @@ export class ServicePublicDto {
 
   @ApiProperty()
   durationMinutes!: number;
+
+  @ApiProperty({ type: ServiceCategoryDto })
+  category!: ServiceCategoryDto;
 }
 
 export class ServiceManageDto extends ServicePublicDto {

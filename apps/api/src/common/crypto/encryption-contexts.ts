@@ -14,6 +14,8 @@ export const EncryptedField = {
   BARBER_PHONE: 'charles/barber.phone/v1',
   TICKET_MESSAGE_BODY: 'charles/ticket-message.body/v1',
   SPONSOR_CONTACT: 'charles/sponsor.contact/v1',
+  /** Cursor de búsqueda (Fase 6): opaco y autenticado; no expone la distancia al cliente. */
+  SEARCH_CURSOR: 'charles/search.cursor/v1',
 } as const;
 
 export type EncryptedField = (typeof EncryptedField)[keyof typeof EncryptedField];

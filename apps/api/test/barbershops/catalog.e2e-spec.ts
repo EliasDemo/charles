@@ -1,4 +1,5 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { OTHER_CATEGORY_ID } from '../../prisma/seed/categories';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { AuthClient, codeFrom, createAuthTestApp, mailsTo, waitForMail } from '../support/auth';
 import { futureBooking, ownerWithShop } from '../support/barbershops';
@@ -9,6 +10,7 @@ const service = (o: Record<string, unknown> = {}) => ({
   name: 'Corte clásico',
   priceAmount: 2500,
   durationMinutes: 30,
+  categoryKey: 'haircut',
   ...o,
 });
 
@@ -50,6 +52,7 @@ describe('RF-SER-001…003 Servicios y RF-BRB-001…002 Barberos (e2e)', () => {
             description: 'Tijera y máquina',
             price: { amount: 2500, currency: 'PEN' },
             durationMinutes: 30,
+            category: { key: 'haircut', name: 'Corte de cabello' },
           },
         ],
         nextCursor: null,
@@ -69,6 +72,9 @@ describe('RF-SER-001…003 Servicios y RF-BRB-001…002 Barberos (e2e)', () => {
       ['duración menor que 5', { durationMinutes: 0 }, 'durationMinutes', 'min'],
       ['duración mayor que 480', { durationMinutes: 485 }, 'durationMinutes', 'max'],
       ['moneda distinta (no se acepta)', { currency: 'USD' }, 'currency', 'whitelistValidation'],
+      ['sin categoría', { categoryKey: undefined }, 'categoryKey', 'isString'],
+      ['categoría con formato inválido', { categoryKey: 'Corte!' }, 'categoryKey', 'matches'],
+      ['categoría inexistente', { categoryKey: 'no_existe' }, 'categoryKey', 'activeCategory'],
     ])('RF-SER-001 rechaza %s', async (_case, overrides, field, constraint) => {
       const client = new AuthClient(app);
       const owner = await ownerWithShop(client);
@@ -82,7 +88,12 @@ describe('RF-SER-001…003 Servicios y RF-BRB-001…002 Barberos (e2e)', () => {
 
     it('RF-SER-001 la base también rechaza un servicio con precio 0 o duración inválida', async () => {
       const owner = await ownerWithShop(new AuthClient(app));
-      const base = { barbershopId: owner.shopId, name: 'X', currency: 'PEN' };
+      const base = {
+        barbershopId: owner.shopId,
+        name: 'X',
+        currency: 'PEN',
+        categoryId: OTHER_CATEGORY_ID,
+      };
       await expectConstraintViolation(
         prisma.service.create({ data: { ...base, priceAmount: 0, durationMinutes: 30 } }),
         'services_price_positive_check',
@@ -91,6 +102,69 @@ describe('RF-SER-001…003 Servicios y RF-BRB-001…002 Barberos (e2e)', () => {
         prisma.service.create({ data: { ...base, priceAmount: 100, durationMinutes: 33 } }),
         'services_duration_rule_check',
       );
+    });
+
+    it('RF-SER-001 rechaza una categoría inactiva', async () => {
+      const key = `inactive_${Date.now().toString(36)}`;
+      await prisma.serviceCategory.create({ data: { key, name: 'Inactiva', isActive: false } });
+      const client = new AuthClient(app);
+      const owner = await ownerWithShop(client);
+      const res = await client
+        .post(`${SHOPS}/${owner.shopId}/services`, service({ categoryKey: key }), owner.token)
+        .expect(400);
+      expect(res.body.details).toEqual([{ field: 'categoryKey', constraints: ['activeCategory'] }]);
+    });
+
+    it('RF-SER-002 cambia la categoría; la auditoría guarda el valor anterior y el nuevo', async () => {
+      const client = new AuthClient(app);
+      const owner = await ownerWithShop(client);
+      const created = await client
+        .post(`${SHOPS}/${owner.shopId}/services`, service(), owner.token)
+        .expect(201);
+      expect(created.body.category).toEqual({ key: 'haircut', name: 'Corte de cabello' });
+      const updated = await client
+        .patch(
+          `${SHOPS}/${owner.shopId}/services/${created.body.id}`,
+          { categoryKey: 'haircut_beard' },
+          owner.token,
+        )
+        .expect(200);
+      expect(updated.body.category).toEqual({ key: 'haircut_beard', name: 'Corte y barba' });
+      const audit = await prisma.auditLog.findFirstOrThrow({
+        where: { action: 'service.updated', entityId: created.body.id },
+      });
+      const categories = await prisma.serviceCategory.findMany({
+        where: { key: { in: ['haircut', 'haircut_beard'] } },
+      });
+      const idOf = (k: string) => categories.find((c) => c.key === k)?.id;
+      expect(audit.changes).toEqual({
+        values: { categoryId: { from: idOf('haircut'), to: idOf('haircut_beard') } },
+      });
+      await client
+        .patch(
+          `${SHOPS}/${owner.shopId}/services/${created.body.id}`,
+          { categoryKey: null },
+          owner.token,
+        )
+        .expect(400);
+    });
+
+    it('lista pública de categorías: solo activas, en orden, sin sesión', async () => {
+      const res = await new AuthClient(app).get('/api/v1/service-categories').expect(200);
+      const keys = (res.body.items as { key: string }[]).map((c) => c.key);
+      expect(keys.slice(0, 9)).toEqual([
+        'haircut',
+        'beard',
+        'haircut_beard',
+        'kids_haircut',
+        'hair_color',
+        'hair_treatment',
+        'shave',
+        'eyebrows',
+        'other',
+      ]);
+      expect(keys.some((k) => k.startsWith('inactive_'))).toBe(false);
+      expect(res.body.items[0]).toEqual({ key: 'haircut', name: 'Corte de cabello' });
     });
 
     it('RF-SER-002 actualiza precio y duración; la auditoría guarda valor anterior y nuevo', async () => {

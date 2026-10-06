@@ -2,6 +2,7 @@ import { BlindIndexKind, EncryptedField } from '../../src/common/crypto/encrypti
 import type { EncryptionService } from '../../src/common/crypto/encryption.service';
 import { PasswordHasher } from '../../src/common/crypto/password-hasher';
 import type { Prisma, PrismaClient } from '../../src/generated/prisma/client';
+import { type ServiceCategoryKey, seedServiceCategories } from './categories';
 
 /**
  * Datos de prueba ficticios (CLAUDE.md §1.5): correos @example.com, teléfonos y documentos
@@ -109,24 +110,33 @@ const BARBERS = [
   },
 ];
 
-const SERVICE_TEMPLATES = [
+const SERVICE_TEMPLATES: {
+  name: string;
+  description: string;
+  priceAmount: number;
+  durationMinutes: number;
+  category: ServiceCategoryKey;
+}[] = [
   {
     name: 'Corte clásico',
     description: 'Corte con tijera y máquina.',
     priceAmount: 2500,
     durationMinutes: 30,
+    category: 'haircut',
   },
   {
     name: 'Corte y barba',
     description: 'Corte completo y perfilado de barba.',
     priceAmount: 4000,
     durationMinutes: 45,
+    category: 'haircut_beard',
   },
   {
     name: 'Afeitado',
     description: 'Afeitado con toalla caliente.',
     priceAmount: 2000,
     durationMinutes: 20,
+    category: 'shave',
   },
 ];
 
@@ -196,6 +206,37 @@ export const SEED_SETTINGS: {
     description: '"Disponible ahora": hay un turno que empieza dentro de estos minutos.',
   },
   {
+    key: 'search.default_radius_km',
+    value: 5,
+    description: 'Radio de búsqueda por defecto, en km (si el cliente no indica uno).',
+  },
+  {
+    key: 'search.max_radius_km',
+    value: 25,
+    description: 'Radio máximo de búsqueda, en km. Un radio mayor se recorta a este valor.',
+  },
+  {
+    key: 'search.default_page_size',
+    value: 20,
+    description: 'Resultados por página de búsqueda si no se indica limit.',
+  },
+  {
+    key: 'search.max_page_size',
+    value: 50,
+    description: 'Tope de resultados por página de búsqueda.',
+  },
+  {
+    key: 'search.max_candidates',
+    value: 200,
+    description:
+      'Con filtros de disponibilidad, máximo de barberías evaluadas por petición de búsqueda.',
+  },
+  {
+    key: 'search.rate_limit_per_minute',
+    value: 60,
+    description: 'Peticiones de búsqueda por minuto e IP.',
+  },
+  {
     key: 'payments.provider',
     value: 'FAKE',
     description: 'Proveedor de pagos activo. Izipay se integra en la Fase 8 (ADR 0002).',
@@ -242,6 +283,13 @@ export async function seed({ prisma, encryption, password, jsonNull }: SeedDeps)
     );
   }
   const passwordHash = await PasswordHasher.hash(password);
+  await seedServiceCategories(prisma);
+  const categoryIds = new Map(
+    (await prisma.serviceCategory.findMany({ select: { id: true, key: true } })).map((c) => [
+      c.key,
+      c.id,
+    ]),
+  );
 
   for (const user of Object.values(SEED_USERS)) {
     await prisma.user.upsert({
@@ -305,12 +353,14 @@ export async function seed({ prisma, encryption, password, jsonNull }: SeedDeps)
         },
       });
     }
-    for (const [i, template] of SERVICE_TEMPLATES.entries()) {
+    for (const [i, { category, ...template }] of SERVICE_TEMPLATES.entries()) {
       const id = seedId(301 + index * SERVICE_TEMPLATES.length + i);
+      const categoryId = categoryIds.get(category);
+      if (!categoryId) throw new Error(`Falta la categoría ${category}`);
       await prisma.service.upsert({
         where: { id },
         update: {},
-        create: { id, barbershopId: shop.id, currency: CURRENCY, ...template },
+        create: { id, barbershopId: shop.id, currency: CURRENCY, categoryId, ...template },
       });
     }
   }

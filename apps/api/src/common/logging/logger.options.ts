@@ -37,6 +37,11 @@ export const SENSITIVE_KEYS = [
   'card',
   'paymentPayload',
   'body',
+  // Ubicación del cliente en la búsqueda (Fase 6): nunca se registra. El cursor de búsqueda va
+  // cifrado, pero tampoco se registra.
+  'lat',
+  'lng',
+  'cursor',
 ] as const;
 
 const SENSITIVE_KEY_SET = new Set<string>(SENSITIVE_KEYS.map((k) => k.toLowerCase()));

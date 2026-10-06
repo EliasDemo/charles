@@ -209,6 +209,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/barbershops/independent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Barbero independiente: crea su negocio (INDEPENDENT), queda como OWNER y como su único barbero */
+        post: operations["BarbershopsController_createIndependent_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/barbershops/{id}": {
         parameters: {
             query?: never;
@@ -393,6 +410,23 @@ export interface paths {
         get?: never;
         /** RF-BRB-002: servicios que realiza el barbero */
         put: operations["BarbersController_setServices_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/service-categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Categorías de servicio activas (para filtros y formularios) */
+        get: operations["ServicesController_listCategories_v1"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -643,6 +677,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search/barbershops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * RF-BUS-001…003: buscar barberías (cercanía, texto, categoría, precio, valoración…)
+         * @description Solo barberías visibles. La ubicación enviada se usa solo para esta consulta: no se guarda ni se registra.
+         */
+        get: operations["SearchController_barbershops_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/alternatives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-BUS-004: barberías cercanas con la misma categoría de servicio y turnos reales */
+        get: operations["SearchController_alternatives_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -805,6 +876,11 @@ export interface components {
             instagramUrl?: string | null;
             facebookUrl?: string | null;
         };
+        /**
+         * @description BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero).
+         * @enum {string}
+         */
+        BarbershopType: "BARBERSHOP" | "INDEPENDENT";
         /** @enum {string} */
         BarbershopStatus: "OPEN" | "TEMPORARILY_CLOSED" | "SUSPENDED" | "PENDING_REVIEW";
         ClosureDto: {
@@ -835,6 +911,8 @@ export interface components {
             longitude: number;
             /** @example America/Lima */
             timezone: string;
+            /** @description BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero). */
+            type: components["schemas"]["BarbershopType"];
             /** @description Teléfono del negocio. */
             phone: string | null;
             status: components["schemas"]["BarbershopStatus"];
@@ -848,6 +926,70 @@ export interface components {
             /** @description true si se agregó el rol OWNER a la cuenta: renueva el token para verlo reflejado en él. */
             ownerRoleGranted: boolean;
         };
+        CreateIndependentDto: {
+            /** @example Barbería Central */
+            name: string;
+            description?: string | null;
+            /** @example Av. Larco 123, Miraflores, Lima */
+            address: string;
+            /**
+             * @description Dentro de Perú (MVP).
+             * @example -12.1211
+             */
+            latitude: number;
+            /**
+             * @description Dentro de Perú (MVP).
+             * @example -77.0297
+             */
+            longitude: number;
+            /**
+             * @description Zona horaria IANA.
+             * @example America/Lima
+             */
+            timezone?: string;
+            /** @example +51 1 234 5678 */
+            phone: string;
+            /** @example 20123456789 */
+            ruc?: string | null;
+            websiteUrl?: string | null;
+            instagramUrl?: string | null;
+            facebookUrl?: string | null;
+            /** @description Nombre visible como barbero. Por defecto, el de la cuenta. */
+            displayName?: string;
+            bio?: string | null;
+        };
+        CreatedIndependentDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string | null;
+            address: string;
+            latitude: number;
+            longitude: number;
+            /** @example America/Lima */
+            timezone: string;
+            /** @description BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero). */
+            type: components["schemas"]["BarbershopType"];
+            /** @description Teléfono del negocio. */
+            phone: string | null;
+            status: components["schemas"]["BarbershopStatus"];
+            closure: components["schemas"]["ClosureDto"] | null;
+            links: components["schemas"]["LinksDto"];
+            rating: components["schemas"]["RatingDto"];
+            ruc: string | null;
+            myRole: components["schemas"]["BarbershopMemberRole"];
+            /** Format: date-time */
+            createdAt: string;
+            /** @description true si se agregó el rol OWNER a la cuenta: renueva el token para verlo reflejado en él. */
+            ownerRoleGranted: boolean;
+            /**
+             * Format: uuid
+             * @description Perfil de barbero creado y vinculado a la cuenta.
+             */
+            barberId: string;
+            /** @description true si se agregó el rol BARBER a la cuenta: renueva el token para verlo. */
+            barberRoleGranted: boolean;
+        };
         BarbershopPublicDto: {
             /** Format: uuid */
             id: string;
@@ -858,6 +1000,8 @@ export interface components {
             longitude: number;
             /** @example America/Lima */
             timezone: string;
+            /** @description BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero). */
+            type: components["schemas"]["BarbershopType"];
             /** @description Teléfono del negocio. */
             phone: string | null;
             status: components["schemas"]["BarbershopStatus"];
@@ -904,6 +1048,8 @@ export interface components {
             longitude: number;
             /** @example America/Lima */
             timezone: string;
+            /** @description BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero). */
+            type: components["schemas"]["BarbershopType"];
             /** @description Teléfono del negocio. */
             phone: string | null;
             status: components["schemas"]["BarbershopStatus"];
@@ -930,6 +1076,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+            type: components["schemas"]["BarbershopType"];
             status: components["schemas"]["BarbershopStatus"];
             myRole: components["schemas"]["BarbershopMemberRole"];
         };
@@ -1012,6 +1159,16 @@ export interface components {
         SetBarberServicesDto: {
             serviceIds: string[];
         };
+        ServiceCategoryDto: {
+            /** @example haircut */
+            key: string;
+            /** @example Corte de cabello */
+            name: string;
+        };
+        ServiceCategoryListDto: {
+            /** @description Categorías activas, en orden. */
+            items: components["schemas"]["ServiceCategoryDto"][];
+        };
         MoneyDto: {
             /**
              * @description Céntimos.
@@ -1028,6 +1185,7 @@ export interface components {
             description: string | null;
             price: components["schemas"]["MoneyDto"];
             durationMinutes: number;
+            category: components["schemas"]["ServiceCategoryDto"];
         };
         ServicePublicPageDto: {
             items: components["schemas"]["ServicePublicDto"][];
@@ -1040,6 +1198,7 @@ export interface components {
             description: string | null;
             price: components["schemas"]["MoneyDto"];
             durationMinutes: number;
+            category: components["schemas"]["ServiceCategoryDto"];
             isAvailable: boolean;
             /** @description Barberos que realizan el servicio. */
             barberIds: string[];
@@ -1062,6 +1221,11 @@ export interface components {
              * @example 30
              */
             durationMinutes: number;
+            /**
+             * @description Clave de una categoría activa (GET /service-categories).
+             * @example haircut
+             */
+            categoryKey: string;
             /** @default true */
             isAvailable: boolean;
         };
@@ -1079,6 +1243,11 @@ export interface components {
              * @example 30
              */
             durationMinutes?: number;
+            /**
+             * @description Clave de una categoría activa (GET /service-categories).
+             * @example haircut
+             */
+            categoryKey?: string;
             /** @default true */
             isAvailable: boolean;
         };
@@ -1226,6 +1395,65 @@ export interface components {
             type: components["schemas"]["TimeBlockType"];
             /** @description Solo lo ven los responsables y el propio barbero. */
             reason?: string;
+        };
+        SearchRatingDto: {
+            /** @description null si no tiene valoraciones. */
+            average: number | null;
+            count: number;
+        };
+        SearchResultDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            type: components["schemas"]["BarbershopType"];
+            status: components["schemas"]["BarbershopStatus"];
+            address: string;
+            latitude: number;
+            longitude: number;
+            rating: components["schemas"]["SearchRatingDto"];
+            /** @description Distancia al punto de búsqueda, en metros redondeados (null sin ubicación). */
+            distanceMeters: number | null;
+            /** @description Precio más bajo entre los servicios que cumplen los filtros. */
+            priceFrom: components["schemas"]["MoneyDto"] | null;
+            isOpenNow: boolean;
+            /** @description Hay un turno que empieza dentro de la ventana "ahora". */
+            availableNow: boolean;
+            /** @description Resultado destacado (pagado). Hoy siempre false (Fase 13). */
+            featured: boolean;
+        };
+        SearchPageDto: {
+            items: components["schemas"]["SearchResultDto"][];
+            nextCursor: string | null;
+            /** @description true si se alcanzó el tope de barberías evaluadas por petición antes de llenar la página (filtros de disponibilidad). Puede haber más resultados con nextCursor. */
+            evaluationLimitReached: boolean;
+        };
+        AlternativeServiceDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            price: components["schemas"]["MoneyDto"];
+            durationMinutes: number;
+        };
+        AlternativeSlotDto: {
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
+        };
+        AlternativeDto: {
+            barbershop: components["schemas"]["SearchResultDto"];
+            /** @description Servicio de la misma categoría. */
+            service: components["schemas"]["AlternativeServiceDto"];
+            /** @description Primer turno disponible en la fecha. */
+            firstSlot: components["schemas"]["AlternativeSlotDto"];
+        };
+        AlternativesDto: {
+            /** @example 2030-01-07 */
+            date: string;
+            /** @example haircut */
+            categoryKey: string;
+            /** @description Hasta 5, más cercanas primero. */
+            items: components["schemas"]["AlternativeDto"][];
         };
     };
     responses: never;
@@ -1665,6 +1893,45 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BarbershopsController_createIndependent_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIndependentDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedIndependentDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2209,6 +2476,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BarberManageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ServicesController_listCategories_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceCategoryListDto"];
                 };
             };
             404: {
@@ -2833,6 +3127,121 @@ export interface operations {
                 content?: never;
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    SearchController_barbershops_v1: {
+        parameters: {
+            query?: {
+                /** @description Latitud del punto de búsqueda (con lng). No se guarda ni se registra. */
+                lat?: number;
+                /** @description Longitud del punto (con lat). */
+                lng?: number;
+                /** @description Radio en km (requiere ubicación). Por defecto 5; se recorta al máximo (25). */
+                radiusKm?: number;
+                /** @description Texto (2–80): nombre de la barbería o de un servicio. Sin tildes ni mayúsculas. */
+                q?: string;
+                /** @description Clave de categoría de servicio. */
+                category?: string;
+                /** @description Precio mínimo en céntimos (algún servicio en el rango). */
+                minPrice?: number;
+                /** @description Precio máximo en céntimos. */
+                maxPrice?: number;
+                /** @description Valoración mínima. Excluye las barberías sin valoraciones. */
+                minRating?: number;
+                type?: components["schemas"]["BarbershopType"];
+                /** @description Solo barberías abiertas en este momento. */
+                openNow?: boolean;
+                /** @description Solo barberías con un turno que empieza dentro de la ventana "ahora". */
+                availableNow?: boolean;
+                /** @description Solo barberías con algún turno en esa fecha local (dentro del horizonte). */
+                date?: string;
+                /** @description Por defecto: distance con ubicación; rating sin ella. */
+                sort?: "distance" | "rating" | "price";
+                /** @description Por defecto 20; tope 50. */
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior (opaco). */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchPageDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    SearchController_alternatives_v1: {
+        parameters: {
+            query: {
+                /** @description Servicio consultado (define la categoría). */
+                serviceId: string;
+                /** @description Fecha local. Por defecto, hoy en la zona de la barbería consultada. */
+                date?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlternativesDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

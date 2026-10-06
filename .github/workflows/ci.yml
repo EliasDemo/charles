@@ -107,6 +107,9 @@ jobs:
       - name: Cobertura de availability (mínimo 80 %)
         run: pnpm --filter api test:cov:availability
 
+      - name: Cobertura de search (mínimo 80 %)
+        run: pnpm --filter api test:cov:search
+
       - name: Verificar que OpenAPI y el cliente generado están al día
         run: |
           pnpm --filter @charles/shared generate

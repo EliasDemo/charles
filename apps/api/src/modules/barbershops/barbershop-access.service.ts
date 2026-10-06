@@ -83,6 +83,16 @@ export class BarbershopAccessService {
     return new Map(shops.map((s) => [s.id, { timezone: s.timezone, status: s.status }]));
   }
 
+  /** Ubicación y zona de una barbería visible (alternativas, Fase 6); null si no es visible. */
+  async publicLocation(
+    id: string,
+  ): Promise<{ latitude: number; longitude: number; timezone: string } | null> {
+    return this.prisma.barbershop.findFirst({
+      where: publicBarbershopWhere(id),
+      select: { latitude: true, longitude: true, timezone: true },
+    });
+  }
+
   async timezoneOf(id: string): Promise<string> {
     const shop = await this.prisma.barbershop.findUniqueOrThrow({
       where: { id },

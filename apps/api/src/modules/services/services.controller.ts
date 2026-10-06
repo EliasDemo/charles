@@ -29,6 +29,7 @@ import { PaginationQueryDto } from '../../common/pagination/pagination';
 import { RateLimit } from '../../common/throttling/rate-limit.decorator';
 import {
   CreateServiceDto,
+  ServiceCategoryListDto,
   ServiceManageDto,
   ServiceManagePageDto,
   ServicePublicPageDto,
@@ -43,6 +44,15 @@ const uuid = new ParseUUIDPipe();
 @Controller()
 export class ServicesController {
   constructor(private readonly services: ServicesService) {}
+
+  @Public()
+  @RateLimit('public')
+  @Get('service-categories')
+  @ApiOperation({ summary: 'Categorías de servicio activas (para filtros y formularios)' })
+  @ApiOkResponse({ type: ServiceCategoryListDto })
+  listCategories(): Promise<ServiceCategoryListDto> {
+    return this.services.listCategories();
+  }
 
   @Public()
   @RateLimit('public')

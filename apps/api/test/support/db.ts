@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+import { OTHER_CATEGORY_ID } from '../../prisma/seed/categories';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../src/generated/prisma/client';
 
@@ -12,12 +13,13 @@ export function createTestPrisma(): PrismaClient {
 /**
  * Vacía las tablas de negocio de `charles_test` entre pruebas.
  * `audit_log` queda fuera: es de solo inserción (su trigger rechaza TRUNCATE).
+ * `service_categories` también: son datos de referencia (los carga global-setup).
  */
 export async function truncateAll(prisma: PrismaClient): Promise<void> {
   const tables = await prisma.$queryRaw<{ tablename: string }[]>`
     SELECT tablename FROM pg_tables
     WHERE schemaname = 'public'
-      AND tablename NOT IN ('_prisma_migrations', 'audit_log', 'spatial_ref_sys')`;
+      AND tablename NOT IN ('_prisma_migrations', 'audit_log', 'spatial_ref_sys', 'service_categories')`;
   if (tables.length === 0) return;
   const list = tables.map((t) => `"public"."${t.tablename}"`).join(', ');
   // Nombres obtenidos del catálogo (no de entrada externa).
@@ -103,6 +105,7 @@ export function fixtures(prisma: PrismaClient) {
           name: 'Corte',
           priceAmount: 2500,
           currency: 'PEN',
+          categoryId: OTHER_CATEGORY_ID,
           durationMinutes: 30,
         },
       }),

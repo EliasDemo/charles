@@ -109,19 +109,10 @@ export class ScheduleService {
     const info = (await this.access.publicScheduleInfo([barbershopId])).get(barbershopId);
     if (!info) throw notFound();
     const windows = (await this.repository.businessHours([barbershopId])).get(barbershopId) ?? [];
-    const now = this.clock.now();
-    const today = localDateOf(now, info.timezone);
-    const open = windowsOn(windows, today, info.timezone).some(
-      (w) => w.start <= now && now < w.end,
-    );
-    const blocks = await this.repository.blocks([barbershopId], {
-      from: new Date(now),
-      to: new Date(now + 1),
-    });
-    const blockedNow = blocks.some((b) => b.barberId === null);
+    const openNow = await this.availability.openNowBatch([barbershopId]);
     return {
       timezone: info.timezone,
-      isOpenNow: info.status === 'OPEN' && open && !blockedNow,
+      isOpenNow: openNow.get(barbershopId) ?? false,
       days: toDays(windows),
     };
   }

@@ -60,6 +60,17 @@ describe('maskUrl', () => {
     );
   });
 
+  it('RF-BUS-002: la ubicación del cliente y el cursor de búsqueda no llegan a los logs', () => {
+    const masked = maskUrl(
+      '/api/v1/search/barbershops?lat=-12.1211&lng=-77.0297&q=corte&cursor=abc',
+    );
+    expect(masked).toBe(
+      '/api/v1/search/barbershops?lat=%5BREDACTED%5D&lng=%5BREDACTED%5D&q=corte&cursor=%5BREDACTED%5D',
+    );
+    expect(masked).not.toContain('12.12');
+    expect(masked).not.toContain('77.02');
+  });
+
   it('no modifica URLs sin query', () => {
     expect(maskUrl('/api/v1/health')).toBe('/api/v1/health');
     expect(maskUrl(undefined)).toBeUndefined();

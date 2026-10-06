@@ -155,6 +155,36 @@ pnpm test | pnpm test:e2e | pnpm lint | pnpm typecheck
 - **Carga por lotes:** `AvailabilityService.loadContexts` / `availableNowBatch` aceptan varias barberías en pocas consultas (la Fase 6 calcula "disponible ahora" para barberías cercanas). Sin caché por ahora.
 - **"Abierta ahora"** (RF-BAR-004): `GET /barbershops/{id}/business-hours` devuelve el horario semanal e `isOpenNow` (estado OPEN, dentro del horario y sin bloqueo general).
 
+#### Búsqueda, cercanía, filtros y alternativas (Fase 6)
+
+- **Categorías de servicio:** tabla `service_categories`. Todo servicio tiene una categoría activa (`categoryKey` al crear o editar; 400 `activeCategory` si no existe o está inactiva). `GET /service-categories` lista las activas, en orden y sin sesión.
+  - Las 9 categorías iniciales son datos de referencia, no de prueba: `pnpm --filter api seed:reference`, idempotente, que también corre en `global-setup` de las e2e y dentro del seed.
+  - Con `--settings` crea además las claves de `app_settings` que falten. Nunca modifica ni borra.
+- **Búsqueda (`GET /search/barbershops`, pública):**
+  - **Visibilidad:** solo barberías visibles (`OPEN` y `TEMPORARILY_CLOSED`, esta última marcada y sin disponibilidad); nunca `PENDING_REVIEW`, `SUSPENDED` ni eliminadas.
+  - **Cercanía:** con `lat`/`lng` (ambos y dentro de Perú), `ST_DWithin` sobre `location`. Radio por defecto `search.default_radius_km` (5); uno mayor que `search.max_radius_km` (25) se recorta.
+  - **Texto:** `q` de 2 a 80 caracteres, sin distinguir tildes ni mayúsculas, en el nombre de la barbería o de un servicio reservable. Siempre con consultas parametrizadas, y los comodines de LIKE se buscan literalmente.
+  - **Filtros:**
+    - `category` (clave);
+    - `minPrice`/`maxPrice`: algún servicio reservable en el rango, y "precio desde" es el más bajo que cumple;
+    - `minRating`: excluye las barberías sin valoraciones;
+    - `type` (`BARBERSHOP` o `INDEPENDENT`);
+    - `openNow`, `availableNow` y `date` (algún turno en esa fecha local).
+  - **Disponibilidad:** los filtros de disponibilidad se evalúan por lotes con el motor de la Fase 5, sobre los servicios de la barbería que cumplen los filtros. Cada petición evalúa como máximo `search.max_candidates` (200) barberías. Si llega al tope sin llenar la página, devuelve lo encontrado con su cursor y `evaluationLimitReached: true`.
+  - **Orden:** `distance` (por defecto con ubicación), `rating` (por defecto sin ella; las barberías sin valoraciones van al final con `rating.average: null` y `count: 0`) y `price` (las que no tienen servicios reservables van al final).
+  - **Paginación:** por defecto `search.default_page_size` (20), con tope en `search.max_page_size` (50). El cursor es opaco, cifrado y autenticado; uno alterado o de otro orden da 400 `INVALID_CURSOR`.
+  - **Respuesta:** cada resultado incluye `isOpenNow`, `availableNow` y `featured`.
+- **Ranking separado:** la búsqueda no conoce el orden; se lo pide a `RankingStrategy` (`search/ranking/ranking.ts`, token `RANKING_STRATEGY`).
+  - `orderKeys(sort)` da el orden orgánico que la consulta aplica con el cursor.
+  - `arrange(page, {sort, firstPage})` compone la página final.
+  - En la Fase 13, una estrategia con `featured_listings` reemplaza a `OrganicRankingStrategy` sin tocar la búsqueda. Los destacados siempre van con `featured: true` (hoy siempre `false`).
+- **Alternativas (RF-BUS-004, `GET /barbershops/{id}/alternatives?serviceId=&date=`):**
+  - Devuelve otras barberías visibles, dentro de `search.max_radius_km` de la consultada y más cercanas primero, que tengan un servicio reservable de la **misma categoría** y un turno real en la fecha. Por defecto, la fecha es hoy en la zona de la barbería.
+  - Devuelve como máximo 5, sin paginación. De cada una, el servicio con el turno más temprano (a igual turno, el más barato) y ese primer turno.
+  - Nunca se muestra como disponible una barbería sin turnos calculados.
+- **Privacidad de la ubicación:** `lat`/`lng` solo existen durante la petición. No se guardan ni se auditan, no vuelven en la respuesta (solo la distancia en metros redondeados) y no van en el cursor. El logger enmascara `lat`, `lng` y `cursor` en las URL.
+- **Límite de peticiones:** perfil `search`, 60/min por IP, configurable en `search.rate_limit_per_minute`. Se relee cada minuto, sin consultar la base en cada petición.
+
 ### 4.2 Pendientes (NO las inventes; deja el punto configurable y pregunta)
 
 - Medios de pago (la pasarela ya está decidida: Izipay).
@@ -270,14 +300,15 @@ El objetivo es agregar funciones nuevas **sin modificar los módulos existentes*
 
 **Barberías, barberos y servicios**
 
-| Tabla                    | Columnas clave                                                                                                                                                                                                                                                                                                                                                                                                |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `barbershops`            | `name`, `description`, `address`, `latitude`, `longitude`, `location` (`geography(Point,4326)` **generada** desde latitud/longitud, índice GiST), `timezone`, `phone`, `ruc` (11 dígitos, opcional), `website_url`, `instagram_url`, `facebook_url`, `status` (`OPEN`, `TEMPORARILY_CLOSED`, `SUSPENDED`, `PENDING_REVIEW`), `closure_reason`, `expected_reopen_at`, `rating_avg`, `rating_count`, `metadata` |
-| `barbershop_members`     | `barbershop_id`, `user_id`, `role` (`OWNER`, `MANAGER`) — único por par                                                                                                                                                                                                                                                                                                                                       |
-| `barbershop_invitations` | `barbershop_id`, `kind` (`MEMBER`, `BARBER`), `member_role`, `barber_id`, `invited_user_id`, `invited_by`, `code_hash` (HMAC), `attempts` (máx. 5), `expires_at`, `accepted_at`, `revoked_at`                                                                                                                                                                                                                 |
-| `barbers`                | `barbershop_id`, `user_id` (opcional), `display_name`, `phone_enc`, `bio`, `photo_url`, `is_active`                                                                                                                                                                                                                                                                                                           |
-| `services`               | `barbershop_id`, `name`, `description`, `price_amount`, `currency`, `duration_minutes`, `is_available`                                                                                                                                                                                                                                                                                                        |
-| `barber_services`        | `barber_id`, `service_id` — qué barbero realiza qué servicio                                                                                                                                                                                                                                                                                                                                                  |
+| Tabla                    | Columnas clave                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `barbershops`            | `name`, `description`, `address`, `latitude`, `longitude`, `location` (`geography(Point,4326)` **generada** desde latitud/longitud, índice GiST), `timezone`, `phone`, `ruc` (11 dígitos, opcional), `website_url`, `instagram_url`, `facebook_url`, `type` (`BARBERSHOP`, `INDEPENDENT`; inmutable), `status` (`OPEN`, `TEMPORARILY_CLOSED`, `SUSPENDED`, `PENDING_REVIEW`), `closure_reason`, `expected_reopen_at`, `rating_avg`, `rating_count`, `metadata` |
+| `barbershop_members`     | `barbershop_id`, `user_id`, `role` (`OWNER`, `MANAGER`) — único por par                                                                                                                                                                                                                                                                                                                                                                                        |
+| `barbershop_invitations` | `barbershop_id`, `kind` (`MEMBER`, `BARBER`), `member_role`, `barber_id`, `invited_user_id`, `invited_by`, `code_hash` (HMAC), `attempts` (máx. 5), `expires_at`, `accepted_at`, `revoked_at`                                                                                                                                                                                                                                                                  |
+| `barbers`                | `barbershop_id`, `user_id` (opcional), `display_name`, `phone_enc`, `bio`, `photo_url`, `is_active`                                                                                                                                                                                                                                                                                                                                                            |
+| `services`               | `barbershop_id`, `category_id` (obligatoria), `name`, `description`, `price_amount`, `currency`, `duration_minutes`, `is_available`                                                                                                                                                                                                                                                                                                                            |
+| `service_categories`     | `key` (único, estable, p. ej. `haircut`), `name`, `sort_order`, `is_active` — tabla (no enum) para ampliarla sin migrar                                                                                                                                                                                                                                                                                                                                        |
+| `barber_services`        | `barber_id`, `service_id` — qué barbero realiza qué servicio                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 **Horarios y disponibilidad**
 
@@ -358,7 +389,7 @@ ALTER TABLE reviews  ADD CONSTRAINT reviews_rating_check CHECK (rating BETWEEN 1
 CREATE INDEX barbershops_location_idx ON barbershops USING gist (location);
 ```
 
-Además, la migración `core_schema` incluye en SQL manual: `CHECK` de moneda ISO 4217, montos no negativos, `total = subtotal − discount_total + fee_total` (ADR 0002), `expires_at` obligatorio en `PENDING_PAYMENT`, horarios sin cruzar la medianoche, `day_of_week` 0–6 (0 = domingo), rangos de coordenadas, reglas de promociones; los índices únicos parciales `users_document_hash_key` y `barbers_user_id_active_key` (un barbero activo en una sola barbería, MVP); y el trigger de solo inserción de `audit_log`. Prisma no detecta _drift_ por estos objetos; una prueba de integración lo verifica (`prisma migrate diff`).
+Además, la migración `core_schema` incluye en SQL manual: `CHECK` de moneda ISO 4217, montos no negativos, `total = subtotal − discount_total + fee_total` (ADR 0002), `expires_at` obligatorio en `PENDING_PAYMENT`, horarios sin cruzar la medianoche, `day_of_week` 0–6 (0 = domingo), rangos de coordenadas, reglas de promociones; los índices únicos parciales `users_document_hash_key` y `barbers_user_id_active_key` (un barbero activo en una sola barbería, MVP); y el trigger de solo inserción de `audit_log`. La migración `independent_barber` agrega los triggers `barbershops_type_immutable` y `barbers_independent_single_active`; la migración `search_categories` agrega `unaccent`, `pg_trgm`, la función inmutable `charles_normalize(text)` (sin tildes y en minúsculas) con índices GIN trigram sobre los nombres de barberías y servicios, y crea la categoría `other` con ID fijo para asignarla a los servicios existentes. Prisma no detecta _drift_ por estos objetos; una prueba de integración lo verifica (`prisma migrate diff`).
 
 Si la restricción de exclusión rechaza una inserción, el backend responde `409 Conflict` con código `SLOT_NOT_AVAILABLE`.
 
@@ -393,6 +424,7 @@ Servicio único `AvailabilityService`. Para una barbería, servicio, fecha y (op
 7. Convertir a UTC para responder.
 
 - "Disponible ahora" (RF-DIS-002) y "siguiente disponibilidad" (RF-DIS-004) reutilizan este mismo cálculo.
+- La búsqueda (Fase 6) usa el cálculo por lotes: `availableNowBatch`, `availableOnDateBatch` y `openNowBatch`.
 - La función central debe ser **pura** (recibe datos, devuelve turnos) para probarla sin base de datos: `computeSlots` en `modules/availability/engine/`, con "ahora" como parámetro. El servicio obtiene la hora de un reloj inyectable (`CLOCK`).
 - Zonas horarias con `luxon` (IANA): los horarios semanales (hora local) se convierten a UTC **para cada fecha**; el día local es [00:00, 24:00) en la zona de la barbería (23 o 25 h en días de cambio de hora); una hora local inexistente se omite de la cuadrícula y una repetida aparece una vez; la duración de un turno es tiempo real.
 - Además de los casos fijos, hay **pruebas basadas en propiedades** (fast-check) con horarios, bloqueos, reservas, duraciones y zonas generados al azar; invariantes: ningún turno se solapa con reservas o bloqueos, todo turno cabe en el horario efectivo, ninguno empieza antes de now + anticipación, todo inicio está en la cuadrícula, salida ordenada y sin duplicados, y determinismo.
@@ -415,7 +447,7 @@ Servicio único `AvailabilityService`. Para una barbería, servicio, fecha y (op
 
 ## 11. Pruebas
 
-- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings` y `payments`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) y CI falla si baja del 80 %.
+- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings` y `payments`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) y en `search` con `pnpm --filter api test:cov:search`; CI falla si alguna baja del 80 %.
 - e2e por cada RF de prioridad Alta, contra PostgreSQL real en Docker (no simular la base de datos).
 - **Prueba de concurrencia obligatoria** (RF-RES-007): dos peticiones simultáneas por el mismo turno → exactamente una tiene éxito.
 - Pruebas de autorización: por cada endpoint privado, un caso que verifique que otro usuario **no** puede acceder.

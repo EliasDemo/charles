@@ -584,6 +584,63 @@
         ]
       }
     },
+    "/api/v1/barbershops/independent": {
+      "post": {
+        "operationId": "BarbershopsController_createIndependent_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateIndependentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedIndependentDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Barbero independiente: crea su negocio (INDEPENDENT), queda como OWNER y como su único barbero",
+        "tags": [
+          "barbershops"
+        ]
+      }
+    },
     "/api/v1/barbershops/{id}": {
       "get": {
         "operationId": "BarbershopsController_findPublic_v1",
@@ -1500,6 +1557,38 @@
         "summary": "RF-BRB-002: servicios que realiza el barbero",
         "tags": [
           "barbers"
+        ]
+      }
+    },
+    "/api/v1/service-categories": {
+      "get": {
+        "operationId": "ServicesController_listCategories_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceCategoryListDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Categorías de servicio activas (para filtros y formularios)",
+        "tags": [
+          "services"
         ]
       }
     },
@@ -2603,6 +2692,277 @@
           "availability"
         ]
       }
+    },
+    "/api/v1/search/barbershops": {
+      "get": {
+        "description": "Solo barberías visibles. La ubicación enviada se usa solo para esta consulta: no se guarda ni se registra.",
+        "operationId": "SearchController_barbershops_v1",
+        "parameters": [
+          {
+            "name": "lat",
+            "required": false,
+            "in": "query",
+            "description": "Latitud del punto de búsqueda (con lng). No se guarda ni se registra.",
+            "schema": {
+              "example": -12.12,
+              "type": "number"
+            }
+          },
+          {
+            "name": "lng",
+            "required": false,
+            "in": "query",
+            "description": "Longitud del punto (con lat).",
+            "schema": {
+              "example": -77.03,
+              "type": "number"
+            }
+          },
+          {
+            "name": "radiusKm",
+            "required": false,
+            "in": "query",
+            "description": "Radio en km (requiere ubicación). Por defecto 5; se recorta al máximo (25).",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Texto (2–80): nombre de la barbería o de un servicio. Sin tildes ni mayúsculas.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Clave de categoría de servicio.",
+            "schema": {
+              "example": "haircut",
+              "type": "string"
+            }
+          },
+          {
+            "name": "minPrice",
+            "required": false,
+            "in": "query",
+            "description": "Precio mínimo en céntimos (algún servicio en el rango).",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "maxPrice",
+            "required": false,
+            "in": "query",
+            "description": "Precio máximo en céntimos.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "minRating",
+            "required": false,
+            "in": "query",
+            "description": "Valoración mínima. Excluye las barberías sin valoraciones.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 5,
+              "type": "number"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/BarbershopType"
+            }
+          },
+          {
+            "name": "openNow",
+            "required": false,
+            "in": "query",
+            "description": "Solo barberías abiertas en este momento.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "availableNow",
+            "required": false,
+            "in": "query",
+            "description": "Solo barberías con un turno que empieza dentro de la ventana \"ahora\".",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "date",
+            "required": false,
+            "in": "query",
+            "description": "Solo barberías con algún turno en esa fecha local (dentro del horizonte).",
+            "schema": {
+              "example": "2030-01-07",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "Por defecto: distance con ubicación; rating sin ella.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "distance",
+                "rating",
+                "price"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Por defecto 20; tope 50.",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Valor de nextCursor de la página anterior (opaco).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "RF-BUS-001…003: buscar barberías (cercanía, texto, categoría, precio, valoración…)",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/api/v1/barbershops/{id}/alternatives": {
+      "get": {
+        "operationId": "SearchController_alternatives_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceId",
+            "required": true,
+            "in": "query",
+            "description": "Servicio consultado (define la categoría).",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "required": false,
+            "in": "query",
+            "description": "Fecha local. Por defecto, hoy en la zona de la barbería consultada.",
+            "schema": {
+              "example": "2030-01-07",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlternativesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "RF-BUS-004: barberías cercanas con la misma categoría de servicio y turnos reales",
+        "tags": [
+          "search"
+        ]
+      }
     }
   },
   "info": {
@@ -3069,6 +3429,14 @@
           "phone"
         ]
       },
+      "BarbershopType": {
+        "type": "string",
+        "enum": [
+          "BARBERSHOP",
+          "INDEPENDENT"
+        ],
+        "description": "BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero)."
+      },
       "BarbershopStatus": {
         "type": "string",
         "enum": [
@@ -3169,6 +3537,14 @@
             "type": "string",
             "example": "America/Lima"
           },
+          "type": {
+            "description": "BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BarbershopType"
+              }
+            ]
+          },
           "phone": {
             "type": "string",
             "nullable": true,
@@ -3224,6 +3600,7 @@
           "latitude",
           "longitude",
           "timezone",
+          "type",
           "phone",
           "status",
           "closure",
@@ -3233,6 +3610,187 @@
           "myRole",
           "createdAt",
           "ownerRoleGranted"
+        ]
+      },
+      "CreateIndependentDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Barbería Central"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "example": "Av. Larco 123, Miraflores, Lima"
+          },
+          "latitude": {
+            "type": "number",
+            "example": -12.1211,
+            "description": "Dentro de Perú (MVP)."
+          },
+          "longitude": {
+            "type": "number",
+            "example": -77.0297,
+            "description": "Dentro de Perú (MVP)."
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima",
+            "description": "Zona horaria IANA."
+          },
+          "phone": {
+            "type": "string",
+            "example": "+51 1 234 5678"
+          },
+          "ruc": {
+            "type": "string",
+            "example": "20123456789",
+            "nullable": true
+          },
+          "websiteUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "instagramUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "facebookUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Nombre visible como barbero. Por defecto, el de la cuenta."
+          },
+          "bio": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "address",
+          "latitude",
+          "longitude",
+          "phone"
+        ]
+      },
+      "CreatedIndependentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima"
+          },
+          "type": {
+            "description": "BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BarbershopType"
+              }
+            ]
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true,
+            "description": "Teléfono del negocio."
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BarbershopStatus"
+              }
+            ]
+          },
+          "closure": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClosureDto"
+              }
+            ]
+          },
+          "links": {
+            "$ref": "#/components/schemas/LinksDto"
+          },
+          "rating": {
+            "$ref": "#/components/schemas/RatingDto"
+          },
+          "ruc": {
+            "type": "string",
+            "nullable": true
+          },
+          "myRole": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BarbershopMemberRole"
+              }
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "ownerRoleGranted": {
+            "type": "boolean",
+            "description": "true si se agregó el rol OWNER a la cuenta: renueva el token para verlo reflejado en él."
+          },
+          "barberId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Perfil de barbero creado y vinculado a la cuenta."
+          },
+          "barberRoleGranted": {
+            "type": "boolean",
+            "description": "true si se agregó el rol BARBER a la cuenta: renueva el token para verlo."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "address",
+          "latitude",
+          "longitude",
+          "timezone",
+          "type",
+          "phone",
+          "status",
+          "closure",
+          "links",
+          "rating",
+          "ruc",
+          "myRole",
+          "createdAt",
+          "ownerRoleGranted",
+          "barberId",
+          "barberRoleGranted"
         ]
       },
       "BarbershopPublicDto": {
@@ -3261,6 +3819,14 @@
           "timezone": {
             "type": "string",
             "example": "America/Lima"
+          },
+          "type": {
+            "description": "BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BarbershopType"
+              }
+            ]
           },
           "phone": {
             "type": "string",
@@ -3298,6 +3864,7 @@
           "latitude",
           "longitude",
           "timezone",
+          "type",
           "phone",
           "status",
           "closure",
@@ -3385,6 +3952,14 @@
             "type": "string",
             "example": "America/Lima"
           },
+          "type": {
+            "description": "BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BarbershopType"
+              }
+            ]
+          },
           "phone": {
             "type": "string",
             "nullable": true,
@@ -3436,6 +4011,7 @@
           "latitude",
           "longitude",
           "timezone",
+          "type",
           "phone",
           "status",
           "closure",
@@ -3480,6 +4056,13 @@
           "name": {
             "type": "string"
           },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BarbershopType"
+              }
+            ]
+          },
           "status": {
             "allOf": [
               {
@@ -3498,6 +4081,7 @@
         "required": [
           "id",
           "name",
+          "type",
           "status",
           "myRole"
         ]
@@ -3810,6 +4394,38 @@
           "serviceIds"
         ]
       },
+      "ServiceCategoryDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "haircut"
+          },
+          "name": {
+            "type": "string",
+            "example": "Corte de cabello"
+          }
+        },
+        "required": [
+          "key",
+          "name"
+        ]
+      },
+      "ServiceCategoryListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Categorías activas, en orden.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceCategoryDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
       "MoneyDto": {
         "type": "object",
         "properties": {
@@ -3847,6 +4463,9 @@
           },
           "durationMinutes": {
             "type": "number"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ServiceCategoryDto"
           }
         },
         "required": [
@@ -3854,7 +4473,8 @@
           "name",
           "description",
           "price",
-          "durationMinutes"
+          "durationMinutes",
+          "category"
         ]
       },
       "ServicePublicPageDto": {
@@ -3896,6 +4516,9 @@
           "durationMinutes": {
             "type": "number"
           },
+          "category": {
+            "$ref": "#/components/schemas/ServiceCategoryDto"
+          },
           "isAvailable": {
             "type": "boolean"
           },
@@ -3913,6 +4536,7 @@
           "description",
           "price",
           "durationMinutes",
+          "category",
           "isAvailable",
           "barberIds"
         ]
@@ -3957,6 +4581,11 @@
             "example": 30,
             "description": "De 5 a 480 minutos, en múltiplos de 5."
           },
+          "categoryKey": {
+            "type": "string",
+            "example": "haircut",
+            "description": "Clave de una categoría activa (GET /service-categories)."
+          },
           "isAvailable": {
             "type": "boolean",
             "default": true
@@ -3965,7 +4594,8 @@
         "required": [
           "name",
           "priceAmount",
-          "durationMinutes"
+          "durationMinutes",
+          "categoryKey"
         ]
       },
       "UpdateServiceDto": {
@@ -3988,6 +4618,11 @@
             "type": "number",
             "example": 30,
             "description": "De 5 a 480 minutos, en múltiplos de 5."
+          },
+          "categoryKey": {
+            "type": "string",
+            "example": "haircut",
+            "description": "Clave de una categoría activa (GET /service-categories)."
           },
           "isAvailable": {
             "type": "boolean",
@@ -4446,6 +5081,221 @@
           "startAt",
           "endAt",
           "type"
+        ]
+      },
+      "SearchRatingDto": {
+        "type": "object",
+        "properties": {
+          "average": {
+            "type": "number",
+            "nullable": true,
+            "description": "null si no tiene valoraciones."
+          },
+          "count": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "average",
+          "count"
+        ]
+      },
+      "SearchResultDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BarbershopType"
+              }
+            ]
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BarbershopStatus"
+              }
+            ]
+          },
+          "address": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "rating": {
+            "$ref": "#/components/schemas/SearchRatingDto"
+          },
+          "distanceMeters": {
+            "type": "number",
+            "nullable": true,
+            "description": "Distancia al punto de búsqueda, en metros redondeados (null sin ubicación)."
+          },
+          "priceFrom": {
+            "nullable": true,
+            "description": "Precio más bajo entre los servicios que cumplen los filtros.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ]
+          },
+          "isOpenNow": {
+            "type": "boolean"
+          },
+          "availableNow": {
+            "type": "boolean",
+            "description": "Hay un turno que empieza dentro de la ventana \"ahora\"."
+          },
+          "featured": {
+            "type": "boolean",
+            "description": "Resultado destacado (pagado). Hoy siempre false (Fase 13)."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "status",
+          "address",
+          "latitude",
+          "longitude",
+          "rating",
+          "distanceMeters",
+          "priceFrom",
+          "isOpenNow",
+          "availableNow",
+          "featured"
+        ]
+      },
+      "SearchPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchResultDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "evaluationLimitReached": {
+            "type": "boolean",
+            "description": "true si se alcanzó el tope de barberías evaluadas por petición antes de llenar la página (filtros de disponibilidad). Puede haber más resultados con nextCursor."
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor",
+          "evaluationLimitReached"
+        ]
+      },
+      "AlternativeServiceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "$ref": "#/components/schemas/MoneyDto"
+          },
+          "durationMinutes": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "price",
+          "durationMinutes"
+        ]
+      },
+      "AlternativeSlotDto": {
+        "type": "object",
+        "properties": {
+          "startAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "startAt",
+          "endAt"
+        ]
+      },
+      "AlternativeDto": {
+        "type": "object",
+        "properties": {
+          "barbershop": {
+            "$ref": "#/components/schemas/SearchResultDto"
+          },
+          "service": {
+            "description": "Servicio de la misma categoría.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AlternativeServiceDto"
+              }
+            ]
+          },
+          "firstSlot": {
+            "description": "Primer turno disponible en la fecha.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AlternativeSlotDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "barbershop",
+          "service",
+          "firstSlot"
+        ]
+      },
+      "AlternativesDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "example": "2030-01-07"
+          },
+          "categoryKey": {
+            "type": "string",
+            "example": "haircut"
+          },
+          "items": {
+            "description": "Hasta 5, más cercanas primero.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlternativeDto"
+            }
+          }
+        },
+        "required": [
+          "date",
+          "categoryKey",
+          "items"
         ]
       }
     }

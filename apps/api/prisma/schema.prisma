@@ -435,17 +435,36 @@ model Service {
   currency        String    @db.Char(3)
   durationMinutes Int       @map("duration_minutes")
   isAvailable     Boolean   @default(true) @map("is_available")
+  categoryId      String    @map("category_id") @db.Uuid
   metadata        Json      @default("{}")
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   barbershop Barbershop      @relation(fields: [barbershopId], references: [id])
+  category   ServiceCategory @relation(fields: [categoryId], references: [id])
   barbers    BarberService[]
   bookings   Booking[]
 
   @@index([barbershopId])
+  @@index([categoryId])
   @@map("services")
+}
+
+/// Categorías de servicio (tabla, no enum: se amplía sin migrar). Las alternativas de
+/// RF-BUS-004 comparan por categoría.
+model ServiceCategory {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  key       String   @unique
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  services Service[]
+
+  @@map("service_categories")
 }
 
 model BarberService {

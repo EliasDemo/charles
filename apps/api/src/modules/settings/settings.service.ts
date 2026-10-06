@@ -14,6 +14,12 @@ export const SettingKey = {
   BOOKING_HORIZON_DAYS: 'availability.booking_horizon_days',
   NOW_WINDOW_MINUTES: 'availability.now_window_minutes',
   PENDING_PAYMENT_TTL_MINUTES: 'booking.pending_payment_ttl_minutes',
+  SEARCH_DEFAULT_RADIUS_KM: 'search.default_radius_km',
+  SEARCH_MAX_RADIUS_KM: 'search.max_radius_km',
+  SEARCH_DEFAULT_PAGE_SIZE: 'search.default_page_size',
+  SEARCH_MAX_PAGE_SIZE: 'search.max_page_size',
+  SEARCH_MAX_CANDIDATES: 'search.max_candidates',
+  SEARCH_RATE_LIMIT_PER_MINUTE: 'search.rate_limit_per_minute',
 } as const;
 
 /** Lectura de `app_settings` (clave/valor). Las políticas pendientes valen JSON `null`. */

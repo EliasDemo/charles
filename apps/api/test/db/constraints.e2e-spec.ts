@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { OTHER_CATEGORY_ID } from '../../prisma/seed/categories';
 import type { PrismaClient } from '../../src/generated/prisma/client';
 import {
   bookingScenario,
@@ -289,7 +290,12 @@ describe('Restricciones de la base de datos (integración, charles_test)', () =>
 
     it('servicio con precio no negativo y duración positiva', async () => {
       const shop = await fixtures(prisma).barbershop();
-      const base = { barbershopId: shop.id, name: 'x', currency: 'PEN' };
+      const base = {
+        barbershopId: shop.id,
+        name: 'x',
+        currency: 'PEN',
+        categoryId: OTHER_CATEGORY_ID,
+      };
       await expectConstraintViolation(
         prisma.service.create({ data: { ...base, priceAmount: -1, durationMinutes: 30 } }),
         'services_price_amount_check',

@@ -10,7 +10,13 @@ import { ServicesService } from '../services/services.service';
 import { SettingKey, SettingsService } from '../settings/settings.service';
 import { computeSlots, type Slot } from './engine/compute-slots';
 import type { Interval } from './engine/intervals';
-import { addDays, localDateOf, localDayBounds, type WeeklyWindow } from './engine/local-time';
+import {
+  addDays,
+  localDateOf,
+  localDayBounds,
+  type WeeklyWindow,
+  windowsOn,
+} from './engine/local-time';
 import { ScheduleRepository } from './schedule.repository';
 
 /** Qué se consulta: un servicio de una barbería, opcionalmente con un barbero concreto. */
@@ -206,6 +212,62 @@ export class AvailabilityService {
         .flatMap((d) => this.compute(context, d, settings))
         .find((s) => s.start <= windowEnd);
       result.set(keyOf(request), first ?? null);
+    }
+    return result;
+  }
+
+  /**
+   * Búsqueda (Fase 6), por lotes: primer turno de la fecha local indicada (en la zona de cada
+   * barbería). Fechas pasadas o fuera del horizonte dan null; solicitudes inválidas no aparecen.
+   */
+  async availableOnDateBatch(
+    requests: AvailabilityRequest[],
+    localDate: string,
+  ): Promise<Map<string, Slot | null>> {
+    const settings = await this.loadSettings();
+    // La fecha local cae, en cualquier zona, dentro de [fecha 00:00 UTC − 1 día, + 2 días].
+    const utcMidnight = Date.parse(`${localDate}T00:00:00Z`);
+    const contexts = await this.loadContexts(requests, {
+      from: utcMidnight - DAY_MS,
+      to: utcMidnight + 2 * DAY_MS,
+    });
+    const result = new Map<string, Slot | null>();
+    for (const request of requests) {
+      const context = contexts.get(keyOf(request));
+      if (!context) continue;
+      const today = this.todayIn(context.timezone);
+      const inRange = localDate >= today && localDate <= addDays(today, settings.horizonDays);
+      result.set(
+        keyOf(request),
+        inRange ? (this.compute(context, localDate, settings)[0] ?? null) : null,
+      );
+    }
+    return result;
+  }
+
+  /**
+   * "Abierta ahora", por lotes: barbería visible en OPEN, dentro de su horario y sin bloqueo
+   * general en este instante. Las barberías no visibles quedan en false.
+   */
+  async openNowBatch(barbershopIds: string[]): Promise<Map<string, boolean>> {
+    const now = this.clock.now();
+    const [infos, hours, blocks] = await Promise.all([
+      this.access.publicScheduleInfo(barbershopIds),
+      this.repository.businessHours(barbershopIds),
+      this.repository.blocks(barbershopIds, { from: new Date(now), to: new Date(now + 1) }),
+    ]);
+    const blocked = new Set(blocks.filter((b) => b.barberId === null).map((b) => b.barbershopId));
+    const result = new Map<string, boolean>();
+    for (const id of barbershopIds) {
+      const info = infos.get(id);
+      const open =
+        !!info &&
+        info.status === 'OPEN' &&
+        !blocked.has(id) &&
+        windowsOn(hours.get(id) ?? [], localDateOf(now, info.timezone), info.timezone).some(
+          (w) => w.start <= now && now < w.end,
+        );
+      result.set(id, open);
     }
     return result;
   }

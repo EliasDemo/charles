@@ -1,4 +1,5 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { OTHER_CATEGORY_ID } from '../../prisma/seed/categories';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { AuthClient, createAuthTestApp } from '../support/auth';
 import { futureBooking, ownerWithShop, shopPayload } from '../support/barbershops';
@@ -322,6 +323,7 @@ describe('RF-BAR-001…004 Gestión de barberías (e2e)', () => {
           name: 'Corte',
           priceAmount: 2500,
           currency: 'PEN',
+          categoryId: OTHER_CATEGORY_ID,
           durationMinutes: 30,
         },
       });

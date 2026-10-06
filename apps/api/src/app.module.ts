@@ -25,6 +25,7 @@ import { AvailabilityModule } from './modules/availability/availability.module';
 import { BarbersModule } from './modules/barbers/barbers.module';
 import { BarbershopsModule } from './modules/barbershops/barbershops.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
+import { SearchModule } from './modules/search/search.module';
 import { ServicesModule } from './modules/services/services.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -58,6 +59,7 @@ import { UsersModule } from './modules/users/users.module';
     BarbersModule,
     InvitationsModule,
     AvailabilityModule,
+    SearchModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

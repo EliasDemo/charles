@@ -1,6 +1,11 @@
 import type { Request } from 'express';
 import { clientIpOf } from './client-ip-throttler.guard';
-import { RATE_LIMIT_PROFILES, RateLimit } from './rate-limit.decorator';
+import {
+  ConfigurableLimit,
+  RATE_LIMIT_PROFILES,
+  RateLimit,
+  SEARCH_RATE_LIMIT,
+} from './rate-limit.decorator';
 
 describe('clientIpOf', () => {
   it('usa req.ip (resuelta por Express según TRUST_PROXY)', () => {
@@ -17,8 +22,20 @@ describe('clientIpOf', () => {
 describe('RateLimit', () => {
   it('los perfiles estrictos son menores que el límite global por defecto', () => {
     for (const profile of Object.values(RATE_LIMIT_PROFILES)) {
-      expect(profile.limit).toBeLessThan(100);
+      const limit = typeof profile.limit === 'function' ? profile.limit() : profile.limit;
+      expect(limit).toBeLessThan(100);
     }
+  });
+
+  it('búsqueda: 60/min por defecto, configurable en ejecución; ignora valores inválidos', () => {
+    expect(SEARCH_RATE_LIMIT.value).toBe(60);
+    const limit = new ConfigurableLimit(60);
+    limit.set(30);
+    expect(limit.value).toBe(30);
+    for (const bad of [0, -5, 2.5, Number.NaN]) limit.set(bad);
+    expect(limit.value).toBe(30);
+    const resolve = RATE_LIMIT_PROFILES.search.limit;
+    expect(resolve()).toBe(SEARCH_RATE_LIMIT.value);
   });
 
   it('aplica la metadata del throttler al método', () => {
