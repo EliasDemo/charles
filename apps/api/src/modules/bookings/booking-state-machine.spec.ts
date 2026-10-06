@@ -5,7 +5,9 @@ import { BookingStatus } from '../../generated/prisma/enums';
 import {
   BOOKING_TRANSITIONS,
   BookingStateMachine,
+  ATTENDANCE_CORRECTIONS,
   bookingEventType,
+  canCorrect,
   canTransition,
   SYSTEM_ACTOR,
 } from './booking-state-machine';
@@ -166,6 +168,21 @@ describe('BookingStateMachine (RF-RES-006, CLAUDE.md §8)', () => {
       );
       expect(writes.map((w) => w.kind)).toEqual(['history', 'outbox']);
       expect(writes[1]!.data).toMatchObject({ type: 'booking.created' });
+    });
+  });
+
+  describe('correcciones de asistencia (Fase 9): tabla aparte', () => {
+    it('solo ATTENDED ↔ NO_SHOW', () => {
+      expect(ATTENDANCE_CORRECTIONS).toEqual({ ATTENDED: 'NO_SHOW', NO_SHOW: 'ATTENDED' });
+      expect(canCorrect('ATTENDED', 'NO_SHOW')).toBe(true);
+      expect(canCorrect('NO_SHOW', 'ATTENDED')).toBe(true);
+      expect(canCorrect('CONFIRMED', 'NO_SHOW')).toBe(false);
+      expect(canCorrect('ATTENDED', 'ATTENDED')).toBe(false);
+    });
+
+    it('las transiciones normales no permiten deshacer un estado final', () => {
+      expect(canTransition('ATTENDED', 'NO_SHOW')).toBe(false);
+      expect(canTransition('NO_SHOW', 'ATTENDED')).toBe(false);
     });
   });
 });

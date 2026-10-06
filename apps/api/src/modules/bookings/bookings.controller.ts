@@ -29,7 +29,14 @@ import type { Response } from 'express';
 import { type AuthUser, CurrentUser } from '../../common/auth/auth-user';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
 import { BookingCreationRateLimitGuard } from './booking-rate-limit';
+import { BookingAttendanceService } from './booking-attendance.service';
 import { BookingsService } from './bookings.service';
+import {
+  AgendaDto,
+  AgendaQueryDto,
+  AttendanceCorrectionDto,
+  BarbershopAgendaQueryDto,
+} from './dto/attendance.dto';
 import {
   BookingDto,
   BookingListQueryDto,
@@ -48,7 +55,10 @@ const uuid = new ParseUUIDPipe();
 @ApiNotFoundResponse({ type: ErrorResponseDto })
 @Controller()
 export class BookingsController {
-  constructor(private readonly bookings: BookingsService) {}
+  constructor(
+    private readonly bookings: BookingsService,
+    private readonly attendance: BookingAttendanceService,
+  ) {}
 
   @Post('bookings')
   @UseGuards(BookingCreationRateLimitGuard)
@@ -94,6 +104,58 @@ export class BookingsController {
     @Param('id', uuid) id: string,
   ): Promise<CancellationPreviewDto> {
     return this.bookings.cancellationPreview(user.id, id);
+  }
+
+  @Post('bookings/:id/attended')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'RF-ATE-002: marcar como atendida (barbero asignado o barbería; desde el inicio y hasta 24 h)',
+  })
+  @ApiOkResponse({ type: BookingDto })
+  @ApiForbiddenResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
+  async markAttended(
+    @CurrentUser() user: AuthUser,
+    @Param('id', uuid) id: string,
+  ): Promise<BookingDto> {
+    await this.attendance.markAttended(user.id, id);
+    return this.bookings.findOne(user.id, id);
+  }
+
+  @Post('bookings/:id/attendance-correction')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Corregir ATTENDED ↔ NO_SHOW (solo OWNER o MANAGER, con motivo, hasta 48 h)',
+  })
+  @ApiOkResponse({ type: BookingDto })
+  @ApiForbiddenResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
+  async correctAttendance(
+    @CurrentUser() user: AuthUser,
+    @Param('id', uuid) id: string,
+    @Body() dto: AttendanceCorrectionDto,
+  ): Promise<BookingDto> {
+    await this.attendance.correct(user.id, id, dto);
+    return this.bookings.findOne(user.id, id);
+  }
+
+  @Get('me/barber/agenda')
+  @ApiOperation({ summary: 'RF-ATE-001: mi agenda del día como barbero (pendientes de atención)' })
+  @ApiOkResponse({ type: AgendaDto })
+  barberAgenda(@CurrentUser() user: AuthUser, @Query() query: AgendaQueryDto): Promise<AgendaDto> {
+    return this.attendance.barberAgenda(user.id, query.date);
+  }
+
+  @Get('barbershops/:id/agenda')
+  @ApiOperation({ summary: 'RF-ATE-001: agenda del día de la barbería (OWNER o MANAGER)' })
+  @ApiOkResponse({ type: AgendaDto })
+  barbershopAgenda(
+    @CurrentUser() user: AuthUser,
+    @Param('id', uuid) id: string,
+    @Query() query: BarbershopAgendaQueryDto,
+  ): Promise<AgendaDto> {
+    return this.attendance.barbershopAgenda(user.id, id, query.date, query.barberId);
   }
 
   @Post('bookings/:id/no-show')

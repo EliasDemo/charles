@@ -1,15 +1,18 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Injectable, type OnApplicationBootstrap } from '@nestjs/common';
-import type { Queue } from 'bullmq';
+import type { Job, Queue } from 'bullmq';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { APP_CONFIG } from '../../common/config/app-config.token';
 import type { AppConfig } from '../../common/config/env.validation';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ReconciliationService } from '../payments/reconciliation';
+import { BookingAttendanceService } from './booking-attendance.service';
 import { BookingStateMachine, SYSTEM_ACTOR } from './booking-state-machine';
 
 export const BOOKINGS_QUEUE = 'bookings';
 const EXPIRE_EVERY_MS = 60_000;
+const AUTO_CLOSE_EVERY_MS = 3_600_000;
+export const AUTO_CLOSE_JOB = 'auto-close-attendance';
 const BATCH_SIZE = 100;
 
 /**
@@ -74,12 +77,16 @@ export class BookingExpirationService {
 
 @Processor(BOOKINGS_QUEUE)
 export class BookingsProcessor extends WorkerHost {
-  constructor(private readonly expiration: BookingExpirationService) {
+  constructor(
+    private readonly expiration: BookingExpirationService,
+    private readonly attendance: BookingAttendanceService,
+  ) {
     super();
   }
 
-  async process(): Promise<void> {
-    await this.expiration.expireDue();
+  async process(job: Job): Promise<void> {
+    if (job.name === AUTO_CLOSE_JOB) await this.attendance.autoCloseDue();
+    else await this.expiration.expireDue();
   }
 }
 
@@ -97,6 +104,12 @@ export class BookingsScheduler implements OnApplicationBootstrap {
       'expire-pending-bookings',
       { every: EXPIRE_EVERY_MS },
       { name: 'expire', opts: { attempts: 1, removeOnComplete: true, removeOnFail: 100 } },
+    );
+    // Fase 9: cierre automático de las CONFIRMED sin marcar, cada hora.
+    await this.queue.upsertJobScheduler(
+      'auto-close-attendance',
+      { every: AUTO_CLOSE_EVERY_MS },
+      { name: AUTO_CLOSE_JOB, opts: { attempts: 1, removeOnComplete: true, removeOnFail: 100 } },
     );
   }
 }

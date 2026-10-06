@@ -28,6 +28,19 @@ export interface BookingActor {
 
 export const SYSTEM_ACTOR: BookingActor = { userId: null, role: 'SYSTEM' };
 
+/**
+ * Correcciones de una marca de asistencia equivocada (Fase 9). Van aparte de las transiciones
+ * normales: solo `correct()` las aplica, así el uso habitual nunca deshace un estado final.
+ */
+export const ATTENDANCE_CORRECTIONS: Readonly<Partial<Record<BookingStatus, BookingStatus>>> = {
+  ATTENDED: 'NO_SHOW',
+  NO_SHOW: 'ATTENDED',
+};
+
+export function canCorrect(from: BookingStatus, to: BookingStatus): boolean {
+  return ATTENDANCE_CORRECTIONS[from] === to;
+}
+
 export function canTransition(from: BookingStatus, to: BookingStatus): boolean {
   return BOOKING_TRANSITIONS[from].includes(to);
 }
@@ -130,6 +143,56 @@ export class BookingStateMachine {
       data: { bookingId, fromStatus: from, toStatus: to, changedById: actor.userId, reason },
     });
     await this.outbox.publish(tx, bookingEventType(to), {
+      bookingId,
+      barbershopId: booking.barbershop_id,
+      barberId: booking.barber_id,
+      clientId: booking.client_id,
+      from,
+      status: to,
+      actorRole: actor.role,
+    });
+    return from;
+  }
+
+  /**
+   * Corrige ATTENDED ↔ NO_SHOW (Fase 9). Mismo patrón que `transition`: bloquea, valida, actualiza,
+   * escribe el historial (con el motivo) y publica `booking.attendance_corrected`, todo en la
+   * transacción recibida. Quién puede y hasta cuándo lo decide el servicio.
+   */
+  async correct(
+    tx: Prisma.TransactionClient,
+    bookingId: string,
+    to: BookingStatus,
+    actor: BookingActor,
+    reason: string,
+  ): Promise<BookingStatus> {
+    const [booking] = await tx.$queryRaw<LockedBooking[]>`
+      SELECT status::text AS status, start_at, barbershop_id::text AS barbershop_id,
+             client_id::text AS client_id, barber_id::text AS barber_id
+        FROM bookings WHERE id = ${bookingId}::uuid FOR UPDATE`;
+    if (!booking) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'La reserva no existe.', HttpStatus.NOT_FOUND);
+    }
+    const from = booking.status;
+    if (!canCorrect(from, to)) {
+      throw new AppException(
+        ErrorCode.INVALID_STATE_TRANSITION,
+        'Solo se puede corregir una asistencia por inasistencia o al revés.',
+        HttpStatus.CONFLICT,
+        [{ from, to }],
+      );
+    }
+    await tx.booking.update({ where: { id: bookingId }, data: { status: to } });
+    await tx.bookingStatusHistory.create({
+      data: {
+        bookingId,
+        fromStatus: from,
+        toStatus: to,
+        changedById: actor.userId,
+        reason: `correction: ${reason}`,
+      },
+    });
+    await this.outbox.publish(tx, 'booking.attendance_corrected', {
       bookingId,
       barbershopId: booking.barbershop_id,
       barberId: booking.barber_id,

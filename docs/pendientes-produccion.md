@@ -2,7 +2,7 @@
 
 Lista de todo lo que **bloquea** el lanzamiento de Charles. Se revisa al cerrar cada fase (CLAUDE.md §1, regla 13): se agrega lo nuevo y se marca lo resuelto, indicando la fase o decisión que lo cerró.
 
-Última revisión: cierre de la Fase 8A.
+Última revisión: cierre de la Fase 9.
 
 ## Decisiones de negocio pendientes (CLAUDE.md §4.2)
 
@@ -14,6 +14,7 @@ Resueltas en la Fase 8A: devoluciones al cancelar, plazo para cancelar, no-show 
 | **Comisión de la pasarela en las devoluciones** | Sin definir quién la asume (Charles, la barbería o el cliente). Hoy se devuelve el importe calculado por la política, sin descontar comisiones. | Fase 8B o antes de producción  |
 | **Liquidación a la barbería**                   | Fuera de alcance: cuándo y cómo recibe el dinero la barbería (y el de un no-show).                                                              | Por definir                    |
 | **Sanción económica a la barbería**             | Solo existe la suspensión por 3 cancelaciones injustificadas en 30 días. La multa o el descuento quedan pendientes.                             | Por definir                    |
+| **Corrección de asistencia fuera de plazo**     | Pasadas 48 h del inicio, solo soporte puede corregir `ATTENDED` ↔ `NO_SHOW`; falta la herramienta.                                              | Fase 12                        |
 | **Reservas de una barbería suspendida**         | Las reservas futuras se dejan como están. Falta decidir si se cancelan y se devuelven, y cómo se avisa al cliente.                              | Fase 12                        |
 | **Medios de pago**                              | `payments.methods = null` (Yape, Plin y QR por confirmar en el SDK).                                                                            | Fase 8B                        |
 

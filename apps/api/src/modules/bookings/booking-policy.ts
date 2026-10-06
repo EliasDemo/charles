@@ -46,3 +46,36 @@ export function noShowAllowed(input: {
     now <= startAt + windowHours * 3600_000
   );
 }
+
+export const ATTENDANCE_DEFAULTS = { autoCloseHours: 24, correctionHours: 48 } as const;
+
+/**
+ * Marcar ATTENDED (Fase 9): solo una reserva CONFIRMED, desde la hora de inicio y hasta
+ * `booking.attendance_auto_close_hours` (24) después (ambos inclusivos). Pasado ese plazo, el
+ * cierre automático la marca ATTENDED.
+ */
+export function attendedAllowed(input: {
+  status: BookingStatus;
+  startAt: number;
+  now: number;
+  autoCloseHours: number;
+}): boolean {
+  const { status, startAt, now, autoCloseHours } = input;
+  return status === 'CONFIRMED' && now >= startAt && now <= startAt + autoCloseHours * 3600_000;
+}
+
+/**
+ * Corregir ATTENDED ↔ NO_SHOW (Fase 9): solo la barbería, hasta
+ * `booking.attendance_correction_hours` (48) después del inicio (inclusivo). Después, soporte.
+ */
+export function correctionAllowed(input: {
+  status: BookingStatus;
+  startAt: number;
+  now: number;
+  correctionHours: number;
+}): boolean {
+  const { status, startAt, now, correctionHours } = input;
+  return (
+    (status === 'ATTENDED' || status === 'NO_SHOW') && now <= startAt + correctionHours * 3600_000
+  );
+}

@@ -291,6 +291,18 @@ export const SEED_SETTINGS: {
     description: 'Horas después del inicio hasta las que se puede marcar una inasistencia.',
   },
   {
+    key: 'booking.attendance_auto_close_hours',
+    value: 24,
+    description:
+      'Horas tras el inicio: hasta entonces se marca la asistencia; después, las CONFIRMED sin marcar se cierran como ATTENDED.',
+  },
+  {
+    key: 'booking.attendance_correction_hours',
+    value: 48,
+    description:
+      'Horas tras el inicio en las que el responsable puede corregir ATTENDED ↔ NO_SHOW (con motivo).',
+  },
+  {
     key: 'payments.webhook_rate_limit_per_minute',
     value: 600,
     description:

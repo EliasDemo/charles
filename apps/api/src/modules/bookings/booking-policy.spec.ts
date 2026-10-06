@@ -1,5 +1,10 @@
 import type { BookingStatus } from '../../generated/prisma/enums';
-import { cancellationDecision, noShowAllowed } from './booking-policy';
+import {
+  attendedAllowed,
+  cancellationDecision,
+  correctionAllowed,
+  noShowAllowed,
+} from './booking-policy';
 import { BOOKING_TX_OPTIONS, LOCK_TIMEOUT_MS, orderByLoad } from './bookings.service';
 
 const START = Date.parse('2030-01-07T15:00:00Z');
@@ -88,5 +93,42 @@ describe('transacción de creación bajo carga', () => {
 
   it('la espera de un bloqueo (5 s) es menor que el plazo de la transacción', () => {
     expect(LOCK_TIMEOUT_MS).toBeLessThan(BOOKING_TX_OPTIONS.timeout);
+  });
+});
+
+describe('RF-ATE-002 marcar atendida: desde el inicio y hasta 24 h (inclusivos)', () => {
+  const allowed = (now: number, status: BookingStatus = 'CONFIRMED') =>
+    attendedAllowed({ status, startAt: START, now, autoCloseHours: 24 });
+
+  it.each<[string, number, boolean]>([
+    ['un minuto antes del inicio', START - MIN, false],
+    ['a la hora de inicio', START, true],
+    ['a las 24 h exactas', START + 24 * 60 * MIN, true],
+    ['pasadas las 24 h', START + 24 * 60 * MIN + 1, false],
+  ])('%s', (_case, now, expected) => {
+    expect(allowed(now)).toBe(expected);
+  });
+
+  it('solo reservas confirmadas', () => {
+    for (const status of ['PENDING_PAYMENT', 'ATTENDED', 'NO_SHOW', 'CANCELLED'] as const) {
+      expect(allowed(START + MIN, status)).toBe(false);
+    }
+  });
+});
+
+describe('corrección ATTENDED ↔ NO_SHOW: hasta 48 h después del inicio', () => {
+  const allowed = (now: number, status: BookingStatus) =>
+    correctionAllowed({ status, startAt: START, now, correctionHours: 48 });
+
+  it('ATTENDED y NO_SHOW se corrigen hasta las 48 h exactas', () => {
+    expect(allowed(START + 48 * 60 * MIN, 'ATTENDED')).toBe(true);
+    expect(allowed(START + 48 * 60 * MIN, 'NO_SHOW')).toBe(true);
+    expect(allowed(START + 48 * 60 * MIN + 1, 'ATTENDED')).toBe(false);
+  });
+
+  it('otros estados no se corrigen', () => {
+    for (const status of ['CONFIRMED', 'CANCELLED', 'EXPIRED', 'PENDING_PAYMENT'] as const) {
+      expect(allowed(START + MIN, status)).toBe(false);
+    }
   });
 });

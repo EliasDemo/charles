@@ -823,6 +823,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/bookings/{id}/attended": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-ATE-002: marcar como atendida (barbero asignado o barbería; desde el inicio y hasta 24 h) */
+        post: operations["BookingsController_markAttended_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/{id}/attendance-correction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Corregir ATTENDED ↔ NO_SHOW (solo OWNER o MANAGER, con motivo, hasta 48 h) */
+        post: operations["BookingsController_correctAttendance_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/barber/agenda": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-ATE-001: mi agenda del día como barbero (pendientes de atención) */
+        get: operations["BookingsController_barberAgenda_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/agenda": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-ATE-001: agenda del día de la barbería (OWNER o MANAGER) */
+        get: operations["BookingsController_barbershopAgenda_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/bookings/{id}/no-show": {
         parameters: {
             query?: never;
@@ -1830,6 +1898,67 @@ export interface components {
             refund: components["schemas"]["RefundQuoteDto"];
             /** @description true si cancela la barbería: el motivo es obligatorio. */
             reasonRequired: boolean;
+        };
+        AttendanceCorrectionDto: {
+            /**
+             * @description Estado correcto.
+             * @enum {string}
+             */
+            status: "ATTENDED" | "NO_SHOW";
+            /** @description Motivo de la corrección (queda en el historial y la auditoría). */
+            reason: string;
+        };
+        AgendaActionsDto: {
+            canMarkAttended: boolean;
+            canMarkNoShow: boolean;
+            /** @description Solo OWNER o MANAGER, dentro del plazo de corrección. */
+            canCorrect: boolean;
+        };
+        AgendaItemDto: {
+            /** Format: uuid */
+            bookingId: string;
+            status: components["schemas"]["BookingStatus"];
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
+            service: components["schemas"]["NamedRefDto"];
+            barber: components["schemas"]["NamedRefDto"];
+            /** @description Solo el nombre (sin teléfono, correo ni documento). */
+            client: components["schemas"]["NamedRefDto"];
+            /** @description PENDING_PAYMENT vigente: por confirmar. */
+            awaitingPayment: boolean;
+            /** @description CONFIRMED que ya empezó y sigue sin marcar (RF-ATE-001). */
+            pendingAttention: boolean;
+            /** @description Lo que quien consulta puede hacer ahora. */
+            actions: components["schemas"]["AgendaActionsDto"];
+        };
+        AgendaBlockDto: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description null = toda la barbería.
+             */
+            barberId: string | null;
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
+            type: components["schemas"]["TimeBlockType"];
+            reason: string | null;
+        };
+        AgendaDto: {
+            /** @example 2030-01-07 */
+            date: string;
+            /** @example America/Lima */
+            timezone: string;
+            barbershop: components["schemas"]["NamedRefDto"];
+            /** @description Por hora de inicio. */
+            items: components["schemas"]["AgendaItemDto"][];
+            blocks: components["schemas"]["AgendaBlockDto"][];
+            /** @description Reservas confirmadas que ya empezaron y siguen sin marcar. */
+            pendingAttention: number;
         };
         CancelBookingDto: {
             /** @description Obligatorio si cancela la barbería (OWNER o MANAGER). */
@@ -3933,6 +4062,164 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BookingsController_markAttended_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BookingsController_correctAttendance_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttendanceCorrectionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BookingsController_barberAgenda_v1: {
+        parameters: {
+            query?: {
+                /** @description Día local de la barbería (YYYY-MM-DD). Por defecto, hoy. */
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgendaDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BookingsController_barbershopAgenda_v1: {
+        parameters: {
+            query?: {
+                /** @description Día local de la barbería (YYYY-MM-DD). Por defecto, hoy. */
+                date?: string;
+                /** @description Solo la agenda de este barbero. */
+                barberId?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgendaDto"];
                 };
             };
             404: {

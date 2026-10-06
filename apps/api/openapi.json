@@ -3382,6 +3382,262 @@
         ]
       }
     },
+    "/api/v1/bookings/{id}/attended": {
+      "post": {
+        "operationId": "BookingsController_markAttended_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-ATE-002: marcar como atendida (barbero asignado o barbería; desde el inicio y hasta 24 h)",
+        "tags": [
+          "bookings"
+        ]
+      }
+    },
+    "/api/v1/bookings/{id}/attendance-correction": {
+      "post": {
+        "operationId": "BookingsController_correctAttendance_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceCorrectionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Corregir ATTENDED ↔ NO_SHOW (solo OWNER o MANAGER, con motivo, hasta 48 h)",
+        "tags": [
+          "bookings"
+        ]
+      }
+    },
+    "/api/v1/me/barber/agenda": {
+      "get": {
+        "operationId": "BookingsController_barberAgenda_v1",
+        "parameters": [
+          {
+            "name": "date",
+            "required": false,
+            "in": "query",
+            "description": "Día local de la barbería (YYYY-MM-DD). Por defecto, hoy.",
+            "schema": {
+              "example": "2030-01-07",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgendaDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-ATE-001: mi agenda del día como barbero (pendientes de atención)",
+        "tags": [
+          "bookings"
+        ]
+      }
+    },
+    "/api/v1/barbershops/{id}/agenda": {
+      "get": {
+        "operationId": "BookingsController_barbershopAgenda_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "required": false,
+            "in": "query",
+            "description": "Día local de la barbería (YYYY-MM-DD). Por defecto, hoy.",
+            "schema": {
+              "example": "2030-01-07",
+              "type": "string"
+            }
+          },
+          {
+            "name": "barberId",
+            "required": false,
+            "in": "query",
+            "description": "Solo la agenda de este barbero.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgendaDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-ATE-001: agenda del día de la barbería (OWNER o MANAGER)",
+        "tags": [
+          "bookings"
+        ]
+      }
+    },
     "/api/v1/bookings/{id}/no-show": {
       "post": {
         "operationId": "BookingsController_markNoShow_v1",
@@ -6720,6 +6976,196 @@
           "reason",
           "refund",
           "reasonRequired"
+        ]
+      },
+      "AttendanceCorrectionDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ATTENDED",
+              "NO_SHOW"
+            ],
+            "description": "Estado correcto."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Motivo de la corrección (queda en el historial y la auditoría)."
+          }
+        },
+        "required": [
+          "status",
+          "reason"
+        ]
+      },
+      "AgendaActionsDto": {
+        "type": "object",
+        "properties": {
+          "canMarkAttended": {
+            "type": "boolean"
+          },
+          "canMarkNoShow": {
+            "type": "boolean"
+          },
+          "canCorrect": {
+            "type": "boolean",
+            "description": "Solo OWNER o MANAGER, dentro del plazo de corrección."
+          }
+        },
+        "required": [
+          "canMarkAttended",
+          "canMarkNoShow",
+          "canCorrect"
+        ]
+      },
+      "AgendaItemDto": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BookingStatus"
+              }
+            ]
+          },
+          "startAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "service": {
+            "$ref": "#/components/schemas/NamedRefDto"
+          },
+          "barber": {
+            "$ref": "#/components/schemas/NamedRefDto"
+          },
+          "client": {
+            "description": "Solo el nombre (sin teléfono, correo ni documento).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NamedRefDto"
+              }
+            ]
+          },
+          "awaitingPayment": {
+            "type": "boolean",
+            "description": "PENDING_PAYMENT vigente: por confirmar."
+          },
+          "pendingAttention": {
+            "type": "boolean",
+            "description": "CONFIRMED que ya empezó y sigue sin marcar (RF-ATE-001)."
+          },
+          "actions": {
+            "description": "Lo que quien consulta puede hacer ahora.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AgendaActionsDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "bookingId",
+          "status",
+          "startAt",
+          "endAt",
+          "service",
+          "barber",
+          "client",
+          "awaitingPayment",
+          "pendingAttention",
+          "actions"
+        ]
+      },
+      "AgendaBlockDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barberId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "null = toda la barbería."
+          },
+          "startAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TimeBlockType"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "barberId",
+          "startAt",
+          "endAt",
+          "type",
+          "reason"
+        ]
+      },
+      "AgendaDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "example": "2030-01-07"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima"
+          },
+          "barbershop": {
+            "$ref": "#/components/schemas/NamedRefDto"
+          },
+          "items": {
+            "description": "Por hora de inicio.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgendaItemDto"
+            }
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgendaBlockDto"
+            }
+          },
+          "pendingAttention": {
+            "type": "number",
+            "description": "Reservas confirmadas que ya empezaron y siguen sin marcar."
+          }
+        },
+        "required": [
+          "date",
+          "timezone",
+          "barbershop",
+          "items",
+          "blocks",
+          "pendingAttention"
         ]
       },
       "CancelBookingDto": {

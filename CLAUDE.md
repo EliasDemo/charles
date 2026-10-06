@@ -423,7 +423,7 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
   - Un evento "en proceso" abandonado durante más de 5 min se reentrega.
   - Cada evento tiene un ID único y el payload lleva solo IDs, nunca datos personales.
   - **Todo consumidor debe ser idempotente por ese ID**: `IdempotentConsumerStore.runOnce(consumidor, eventId, efecto)`, con la marca en Redis por 30 días. Si el efecto debe ser idempotente para siempre (por ejemplo, un cobro), se apoya además en una restricción única en la base.
-- **Eventos:** `booking.created`, `booking.confirmed`, `booking.cancelled`, `booking.expired`, `booking.attended`, `booking.no_show`, `payment.orphaned`, `refund.requested`, `refund.succeeded`, `refund.failed`, `barbershop.cancellation_recorded` y `barbershop.suspended`.
+- **Eventos:** `booking.created`, `booking.confirmed`, `booking.cancelled`, `booking.expired`, `booking.attended`, `booking.no_show`, `booking.attendance_corrected`, `payment.orphaned`, `refund.requested`, `refund.succeeded`, `refund.failed`, `barbershop.cancellation_recorded` y `barbershop.suspended`.
 - **Trabajos programados** (`SCHEDULED_JOBS_ENABLED`, activo por defecto; las e2e los apagan y los ejecutan a mano con el reloj fijo): el relay del outbox y el vencimiento de reservas sin pago.
 
 #### Reservas (Fase 7)
@@ -518,6 +518,28 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
   - `CancellationReviewsService.review` (solo `SUPPORT`; la pantalla es de la Fase 12) la califica `JUSTIFIED` o `UNJUSTIFIED`, una sola vez;
   - con `barbershops.unjustified_cancellations_limit` (3) injustificadas en `barbershops.unjustified_cancellations_window_days` (30), contadas por fecha de cancelación, la barbería pasa a `SUSPENDED` en la misma transacción, con auditoría y evento;
   - las reservas futuras de una barbería suspendida se dejan como están (Fase 12).
+
+#### Atención e inasistencias (Fase 9, RF-ATE-001…003)
+
+- **Marcar atendida (`POST /bookings/{id}/attended`):** el barbero asignado o la barbería (OWNER o MANAGER), sobre una reserva `CONFIRMED`, desde la hora de inicio y hasta `booking.attendance_auto_close_hours` (24) después, con límites inclusivos. No hay devolución.
+- **No-show:** el de la Fase 8A (ver abajo), sin cambios; la agenda y la corrección lo integran.
+- **Cierre automático:** un trabajo cada hora (cola `bookings`, `FOR UPDATE SKIP LOCKED`, idempotente) pasa a `ATTENDED` las `CONFIRMED` cuyo inicio + 24 h ya pasó, con el sistema como actor y el motivo `auto_close` en el historial.
+  - **Valoraciones:** el cliente podrá valorar.
+  - **Pagos:** no cambia nada; en `ATTENDED` y en `NO_SHOW` no hay devolución.
+- **Corrección `ATTENDED` ↔ `NO_SHOW` (`POST /bookings/{id}/attendance-correction` con `{ status, reason }`):**
+  - solo OWNER o MANAGER (el barbero no), con motivo obligatorio, hasta `booking.attendance_correction_hours` (48) después del inicio; el cierre automático también se corrige;
+  - va en una tabla aparte de la máquina de estados (`ATTENDANCE_CORRECTIONS`, método `correct()`), así las transiciones normales nunca deshacen un estado final;
+  - queda en el historial (`correction: <motivo>`), en `audit_log` y en el evento `booking.attendance_corrected`;
+  - pasado el plazo, solo soporte (Fase 12);
+  - si se corrige a `NO_SHOW` y había valoración, la valoración se oculta, y se reactiva si se vuelve a `ATTENDED` (Fase 11);
+  - sin efecto en pagos.
+- **Agenda del día (RF-ATE-001):** `GET /me/barber/agenda?date=` (perfil activo del barbero) y `GET /barbershops/{id}/agenda?date=&barberId=` (OWNER o MANAGER).
+  - Usa el día local de la barbería, por defecto hoy.
+  - Incluye las reservas `CONFIRMED`, `ATTENDED` y `NO_SHOW`, y las `PENDING_PAYMENT` vigentes (`awaitingPayment`); nunca las canceladas.
+  - Incluye los bloqueos del día y el contador `pendingAttention` (las `CONFIRMED` que ya empezaron y siguen sin marcar).
+  - Por reserva, las acciones permitidas ahora: `canMarkAttended`, `canMarkNoShow` y `canCorrect` (este último solo para el responsable).
+  - Del cliente, solo el nombre.
+
 - **No-show (`POST /bookings/{id}/no-show`):** lo marca el barbero asignado o la barbería, sobre una reserva `CONFIRMED`, desde `booking.no_show_after_minutes` (15) y hasta `booking.no_show_window_hours` (24) después del inicio. No hay devolución. Marcar asistencia es de la Fase 9.
 - **Compatibilidad con Izipay:**
   - la interfaz `PaymentGateway` no asume errores HTTP (`PaymentGatewayError`);

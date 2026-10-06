@@ -29,6 +29,8 @@ export const SettingKey = {
   UNJUSTIFIED_CANCELLATIONS_WINDOW_DAYS: 'barbershops.unjustified_cancellations_window_days',
   NO_SHOW_AFTER_MINUTES: 'booking.no_show_after_minutes',
   NO_SHOW_WINDOW_HOURS: 'booking.no_show_window_hours',
+  ATTENDANCE_AUTO_CLOSE_HOURS: 'booking.attendance_auto_close_hours',
+  ATTENDANCE_CORRECTION_HOURS: 'booking.attendance_correction_hours',
   PAYMENTS_PENDING_CHECK_INTERVAL_MINUTES: 'payments.pending_check_interval_minutes',
   WEBHOOK_RATE_LIMIT_PER_MINUTE: 'payments.webhook_rate_limit_per_minute',
   PAYMENTS_PROVIDER: 'payments.provider',

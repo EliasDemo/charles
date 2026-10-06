@@ -2,6 +2,7 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
+import type { TimeBlock } from '../../generated/prisma/client';
 import type { BarbershopStatus } from '../../generated/prisma/enums';
 import { BarbersService } from '../barbers/barbers.service';
 import { BarbershopAccessService } from '../barbershops/barbershop-access.service';
@@ -278,6 +279,23 @@ export class AvailabilityService {
     if (!result.has(keyOf(request)))
       throw request.barberId ? notFound('barber') : notFound('service');
     return result.get(keyOf(request)) ?? null;
+  }
+
+  /** Bloqueos de una barbería que tocan el rango (agenda del personal, Fase 9). */
+  blocksBetween(
+    barbershopId: string,
+    range: { from: Date; to: Date },
+  ): Promise<
+    {
+      id: string;
+      barberId: string | null;
+      startAt: Date;
+      endAt: Date;
+      type: TimeBlock['type'];
+      reason: string | null;
+    }[]
+  > {
+    return this.repository.blocks([barbershopId], range);
   }
 
   /** "Hoy" en la zona de la barbería. */

@@ -54,6 +54,9 @@ export const ErrorCode = {
   WEBHOOK_MISMATCH: 'WEBHOOK_MISMATCH',
   ALREADY_REVIEWED: 'ALREADY_REVIEWED',
   NO_SHOW_NOT_ALLOWED: 'NO_SHOW_NOT_ALLOWED',
+  // Atención (Fase 9)
+  ATTENDANCE_NOT_ALLOWED: 'ATTENDANCE_NOT_ALLOWED',
+  ATTENDANCE_CORRECTION_NOT_ALLOWED: 'ATTENDANCE_CORRECTION_NOT_ALLOWED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode] | (string & {});

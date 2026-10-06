@@ -15,6 +15,7 @@ import {
   BookingsScheduler,
 } from './booking-expiration';
 import { BookingCreationRateLimitGuard, BookingRateLimitRefresher } from './booking-rate-limit';
+import { BookingAttendanceService } from './booking-attendance.service';
 import { BookingsController } from './bookings.controller';
 import { BookingsModule } from './bookings.module';
 import { BookingsService } from './bookings.service';
@@ -36,6 +37,7 @@ import { BookingsService } from './bookings.service';
   controllers: [BookingsController],
   providers: [
     BookingsService,
+    BookingAttendanceService,
     BookingExpirationService,
     BookingsProcessor,
     BookingsScheduler,
