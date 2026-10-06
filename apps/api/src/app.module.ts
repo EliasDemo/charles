@@ -6,6 +6,7 @@ import Redis from 'ioredis';
 import { LoggerModule } from 'nestjs-pino';
 import { AuditModule } from './common/audit/audit.module';
 import { AuthCommonModule } from './common/auth/auth-common.module';
+import { ClockModule } from './common/clock/clock';
 import { AppConfigModule } from './common/config/app-config.module';
 import { APP_CONFIG } from './common/config/app-config.token';
 import type { AppConfig } from './common/config/env.validation';
@@ -20,6 +21,7 @@ import { QueueModule } from './common/queue/queue.module';
 import { REDIS_CLIENT, RedisModule } from './common/redis/redis.module';
 import { ClientIpThrottlerGuard } from './common/throttling/client-ip-throttler.guard';
 import { AuthModule } from './modules/auth/auth.module';
+import { AvailabilityModule } from './modules/availability/availability.module';
 import { BarbersModule } from './modules/barbers/barbers.module';
 import { BarbershopsModule } from './modules/barbershops/barbershops.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
@@ -43,6 +45,7 @@ import { UsersModule } from './modules/users/users.module';
         storage: new ThrottlerStorageRedisService(redis),
       }),
     }),
+    ClockModule,
     AuditModule,
     QueueModule,
     MailModule,
@@ -54,6 +57,7 @@ import { UsersModule } from './modules/users/users.module';
     ServicesModule,
     BarbersModule,
     InvitationsModule,
+    AvailabilityModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

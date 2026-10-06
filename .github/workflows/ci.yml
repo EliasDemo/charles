@@ -104,6 +104,9 @@ jobs:
       - name: Pruebas e2e
         run: pnpm test:e2e
 
+      - name: Cobertura de availability (mínimo 80 %)
+        run: pnpm --filter api test:cov:availability
+
       - name: Verificar que OpenAPI y el cliente generado están al día
         run: |
           pnpm --filter @charles/shared generate

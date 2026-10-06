@@ -185,6 +185,17 @@ export const SEED_SETTINGS: {
       'Vigencia del código de invitación a responsables y barberos, en minutos (2880 = 48 h).',
   },
   {
+    key: 'availability.booking_horizon_days',
+    value: 30,
+    description:
+      'Días hacia adelante en que se puede reservar (y límite de "siguiente disponibilidad").',
+  },
+  {
+    key: 'availability.now_window_minutes',
+    value: 30,
+    description: '"Disponible ahora": hay un turno que empieza dentro de estos minutos.',
+  },
+  {
     key: 'payments.provider',
     value: 'FAKE',
     description: 'Proveedor de pagos activo. Izipay se integra en la Fase 8 (ADR 0002).',

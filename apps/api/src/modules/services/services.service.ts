@@ -208,6 +208,19 @@ export class ServicesService {
     });
   }
 
+  /** Servicios disponibles (no eliminados) con su duración, por lotes. */
+  async bookableDurations(
+    serviceIds: string[],
+  ): Promise<Map<string, { barbershopId: string; durationMinutes: number }>> {
+    const rows = await this.prisma.service.findMany({
+      where: { id: { in: serviceIds }, deletedAt: null, isAvailable: true },
+      select: { id: true, barbershopId: true, durationMinutes: true },
+    });
+    return new Map(
+      rows.map((r) => [r.id, { barbershopId: r.barbershopId, durationMinutes: r.durationMinutes }]),
+    );
+  }
+
   /** Valida que todos los servicios existan, no estén eliminados y sean de la barbería. */
   async assertBelongTo(
     barbershopId: string,

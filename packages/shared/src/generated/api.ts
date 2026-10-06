@@ -521,6 +521,128 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/barbershops/{id}/business-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-DIS-001 / RF-BAR-002: horario semanal e indicador "abierta ahora" */
+        get: operations["AvailabilityController_businessHours_v1"];
+        /** RF-DIS-001: configurar el horario semanal (OWNER o MANAGER) */
+        put: operations["AvailabilityController_putBusinessHours_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-DIS-003: turnos de una fecha (local de la barbería) para un servicio */
+        get: operations["AvailabilityController_forDate_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/availability/now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-DIS-002: ¿puede atender ahora? (turno dentro de la ventana "ahora") */
+        get: operations["AvailabilityController_now_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/availability/next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-DIS-004: siguiente turno disponible (hasta el horizonte de reservas) */
+        get: operations["AvailabilityController_next_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/barbers/{barberId}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-BRB-003: horario del barbero (responsables y el propio barbero) */
+        get: operations["AvailabilityController_getBarberSchedule_v1"];
+        /** RF-BRB-003: horario semanal del barbero (solo responsables; vacío = hereda) */
+        put: operations["AvailabilityController_putBarberSchedule_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/time-blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bloqueos (responsables: todos; barbero: los suyos) */
+        get: operations["AvailabilityController_listBlocks_v1"];
+        put?: never;
+        /** RF-DIS-001 / RF-BRB-003: bloquear (descanso, ausencia, feriado, manual) */
+        post: operations["AvailabilityController_createBlock_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/time-blocks/{blockId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Eliminar un bloqueo */
+        delete: operations["AvailabilityController_deleteBlock_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -997,6 +1119,113 @@ export interface components {
         AcceptInvitationDto: {
             /** @example 123456 */
             code: string;
+        };
+        WindowDto: {
+            /**
+             * @description Hora local, múltiplo de 5 minutos.
+             * @example 09:00
+             */
+            start: string;
+            /**
+             * @description Hora local, posterior al inicio (sin cruzar la medianoche).
+             * @example 13:00
+             */
+            end: string;
+        };
+        DayScheduleDto: {
+            /** @description 0 = domingo … 6 = sábado. */
+            dayOfWeek: number;
+            /** @description Varias ventanas por día permiten descansos. */
+            windows: components["schemas"]["WindowDto"][];
+        };
+        BusinessHoursDto: {
+            /** @example America/Lima */
+            timezone: string;
+            /** @description Abierta ahora: estado OPEN, dentro del horario y sin bloqueo general. */
+            isOpenNow: boolean;
+            days: components["schemas"]["DayScheduleDto"][];
+        };
+        SlotDto: {
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
+            barberIds: string[];
+        };
+        DayAvailabilityDto: {
+            /** @example 2030-01-07 */
+            date: string;
+            /** @example America/Lima */
+            timezone: string;
+            slots: components["schemas"]["SlotDto"][];
+        };
+        AvailableNowDto: {
+            available: boolean;
+            slot: components["schemas"]["SlotDto"] | null;
+        };
+        NextAvailabilityDto: {
+            slot: components["schemas"]["SlotDto"] | null;
+        };
+        WeeklyScheduleDto: {
+            days: components["schemas"]["DayScheduleDto"][];
+        };
+        BusinessHoursUpdateDto: {
+            /** @example America/Lima */
+            timezone: string;
+            /** @description Abierta ahora: estado OPEN, dentro del horario y sin bloqueo general. */
+            isOpenNow: boolean;
+            days: components["schemas"]["DayScheduleDto"][];
+            /** @description Reservas futuras activas que quedan fuera del horario nuevo (se mantienen). */
+            bookingsOutsideSchedule: number;
+        };
+        BarberScheduleDto: {
+            /** Format: uuid */
+            barberId: string;
+            /** @description true: no tiene horario propio y usa el de la barbería. */
+            inheritsBusinessHours: boolean;
+            days: components["schemas"]["DayScheduleDto"][];
+        };
+        BarberScheduleUpdateDto: {
+            /** Format: uuid */
+            barberId: string;
+            /** @description true: no tiene horario propio y usa el de la barbería. */
+            inheritsBusinessHours: boolean;
+            days: components["schemas"]["DayScheduleDto"][];
+            bookingsOutsideSchedule: number;
+        };
+        /** @enum {string} */
+        TimeBlockType: "BREAK" | "ABSENCE" | "HOLIDAY" | "MANUAL";
+        TimeBlockDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            barberId: string | null;
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
+            type: components["schemas"]["TimeBlockType"];
+            reason: string | null;
+        };
+        CreateTimeBlockDto: {
+            /**
+             * Format: uuid
+             * @description Vacío = bloqueo de toda la barbería.
+             */
+            barberId?: string;
+            /**
+             * Format: date-time
+             * @description Instante ISO 8601 (múltiplo de 5 minutos).
+             */
+            startAt: string;
+            /**
+             * Format: date-time
+             * @description Instante ISO 8601, posterior al inicio.
+             */
+            endAt: string;
+            type: components["schemas"]["TimeBlockType"];
+            /** @description Solo lo ven los responsables y el propio barbero. */
+            reason?: string;
         };
     };
     responses: never;
@@ -2265,6 +2494,345 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AvailabilityController_businessHours_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessHoursDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AvailabilityController_putBusinessHours_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WeeklyScheduleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessHoursUpdateDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AvailabilityController_forDate_v1: {
+        parameters: {
+            query: {
+                serviceId: string;
+                /** @description Sin barbero = cualquier barbero disponible. */
+                barberId?: string;
+                /** @description Fecha local de la barbería (YYYY-MM-DD). */
+                date: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DayAvailabilityDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AvailabilityController_now_v1: {
+        parameters: {
+            query: {
+                serviceId: string;
+                /** @description Sin barbero = cualquier barbero disponible. */
+                barberId?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailableNowDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AvailabilityController_next_v1: {
+        parameters: {
+            query: {
+                serviceId: string;
+                /** @description Sin barbero = cualquier barbero disponible. */
+                barberId?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NextAvailabilityDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AvailabilityController_getBarberSchedule_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                barberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarberScheduleDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AvailabilityController_putBarberSchedule_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                barberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WeeklyScheduleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarberScheduleUpdateDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AvailabilityController_listBlocks_v1: {
+        parameters: {
+            query?: {
+                /** @description Desde (ISO). Por defecto, ahora. */
+                from?: string;
+                /** @description Hasta (ISO). Por defecto, el horizonte de reservas. */
+                to?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeBlockDto"][];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AvailabilityController_createBlock_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTimeBlockDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeBlockDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description Choca con reservas activas */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AvailabilityController_deleteBlock_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                blockId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

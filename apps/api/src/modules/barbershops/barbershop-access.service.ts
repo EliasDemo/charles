@@ -69,6 +69,28 @@ export class BarbershopAccessService {
     return new Map(shops.map((s) => [s.id, s.name]));
   }
 
+  /**
+   * Zona horaria y estado de varias barberías visibles (para el motor de disponibilidad, por lotes).
+   * Las no visibles no aparecen en el resultado.
+   */
+  async publicScheduleInfo(
+    ids: string[],
+  ): Promise<Map<string, { timezone: string; status: BarbershopStatus }>> {
+    const shops = await this.prisma.barbershop.findMany({
+      where: { id: { in: ids }, deletedAt: null, status: { in: PUBLIC_STATUSES } },
+      select: { id: true, timezone: true, status: true },
+    });
+    return new Map(shops.map((s) => [s.id, { timezone: s.timezone, status: s.status }]));
+  }
+
+  async timezoneOf(id: string): Promise<string> {
+    const shop = await this.prisma.barbershop.findUniqueOrThrow({
+      where: { id },
+      select: { timezone: true },
+    });
+    return shop.timezone;
+  }
+
   /** 404 si la barbería no es visible públicamente. */
   async requirePublic(barbershopId: string): Promise<void> {
     const visible = await this.prisma.barbershop.count({

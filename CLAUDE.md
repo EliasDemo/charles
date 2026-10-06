@@ -134,6 +134,20 @@ pnpm test | pnpm test:e2e | pnpm lint | pnpm typecheck
 - **Consultas públicas** (detalle de barbería, servicios y barberos): sin iniciar sesión, solo datos públicos y con límite de peticiones propio (perfil `public`, 60/min por IP).
 - **Auditoría:** para datos no personales (precio, duración, estado de la barbería, roles de responsables, nombre y dirección de la barbería, servicios de un barbero, activación) se guarda el valor anterior y el nuevo (`changes.values`). Para datos personales (teléfonos, RUC, nombre visible y biografía del barbero, datos del perfil de usuario) solo el nombre del campo (`changes.personalFields`).
 
+#### Horarios y disponibilidad (Fase 5)
+
+- **Horario efectivo del barbero** = (su horario semanal, o el de la barbería si no tiene propio) ∩ horario de la barbería − bloqueos de la barbería − bloqueos del barbero − reservas activas. Un horario del barbero fuera del de la barbería se guarda, pero solo cuenta la intersección. Varias filas contiguas de un mismo día forman un tramo continuo. Una semana vacía en el horario del barbero significa "hereda el de la barbería".
+- **Días no laborables:** bloqueos de día completo registrados por el responsable (sin calendario de feriados automático).
+- **Quién gestiona:** el responsable (OWNER o MANAGER), horarios y bloqueos de todos; el barbero con cuenta vinculada, solo sus propios bloqueos (no su horario semanal ni bloqueos de la barbería o de otros).
+- **Bloqueos sobre reservas activas:** se rechazan (409 `BLOCK_OVERLAPS_BOOKINGS`, con el número de reservas afectadas). Cambiar un horario sí se permite: las reservas existentes se mantienen y la respuesta informa cuántas quedan fuera (`bookingsOutsideSchedule`).
+- **Turnos:** inicios alineados al reloj local en múltiplos de `availability.slot_interval_minutes` (15); el turno debe caber completo; sin tiempo de limpieza entre citas; horarios y bloqueos en múltiplos de 5 minutos.
+- **Horizonte:** `availability.booking_horizon_days` (30). "Hoy", el horizonte y el rechazo de fechas pasadas se evalúan en la **zona horaria de la barbería**, no en la del cliente ni en UTC (400 `DATE_OUT_OF_RANGE`).
+- **"Disponible ahora" (RF-DIS-002):** hay un turno que empieza dentro de `availability.now_window_minutes` (30). **"Cualquier barbero":** turnos combinados con la lista de barberos libres. Una barbería `TEMPORARILY_CLOSED` no ofrece turnos en ninguna fecha hasta reabrirse.
+- **Día de la semana:** convención 0 = domingo … 6 = sábado; luxon usa 1 = lunes … 7 = domingo. La conversión vive en una sola función (`toDayOfWeek` en `availability/engine/local-time.ts`).
+- **Privacidad:** las respuestas públicas de disponibilidad solo incluyen turnos (`startAt`, `endAt`) y los ID de barberos libres. Nunca motivos ni tipos de bloqueo, ni datos de reservas o clientes. El motivo de un bloqueo solo lo ven los responsables y el propio barbero.
+- **Carga por lotes:** `AvailabilityService.loadContexts` / `availableNowBatch` aceptan varias barberías en pocas consultas (la Fase 6 calcula "disponible ahora" para barberías cercanas). Sin caché por ahora.
+- **"Abierta ahora"** (RF-BAR-004): `GET /barbershops/{id}/business-hours` devuelve el horario semanal e `isOpenNow` (estado OPEN, dentro del horario y sin bloqueo general).
+
 ### 4.2 Pendientes (NO las inventes; deja el punto configurable y pregunta)
 
 - Medios de pago (la pasarela ya está decidida: Izipay).
@@ -372,7 +386,10 @@ Servicio único `AvailabilityService`. Para una barbería, servicio, fecha y (op
 7. Convertir a UTC para responder.
 
 - "Disponible ahora" (RF-DIS-002) y "siguiente disponibilidad" (RF-DIS-004) reutilizan este mismo cálculo.
-- La función central debe ser **pura** (recibe datos, devuelve turnos) para probarla sin base de datos.
+- La función central debe ser **pura** (recibe datos, devuelve turnos) para probarla sin base de datos: `computeSlots` en `modules/availability/engine/`, con "ahora" como parámetro. El servicio obtiene la hora de un reloj inyectable (`CLOCK`).
+- Zonas horarias con `luxon` (IANA): los horarios semanales (hora local) se convierten a UTC **para cada fecha**; el día local es [00:00, 24:00) en la zona de la barbería (23 o 25 h en días de cambio de hora); una hora local inexistente se omite de la cuadrícula y una repetida aparece una vez; la duración de un turno es tiempo real.
+- Además de los casos fijos, hay **pruebas basadas en propiedades** (fast-check) con horarios, bloqueos, reservas, duraciones y zonas generados al azar; invariantes: ningún turno se solapa con reservas o bloqueos, todo turno cabe en el horario efectivo, ninguno empieza antes de now + anticipación, todo inicio está en la cuadrícula, salida ordenada y sin duplicados, y determinismo.
+- **Requisito para la Fase 7:** una reserva `PENDING_PAYMENT` vencida (`expires_at` pasado) **no bloquea en el cálculo**, pero **sí en la restricción de exclusión** (§7.3) hasta que se marque `EXPIRED`. Al crear una reserva hay que expirar, **dentro de la misma transacción**, las `PENDING_PAYMENT` vencidas que solapen con el nuevo turno; si no, la inserción fallaría con `SLOT_NOT_AVAILABLE` aunque el turno se haya mostrado como libre.
 - Pruebas obligatorias: cambio de día, zonas horarias, descansos, bloqueos parciales, reservas contiguas, servicio más largo que el hueco, barbería cerrada.
 - El cálculo es informativo: la garantía final contra la doble reserva es la restricción de la sección 7.3.
 
@@ -391,7 +408,7 @@ Servicio único `AvailabilityService`. Para una barbería, servicio, fecha y (op
 
 ## 11. Pruebas
 
-- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings` y `payments`.
+- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings` y `payments`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) y CI falla si baja del 80 %.
 - e2e por cada RF de prioridad Alta, contra PostgreSQL real en Docker (no simular la base de datos).
 - **Prueba de concurrencia obligatoria** (RF-RES-007): dos peticiones simultáneas por el mismo turno → exactamente una tiene éxito.
 - Pruebas de autorización: por cada endpoint privado, un caso que verifique que otro usuario **no** puede acceder.

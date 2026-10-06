@@ -2012,6 +2012,597 @@
           "invitations"
         ]
       }
+    },
+    "/api/v1/barbershops/{id}/business-hours": {
+      "get": {
+        "operationId": "AvailabilityController_businessHours_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessHoursDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "RF-DIS-001 / RF-BAR-002: horario semanal e indicador \"abierta ahora\"",
+        "tags": [
+          "availability"
+        ]
+      },
+      "put": {
+        "operationId": "AvailabilityController_putBusinessHours_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WeeklyScheduleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessHoursUpdateDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-DIS-001: configurar el horario semanal (OWNER o MANAGER)",
+        "tags": [
+          "availability"
+        ]
+      }
+    },
+    "/api/v1/barbershops/{id}/availability": {
+      "get": {
+        "operationId": "AvailabilityController_forDate_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "barberId",
+            "required": false,
+            "in": "query",
+            "description": "Sin barbero = cualquier barbero disponible.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "required": true,
+            "in": "query",
+            "description": "Fecha local de la barbería (YYYY-MM-DD).",
+            "schema": {
+              "example": "2030-01-07",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DayAvailabilityDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "RF-DIS-003: turnos de una fecha (local de la barbería) para un servicio",
+        "tags": [
+          "availability"
+        ]
+      }
+    },
+    "/api/v1/barbershops/{id}/availability/now": {
+      "get": {
+        "operationId": "AvailabilityController_now_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "barberId",
+            "required": false,
+            "in": "query",
+            "description": "Sin barbero = cualquier barbero disponible.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvailableNowDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "RF-DIS-002: ¿puede atender ahora? (turno dentro de la ventana \"ahora\")",
+        "tags": [
+          "availability"
+        ]
+      }
+    },
+    "/api/v1/barbershops/{id}/availability/next": {
+      "get": {
+        "operationId": "AvailabilityController_next_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "barberId",
+            "required": false,
+            "in": "query",
+            "description": "Sin barbero = cualquier barbero disponible.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextAvailabilityDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "RF-DIS-004: siguiente turno disponible (hasta el horizonte de reservas)",
+        "tags": [
+          "availability"
+        ]
+      }
+    },
+    "/api/v1/barbershops/{id}/barbers/{barberId}/schedule": {
+      "get": {
+        "operationId": "AvailabilityController_getBarberSchedule_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "barberId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BarberScheduleDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-BRB-003: horario del barbero (responsables y el propio barbero)",
+        "tags": [
+          "availability"
+        ]
+      },
+      "put": {
+        "operationId": "AvailabilityController_putBarberSchedule_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "barberId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WeeklyScheduleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BarberScheduleUpdateDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-BRB-003: horario semanal del barbero (solo responsables; vacío = hereda)",
+        "tags": [
+          "availability"
+        ]
+      }
+    },
+    "/api/v1/barbershops/{id}/time-blocks": {
+      "get": {
+        "operationId": "AvailabilityController_listBlocks_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Desde (ISO). Por defecto, ahora.",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Hasta (ISO). Por defecto, el horizonte de reservas.",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TimeBlockDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Bloqueos (responsables: todos; barbero: los suyos)",
+        "tags": [
+          "availability"
+        ]
+      },
+      "post": {
+        "operationId": "AvailabilityController_createBlock_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTimeBlockDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeBlockDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Choca con reservas activas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-DIS-001 / RF-BRB-003: bloquear (descanso, ausencia, feriado, manual)",
+        "tags": [
+          "availability"
+        ]
+      }
+    },
+    "/api/v1/barbershops/{id}/time-blocks/{blockId}": {
+      "delete": {
+        "operationId": "AvailabilityController_deleteBlock_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "blockId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Eliminar un bloqueo",
+        "tags": [
+          "availability"
+        ]
+      }
     }
   },
   "info": {
@@ -3523,6 +4114,338 @@
         },
         "required": [
           "code"
+        ]
+      },
+      "WindowDto": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "example": "09:00",
+            "description": "Hora local, múltiplo de 5 minutos."
+          },
+          "end": {
+            "type": "string",
+            "example": "13:00",
+            "description": "Hora local, posterior al inicio (sin cruzar la medianoche)."
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ]
+      },
+      "DayScheduleDto": {
+        "type": "object",
+        "properties": {
+          "dayOfWeek": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 6,
+            "description": "0 = domingo … 6 = sábado."
+          },
+          "windows": {
+            "description": "Varias ventanas por día permiten descansos.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WindowDto"
+            }
+          }
+        },
+        "required": [
+          "dayOfWeek",
+          "windows"
+        ]
+      },
+      "BusinessHoursDto": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima"
+          },
+          "isOpenNow": {
+            "type": "boolean",
+            "description": "Abierta ahora: estado OPEN, dentro del horario y sin bloqueo general."
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayScheduleDto"
+            }
+          }
+        },
+        "required": [
+          "timezone",
+          "isOpenNow",
+          "days"
+        ]
+      },
+      "SlotDto": {
+        "type": "object",
+        "properties": {
+          "startAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "barberIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "startAt",
+          "endAt",
+          "barberIds"
+        ]
+      },
+      "DayAvailabilityDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "example": "2030-01-07"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima"
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SlotDto"
+            }
+          }
+        },
+        "required": [
+          "date",
+          "timezone",
+          "slots"
+        ]
+      },
+      "AvailableNowDto": {
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "slot": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SlotDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "available",
+          "slot"
+        ]
+      },
+      "NextAvailabilityDto": {
+        "type": "object",
+        "properties": {
+          "slot": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SlotDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "slot"
+        ]
+      },
+      "WeeklyScheduleDto": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayScheduleDto"
+            }
+          }
+        },
+        "required": [
+          "days"
+        ]
+      },
+      "BusinessHoursUpdateDto": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima"
+          },
+          "isOpenNow": {
+            "type": "boolean",
+            "description": "Abierta ahora: estado OPEN, dentro del horario y sin bloqueo general."
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayScheduleDto"
+            }
+          },
+          "bookingsOutsideSchedule": {
+            "type": "number",
+            "description": "Reservas futuras activas que quedan fuera del horario nuevo (se mantienen)."
+          }
+        },
+        "required": [
+          "timezone",
+          "isOpenNow",
+          "days",
+          "bookingsOutsideSchedule"
+        ]
+      },
+      "BarberScheduleDto": {
+        "type": "object",
+        "properties": {
+          "barberId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inheritsBusinessHours": {
+            "type": "boolean",
+            "description": "true: no tiene horario propio y usa el de la barbería."
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayScheduleDto"
+            }
+          }
+        },
+        "required": [
+          "barberId",
+          "inheritsBusinessHours",
+          "days"
+        ]
+      },
+      "BarberScheduleUpdateDto": {
+        "type": "object",
+        "properties": {
+          "barberId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inheritsBusinessHours": {
+            "type": "boolean",
+            "description": "true: no tiene horario propio y usa el de la barbería."
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayScheduleDto"
+            }
+          },
+          "bookingsOutsideSchedule": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "barberId",
+          "inheritsBusinessHours",
+          "days",
+          "bookingsOutsideSchedule"
+        ]
+      },
+      "TimeBlockType": {
+        "type": "string",
+        "enum": [
+          "BREAK",
+          "ABSENCE",
+          "HOLIDAY",
+          "MANUAL"
+        ]
+      },
+      "TimeBlockDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barberId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "startAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TimeBlockType"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "barberId",
+          "startAt",
+          "endAt",
+          "type",
+          "reason"
+        ]
+      },
+      "CreateTimeBlockDto": {
+        "type": "object",
+        "properties": {
+          "barberId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Vacío = bloqueo de toda la barbería."
+          },
+          "startAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Instante ISO 8601 (múltiplo de 5 minutos)."
+          },
+          "endAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Instante ISO 8601, posterior al inicio."
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TimeBlockType"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "description": "Solo lo ven los responsables y el propio barbero."
+          }
+        },
+        "required": [
+          "startAt",
+          "endAt",
+          "type"
         ]
       }
     }

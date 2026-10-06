@@ -31,6 +31,9 @@ export const ErrorCode = {
   BARBER_ALREADY_ACTIVE_ELSEWHERE: 'BARBER_ALREADY_ACTIVE_ELSEWHERE',
   BARBER_ALREADY_LINKED: 'BARBER_ALREADY_LINKED',
   INVITATION_NO_LONGER_VALID: 'INVITATION_NO_LONGER_VALID',
+  // Horarios y disponibilidad (Fase 5)
+  DATE_OUT_OF_RANGE: 'DATE_OUT_OF_RANGE',
+  BLOCK_OVERLAPS_BOOKINGS: 'BLOCK_OVERLAPS_BOOKINGS',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode] | (string & {});

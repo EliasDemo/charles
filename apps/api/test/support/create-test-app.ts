@@ -3,6 +3,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import type Redis from 'ioredis';
 import { AppModule } from '../../src/app.module';
+import { CLOCK, type Clock } from '../../src/common/clock/clock';
 import { APP_CONFIG } from '../../src/common/config/app-config.token';
 import { type AppConfig, validateEnv } from '../../src/common/config/env.validation';
 import { REDIS_CLIENT } from '../../src/common/redis/redis.module';
@@ -12,6 +13,8 @@ import { TestProbeModule } from './test-probe.module';
 interface TestAppOptions {
   config?: Partial<AppConfig>;
   imports?: ModuleMetadata['imports'];
+  /** Reloj fijo o controlable (por defecto, el del sistema). */
+  clock?: Clock;
 }
 
 /** Levanta la app completa (igual que `main.ts`) con los endpoints de prueba. */
@@ -21,6 +24,8 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<NestE
   })
     .overrideProvider(APP_CONFIG)
     .useFactory({ factory: (): AppConfig => ({ ...validateEnv(process.env), ...options.config }) })
+    .overrideProvider(CLOCK)
+    .useValue(options.clock ?? { now: () => Date.now() })
     .compile();
 
   const app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });

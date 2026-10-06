@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type Redis from 'ioredis';
 import request from 'supertest';
+import type { Clock } from '../../src/common/clock/clock';
 import { FakeMailer, type StoredMail } from '../../src/common/mail/fake-mailer';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { REDIS_CLIENT } from '../../src/common/redis/redis.module';
@@ -26,8 +27,10 @@ export function randomIp(): string {
 }
 
 /** App completa con base y términos preparados. */
-export async function createAuthTestApp(): Promise<NestExpressApplication> {
-  const app = await createTestApp({ config: { trustProxy: ['loopback'] } });
+export async function createAuthTestApp(
+  options: { clock?: Clock } = {},
+): Promise<NestExpressApplication> {
+  const app = await createTestApp({ config: { trustProxy: ['loopback'] }, clock: options.clock });
   const prisma = app.get(PrismaService);
   await truncateAll(prisma);
   await prisma.appSetting.create({

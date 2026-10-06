@@ -290,6 +290,45 @@ export class BarbersService {
     for (const { userId } of linked) if (userId) await this.syncBarberRole(userId, tx);
   }
 
+  /** Barberos activos que realizan cada servicio, por lotes (para el motor de disponibilidad). */
+  async activeBarbersByService(serviceIds: string[]): Promise<Map<string, string[]>> {
+    const rows = await this.prisma.barberService.findMany({
+      where: { serviceId: { in: serviceIds }, barber: { isActive: true, deletedAt: null } },
+      select: { serviceId: true, barberId: true },
+    });
+    const result = new Map<string, string[]>();
+    for (const r of rows) result.set(r.serviceId, [...(result.get(r.serviceId) ?? []), r.barberId]);
+    return result;
+  }
+
+  /** Barbero de la barbería (no eliminado) con su cuenta vinculada, o null. */
+  async findInBarbershop(
+    barbershopId: string,
+    barberId: string,
+  ): Promise<{ id: string; userId: string | null; isActive: boolean } | null> {
+    return this.prisma.barber.findFirst({
+      where: { id: barberId, barbershopId, deletedAt: null },
+      select: { id: true, userId: true, isActive: true },
+    });
+  }
+
+  /** Perfil de barbero activo de una cuenta en una barbería (para que gestione sus bloqueos). */
+  async linkedBarberIdOf(barbershopId: string, userId: string): Promise<string | null> {
+    const barber = await this.prisma.barber.findFirst({
+      where: { barbershopId, userId, deletedAt: null },
+      select: { id: true },
+    });
+    return barber?.id ?? null;
+  }
+
+  async idsOfBarbershop(barbershopId: string): Promise<string[]> {
+    const rows = await this.prisma.barber.findMany({
+      where: { barbershopId, deletedAt: null },
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
+  }
+
   async displayNames(ids: string[]): Promise<Map<string, string>> {
     const barbers = await this.prisma.barber.findMany({
       where: { id: { in: ids } },
