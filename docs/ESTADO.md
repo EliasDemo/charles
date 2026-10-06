@@ -58,6 +58,18 @@ Diseño previsto en [ADR 0004](adr/0004-fases-de-crecimiento.md):
 
 Sus decisiones abiertas están en `docs/pendientes-produccion.md`.
 
+### App móvil (proyecto aparte)
+
+Se desarrolla en `../charlesmobile`, en otra conversación. Lo que necesita del backend está en `docs/mobile/`:
+
+- `GUIA-API.md`;
+- `openapi.json`, que se regenera con `pnpm mobile:openapi`;
+- `DATOS-PRUEBA.md`;
+- `PAGOS.md`;
+- `AJUSTES-BACKEND.md`, la lista de ajustes sugeridos, sin implementar.
+
+Se actualiza al cerrar cada fase (CLAUDE.md §1, regla 15).
+
 ## Decisiones tomadas que no están en CLAUDE.md
 
 Casi todas las decisiones de negocio ya están en `CLAUDE.md` (§4.1, §8 y "Pagos y reembolsos (Fase 8A)"). Además:

@@ -22,6 +22,7 @@ Este archivo es la fuente de verdad técnica. Los requerimientos funcionales (55
 12. **Ninguna llamada a servicios externos (pasarela de pagos, correo, APIs de terceros) dentro de una transacción de base de datos.** La transacción deja el estado listo (por ejemplo, el pago en `PENDING`); la llamada externa va después del commit, con su clave de idempotencia, y debe poder reintentarse. Los efectos asíncronos van por el outbox.
 13. Mantén al día `docs/pendientes-produccion.md`: todo lo que bloquea salir a producción. Revísalo al cerrar cada fase.
 14. Al empezar una conversación nueva, lee `docs/ESTADO.md` y `docs/pendientes-produccion.md` antes de hacer nada. Al cerrar cada fase, actualiza `docs/ESTADO.md`.
+15. Al cerrar cada fase, regenera `docs/mobile/openapi.json` (`pnpm mobile:openapi`) y actualiza `docs/mobile/GUIA-API.md`. La app móvil se desarrolla aparte (`../charlesmobile`) y depende de esos documentos.
 
 ---
 
