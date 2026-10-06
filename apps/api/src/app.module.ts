@@ -25,7 +25,11 @@ import { AvailabilityModule } from './modules/availability/availability.module';
 import { BarbersModule } from './modules/barbers/barbers.module';
 import { BarbershopsModule } from './modules/barbershops/barbershops.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
+import { BookingsManagementModule } from './modules/bookings/bookings-management.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { testOnlyModules } from './modules/payments/testing/payments-testing.module';
 import { SearchModule } from './modules/search/search.module';
+import { OutboxModule } from './common/outbox/outbox.module';
 import { ServicesModule } from './modules/services/services.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -37,6 +41,7 @@ import { UsersModule } from './modules/users/users.module';
       useFactory: (config: AppConfig) => buildLoggerParams(config),
     }),
     PrismaModule,
+    OutboxModule,
     CryptoModule,
     RedisModule,
     ThrottlerModule.forRootAsync({
@@ -60,6 +65,10 @@ import { UsersModule } from './modules/users/users.module';
     InvitationsModule,
     AvailabilityModule,
     SearchModule,
+    PaymentsModule,
+    BookingsManagementModule,
+    // Solo con NODE_ENV=test (por ejemplo, simular el resultado del pago). Nunca en producción.
+    ...testOnlyModules(process.env.NODE_ENV),
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

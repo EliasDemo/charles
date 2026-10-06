@@ -1,6 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { NodeEnv } from '../src/common/config/env.validation';
+import { PaymentsProviderCheck } from '../src/modules/payments/payments-provider.check';
 import { createTestApp } from './support/create-test-app';
 
 describe('HTTPS obligatorio en producción (e2e)', () => {
@@ -9,6 +10,11 @@ describe('HTTPS obligatorio en producción (e2e)', () => {
   beforeAll(async () => {
     app = await createTestApp({
       config: { nodeEnv: NodeEnv.Production, isProduction: true, trustProxy: ['loopback'] },
+      // Esta prueba solo verifica HTTPS. En producción la app no arranca con la pasarela simulada
+      // (lo prueba payments.spec.ts), así que aquí se omite esa comprobación de arranque.
+      overrides: [
+        { provide: PaymentsProviderCheck, useValue: { onApplicationBootstrap: () => undefined } },
+      ],
     });
   });
   afterAll(() => app.close());

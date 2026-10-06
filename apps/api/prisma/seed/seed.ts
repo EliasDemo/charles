@@ -237,6 +237,17 @@ export const SEED_SETTINGS: {
     description: 'Peticiones de búsqueda por minuto e IP.',
   },
   {
+    key: 'booking.max_pending_per_client',
+    value: 2,
+    description:
+      'Máximo de reservas PENDING_PAYMENT vigentes por cliente (evita acaparar turnos sin pagar).',
+  },
+  {
+    key: 'booking.rate_limit_per_minute',
+    value: 20,
+    description: 'Peticiones por minuto y por cliente para crear reservas.',
+  },
+  {
     key: 'payments.provider',
     value: 'FAKE',
     description: 'Proveedor de pagos activo. Izipay se integra en la Fase 8 (ADR 0002).',

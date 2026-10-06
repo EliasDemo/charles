@@ -2963,6 +2963,523 @@
           "search"
         ]
       }
+    },
+    "/api/v1/bookings/{id}/payment": {
+      "post": {
+        "operationId": "PaymentsController_start_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentStartDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-PAG-001: iniciar o reintentar el pago de una reserva pendiente (idempotente)",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/api/v1/bookings": {
+      "post": {
+        "description": "Idempotente por la cabecera Idempotency-Key: repetir la misma petición devuelve la misma reserva (200). Requiere correo verificado.",
+        "operationId": "BookingsController_create_v1",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID único por intento.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBookingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Repetición con la misma clave.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedBookingDto"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedBookingDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-RES-001/002: crear una reserva (pendiente de pago) en un turno disponible",
+        "tags": [
+          "bookings"
+        ]
+      }
+    },
+    "/api/v1/bookings/{id}": {
+      "get": {
+        "operationId": "BookingsController_findOne_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-RES-004: detalle (cliente, responsables o barbero asignado)",
+        "tags": [
+          "bookings"
+        ]
+      }
+    },
+    "/api/v1/bookings/{id}/cancel": {
+      "post": {
+        "operationId": "BookingsController_cancel_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelBookingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-RES-005: cancelar (cliente, o OWNER/MANAGER con motivo; el barbero no)",
+        "tags": [
+          "bookings"
+        ]
+      }
+    },
+    "/api/v1/me/bookings": {
+      "get": {
+        "operationId": "BookingsController_listMine_v1",
+        "parameters": [
+          {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "description": "upcoming: activas que aún no empiezan. history: el resto (estado final o pasadas).",
+            "schema": {
+              "default": "upcoming",
+              "type": "string",
+              "enum": [
+                "upcoming",
+                "history"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingPageDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-RES-004/008: mis reservas (próximas o historial)",
+        "tags": [
+          "bookings"
+        ]
+      }
+    },
+    "/api/v1/me/barber/bookings": {
+      "get": {
+        "operationId": "BookingsController_listForBarber_v1",
+        "parameters": [
+          {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "description": "upcoming: activas que aún no empiezan. history: el resto (estado final o pasadas).",
+            "schema": {
+              "default": "upcoming",
+              "type": "string",
+              "enum": [
+                "upcoming",
+                "history"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingPageDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-RES-004/008: reservas que debo atender como barbero",
+        "tags": [
+          "bookings"
+        ]
+      }
+    },
+    "/api/v1/barbershops/{id}/bookings": {
+      "get": {
+        "operationId": "BookingsController_listForBarbershop_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "description": "upcoming: activas que aún no empiezan. history: el resto (estado final o pasadas).",
+            "schema": {
+              "default": "upcoming",
+              "type": "string",
+              "enum": [
+                "upcoming",
+                "history"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingPageDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RF-RES-004/008: reservas de mi barbería (OWNER o MANAGER)",
+        "tags": [
+          "bookings"
+        ]
+      }
     }
   },
   "info": {
@@ -5296,6 +5813,443 @@
           "date",
           "categoryKey",
           "items"
+        ]
+      },
+      "PaymentStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "SUCCEEDED",
+          "REJECTED",
+          "CANCELLED",
+          "REFUNDED",
+          "PARTIALLY_REFUNDED"
+        ]
+      },
+      "ClientPaymentActionDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "FAKE",
+              "REDIRECT",
+              "SDK"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "data"
+        ]
+      },
+      "PaymentStartDto": {
+        "type": "object",
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string",
+            "example": "FAKE"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaymentStatus"
+              }
+            ]
+          },
+          "amount": {
+            "$ref": "#/components/schemas/MoneyDto"
+          },
+          "clientAction": {
+            "nullable": true,
+            "description": "null si la pasarela no respondió: reintentar con POST /bookings/{id}/payment.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClientPaymentActionDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "paymentId",
+          "provider",
+          "status",
+          "amount",
+          "clientAction"
+        ]
+      },
+      "CreateBookingDto": {
+        "type": "object",
+        "properties": {
+          "barbershopId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "serviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Inicio exacto de un turno ofrecido por la disponibilidad (ISO 8601).",
+            "example": "2030-01-07T14:00:00.000Z"
+          },
+          "barberId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Sin barbero: se asigna el libre con menos reservas activas ese día."
+          }
+        },
+        "required": [
+          "barbershopId",
+          "serviceId",
+          "startAt"
+        ]
+      },
+      "BookingStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING_PAYMENT",
+          "CONFIRMED",
+          "ATTENDED",
+          "CANCELLED",
+          "NO_SHOW",
+          "EXPIRED"
+        ]
+      },
+      "NamedRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "PriceLineType": {
+        "type": "string",
+        "enum": [
+          "SERVICE",
+          "DISCOUNT",
+          "FEE",
+          "TAX"
+        ]
+      },
+      "PriceLineDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PriceLineType"
+              }
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/MoneyDto"
+          }
+        },
+        "required": [
+          "type",
+          "description",
+          "amount"
+        ]
+      },
+      "BookingPriceDto": {
+        "type": "object",
+        "properties": {
+          "subtotal": {
+            "$ref": "#/components/schemas/MoneyDto"
+          },
+          "discountTotal": {
+            "$ref": "#/components/schemas/MoneyDto"
+          },
+          "feeTotal": {
+            "$ref": "#/components/schemas/MoneyDto"
+          },
+          "total": {
+            "description": "Incluye impuestos (ADR 0002).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ]
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriceLineDto"
+            }
+          }
+        },
+        "required": [
+          "subtotal",
+          "discountTotal",
+          "feeTotal",
+          "total",
+          "lines"
+        ]
+      },
+      "CancellationDto": {
+        "type": "object",
+        "properties": {
+          "byRole": {
+            "type": "string",
+            "enum": [
+              "CLIENT",
+              "BARBERSHOP",
+              "SYSTEM"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "byRole",
+          "reason"
+        ]
+      },
+      "CreatedBookingDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BookingStatus"
+              }
+            ]
+          },
+          "barbershop": {
+            "$ref": "#/components/schemas/NamedRefDto"
+          },
+          "service": {
+            "description": "Nombre del servicio al reservar (copia).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NamedRefDto"
+              }
+            ]
+          },
+          "barber": {
+            "$ref": "#/components/schemas/NamedRefDto"
+          },
+          "barberChosenByClient": {
+            "type": "boolean"
+          },
+          "client": {
+            "nullable": true,
+            "description": "Solo para la barbería y el barbero: nombre del cliente (sin contacto).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NamedRefDto"
+              }
+            ]
+          },
+          "startAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "number",
+            "description": "Duración copiada del servicio al reservar."
+          },
+          "price": {
+            "$ref": "#/components/schemas/BookingPriceDto"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "Límite para pagar (PENDING_PAYMENT)."
+          },
+          "cancellation": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CancellationDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/PaymentStartDto"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "barbershop",
+          "service",
+          "barber",
+          "barberChosenByClient",
+          "client",
+          "startAt",
+          "endAt",
+          "durationMinutes",
+          "price",
+          "expiresAt",
+          "cancellation",
+          "createdAt",
+          "payment"
+        ]
+      },
+      "BookingDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BookingStatus"
+              }
+            ]
+          },
+          "barbershop": {
+            "$ref": "#/components/schemas/NamedRefDto"
+          },
+          "service": {
+            "description": "Nombre del servicio al reservar (copia).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NamedRefDto"
+              }
+            ]
+          },
+          "barber": {
+            "$ref": "#/components/schemas/NamedRefDto"
+          },
+          "barberChosenByClient": {
+            "type": "boolean"
+          },
+          "client": {
+            "nullable": true,
+            "description": "Solo para la barbería y el barbero: nombre del cliente (sin contacto).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NamedRefDto"
+              }
+            ]
+          },
+          "startAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "number",
+            "description": "Duración copiada del servicio al reservar."
+          },
+          "price": {
+            "$ref": "#/components/schemas/BookingPriceDto"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "Límite para pagar (PENDING_PAYMENT)."
+          },
+          "cancellation": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CancellationDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "barbershop",
+          "service",
+          "barber",
+          "barberChosenByClient",
+          "client",
+          "startAt",
+          "endAt",
+          "durationMinutes",
+          "price",
+          "expiresAt",
+          "cancellation",
+          "createdAt"
+        ]
+      },
+      "CancelBookingDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Obligatorio si cancela la barbería (OWNER o MANAGER)."
+          }
+        }
+      },
+      "BookingPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
         ]
       }
     }

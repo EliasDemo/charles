@@ -714,6 +714,128 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/bookings/{id}/payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-PAG-001: iniciar o reintentar el pago de una reserva pendiente (idempotente) */
+        post: operations["PaymentsController_start_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * RF-RES-001/002: crear una reserva (pendiente de pago) en un turno disponible
+         * @description Idempotente por la cabecera Idempotency-Key: repetir la misma petición devuelve la misma reserva (200). Requiere correo verificado.
+         */
+        post: operations["BookingsController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-RES-004: detalle (cliente, responsables o barbero asignado) */
+        get: operations["BookingsController_findOne_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** RF-RES-005: cancelar (cliente, o OWNER/MANAGER con motivo; el barbero no) */
+        post: operations["BookingsController_cancel_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-RES-004/008: mis reservas (próximas o historial) */
+        get: operations["BookingsController_listMine_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/barber/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-RES-004/008: reservas que debo atender como barbero */
+        get: operations["BookingsController_listForBarber_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-RES-004/008: reservas de mi barbería (OWNER o MANAGER) */
+        get: operations["BookingsController_listForBarbershop_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1454,6 +1576,132 @@ export interface components {
             categoryKey: string;
             /** @description Hasta 5, más cercanas primero. */
             items: components["schemas"]["AlternativeDto"][];
+        };
+        /** @enum {string} */
+        PaymentStatus: "PENDING" | "SUCCEEDED" | "REJECTED" | "CANCELLED" | "REFUNDED" | "PARTIALLY_REFUNDED";
+        ClientPaymentActionDto: {
+            /** @enum {string} */
+            type: "FAKE" | "REDIRECT" | "SDK";
+            data: {
+                [key: string]: string;
+            };
+        };
+        PaymentStartDto: {
+            /** Format: uuid */
+            paymentId: string;
+            /** @example FAKE */
+            provider: string;
+            status: components["schemas"]["PaymentStatus"];
+            amount: components["schemas"]["MoneyDto"];
+            /** @description null si la pasarela no respondió: reintentar con POST /bookings/{id}/payment. */
+            clientAction: components["schemas"]["ClientPaymentActionDto"] | null;
+        };
+        CreateBookingDto: {
+            /** Format: uuid */
+            barbershopId: string;
+            /** Format: uuid */
+            serviceId: string;
+            /**
+             * Format: date-time
+             * @description Inicio exacto de un turno ofrecido por la disponibilidad (ISO 8601).
+             * @example 2030-01-07T14:00:00.000Z
+             */
+            startAt: string;
+            /**
+             * Format: uuid
+             * @description Sin barbero: se asigna el libre con menos reservas activas ese día.
+             */
+            barberId?: string;
+        };
+        /** @enum {string} */
+        BookingStatus: "PENDING_PAYMENT" | "CONFIRMED" | "ATTENDED" | "CANCELLED" | "NO_SHOW" | "EXPIRED";
+        NamedRefDto: {
+            /** Format: uuid */
+            id: string;
+            name: string | null;
+        };
+        /** @enum {string} */
+        PriceLineType: "SERVICE" | "DISCOUNT" | "FEE" | "TAX";
+        PriceLineDto: {
+            type: components["schemas"]["PriceLineType"];
+            description: string;
+            amount: components["schemas"]["MoneyDto"];
+        };
+        BookingPriceDto: {
+            subtotal: components["schemas"]["MoneyDto"];
+            discountTotal: components["schemas"]["MoneyDto"];
+            feeTotal: components["schemas"]["MoneyDto"];
+            /** @description Incluye impuestos (ADR 0002). */
+            total: components["schemas"]["MoneyDto"];
+            lines: components["schemas"]["PriceLineDto"][];
+        };
+        CancellationDto: {
+            /** @enum {string} */
+            byRole: "CLIENT" | "BARBERSHOP" | "SYSTEM";
+            reason: string | null;
+        };
+        CreatedBookingDto: {
+            /** Format: uuid */
+            id: string;
+            status: components["schemas"]["BookingStatus"];
+            barbershop: components["schemas"]["NamedRefDto"];
+            /** @description Nombre del servicio al reservar (copia). */
+            service: components["schemas"]["NamedRefDto"];
+            barber: components["schemas"]["NamedRefDto"];
+            barberChosenByClient: boolean;
+            /** @description Solo para la barbería y el barbero: nombre del cliente (sin contacto). */
+            client: components["schemas"]["NamedRefDto"] | null;
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
+            /** @description Duración copiada del servicio al reservar. */
+            durationMinutes: number;
+            price: components["schemas"]["BookingPriceDto"];
+            /**
+             * Format: date-time
+             * @description Límite para pagar (PENDING_PAYMENT).
+             */
+            expiresAt: string | null;
+            cancellation: components["schemas"]["CancellationDto"] | null;
+            /** Format: date-time */
+            createdAt: string;
+            payment: components["schemas"]["PaymentStartDto"];
+        };
+        BookingDto: {
+            /** Format: uuid */
+            id: string;
+            status: components["schemas"]["BookingStatus"];
+            barbershop: components["schemas"]["NamedRefDto"];
+            /** @description Nombre del servicio al reservar (copia). */
+            service: components["schemas"]["NamedRefDto"];
+            barber: components["schemas"]["NamedRefDto"];
+            barberChosenByClient: boolean;
+            /** @description Solo para la barbería y el barbero: nombre del cliente (sin contacto). */
+            client: components["schemas"]["NamedRefDto"] | null;
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
+            /** @description Duración copiada del servicio al reservar. */
+            durationMinutes: number;
+            price: components["schemas"]["BookingPriceDto"];
+            /**
+             * Format: date-time
+             * @description Límite para pagar (PENDING_PAYMENT).
+             */
+            expiresAt: string | null;
+            cancellation: components["schemas"]["CancellationDto"] | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CancelBookingDto: {
+            /** @description Obligatorio si cancela la barbería (OWNER o MANAGER). */
+            reason?: string;
+        };
+        BookingPageDto: {
+            items: components["schemas"]["BookingDto"][];
+            nextCursor: string | null;
         };
     };
     responses: never;
@@ -3242,6 +3490,302 @@ export interface operations {
                 };
             };
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PaymentsController_start_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentStartDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BookingsController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description UUID único por intento. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBookingDto"];
+            };
+        };
+        responses: {
+            /** @description Repetición con la misma clave. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedBookingDto"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedBookingDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BookingsController_findOne_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BookingsController_cancel_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelBookingDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BookingsController_listMine_v1: {
+        parameters: {
+            query?: {
+                /** @description upcoming: activas que aún no empiezan. history: el resto (estado final o pasadas). */
+                scope?: "upcoming" | "history";
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingPageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BookingsController_listForBarber_v1: {
+        parameters: {
+            query?: {
+                /** @description upcoming: activas que aún no empiezan. history: el resto (estado final o pasadas). */
+                scope?: "upcoming" | "history";
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingPageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BookingsController_listForBarbershop_v1: {
+        parameters: {
+            query?: {
+                /** @description upcoming: activas que aún no empiezan. history: el resto (estado final o pasadas). */
+                scope?: "upcoming" | "history";
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingPageDto"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

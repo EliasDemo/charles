@@ -61,6 +61,15 @@ export class BarbershopAccessService {
   }
 
   /** Nombres de barberías no eliminadas (para invitaciones y correos). */
+  /** Nombres aunque la barbería se haya eliminado (historial de reservas). */
+  async namesIncludingDeleted(ids: string[]): Promise<Map<string, string>> {
+    const shops = await this.prisma.barbershop.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true },
+    });
+    return new Map(shops.map((s) => [s.id, s.name]));
+  }
+
   async names(ids: string[]): Promise<Map<string, string>> {
     const shops = await this.prisma.barbershop.findMany({
       where: { id: { in: ids }, deletedAt: null },

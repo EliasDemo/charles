@@ -1,0 +1,195 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsDate,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
+import { BookingStatus, PriceLineType } from '../../../generated/prisma/enums';
+import { MoneyDto } from '../../barbershops/dto/barbershop.dto';
+import { PaymentStartDto } from '../../payments/dto/payment.dto';
+
+const trim = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string' ? value.trim() : value;
+
+/** RF-RES-001/002. Cabecera obligatoria `Idempotency-Key` (UUID). */
+export class CreateBookingDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  barbershopId!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  serviceId!: string;
+
+  @ApiProperty({
+    description: 'Inicio exacto de un turno ofrecido por la disponibilidad (ISO 8601).',
+    example: '2030-01-07T14:00:00.000Z',
+  })
+  @Type(() => Date)
+  @IsDate()
+  startAt!: Date;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Sin barbero: se asigna el libre con menos reservas activas ese día.',
+  })
+  @IsOptional()
+  @IsUUID()
+  barberId?: string;
+}
+
+/** RF-RES-005. El motivo es obligatorio cuando cancela la barbería. */
+export class CancelBookingDto {
+  @ApiPropertyOptional({ description: 'Obligatorio si cancela la barbería (OWNER o MANAGER).' })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @Length(3, 300)
+  reason?: string;
+}
+
+const CURSOR = /^[A-Za-z0-9_-]+$/;
+
+/** RF-RES-004/008. */
+export class BookingListQueryDto {
+  @ApiPropertyOptional({
+    enum: ['upcoming', 'history'],
+    default: 'upcoming',
+    description:
+      'upcoming: activas que aún no empiezan. history: el resto (estado final o pasadas).',
+  })
+  @IsOptional()
+  @IsIn(['upcoming', 'history'])
+  scope?: 'upcoming' | 'history';
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 50, default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  @Matches(CURSOR)
+  cursor?: string;
+}
+
+// ───────────── Respuestas ─────────────
+
+export class NamedRefDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ nullable: true, type: String })
+  name!: string | null;
+}
+
+export class PriceLineDto {
+  @ApiProperty({ enum: PriceLineType, enumName: 'PriceLineType' })
+  type!: PriceLineType;
+
+  @ApiProperty()
+  description!: string;
+
+  @ApiProperty({ type: MoneyDto })
+  amount!: MoneyDto;
+}
+
+export class BookingPriceDto {
+  @ApiProperty({ type: MoneyDto })
+  subtotal!: MoneyDto;
+
+  @ApiProperty({ type: MoneyDto })
+  discountTotal!: MoneyDto;
+
+  @ApiProperty({ type: MoneyDto })
+  feeTotal!: MoneyDto;
+
+  @ApiProperty({ type: MoneyDto, description: 'Incluye impuestos (ADR 0002).' })
+  total!: MoneyDto;
+
+  @ApiProperty({ type: [PriceLineDto] })
+  lines!: PriceLineDto[];
+}
+
+export class CancellationDto {
+  @ApiProperty({ enum: ['CLIENT', 'BARBERSHOP', 'SYSTEM'] })
+  byRole!: 'CLIENT' | 'BARBERSHOP' | 'SYSTEM';
+
+  @ApiProperty({ nullable: true, type: String })
+  reason!: string | null;
+}
+
+export class BookingDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ enum: BookingStatus, enumName: 'BookingStatus' })
+  status!: BookingStatus;
+
+  @ApiProperty({ type: NamedRefDto })
+  barbershop!: NamedRefDto;
+
+  @ApiProperty({ type: NamedRefDto, description: 'Nombre del servicio al reservar (copia).' })
+  service!: NamedRefDto;
+
+  @ApiProperty({ type: NamedRefDto })
+  barber!: NamedRefDto;
+
+  @ApiProperty()
+  barberChosenByClient!: boolean;
+
+  @ApiProperty({
+    type: NamedRefDto,
+    nullable: true,
+    description: 'Solo para la barbería y el barbero: nombre del cliente (sin contacto).',
+  })
+  client!: NamedRefDto | null;
+
+  @ApiProperty()
+  startAt!: Date;
+
+  @ApiProperty()
+  endAt!: Date;
+
+  @ApiProperty({ description: 'Duración copiada del servicio al reservar.' })
+  durationMinutes!: number;
+
+  @ApiProperty({ type: BookingPriceDto })
+  price!: BookingPriceDto;
+
+  @ApiProperty({ nullable: true, type: Date, description: 'Límite para pagar (PENDING_PAYMENT).' })
+  expiresAt!: Date | null;
+
+  @ApiProperty({ type: CancellationDto, nullable: true })
+  cancellation!: CancellationDto | null;
+
+  @ApiProperty()
+  createdAt!: Date;
+}
+
+export class CreatedBookingDto extends BookingDto {
+  @ApiProperty({ type: PaymentStartDto })
+  payment!: PaymentStartDto;
+}
+
+export class BookingPageDto {
+  @ApiProperty({ type: [BookingDto] })
+  items!: BookingDto[];
+
+  @ApiProperty({ nullable: true, type: String })
+  nextCursor!: string | null;
+}

@@ -19,6 +19,8 @@ Este archivo es la fuente de verdad técnica. Los requerimientos funcionales (55
 9. Al terminar una fase, resume: qué se hizo, qué RF cubre, qué quedó pendiente.
 10. Nunca modifiques ni borres datos de la base directamente (incluida `_prisma_migrations`) sin pedir autorización antes.
 11. **Ningún commit sin que `pnpm verify` pase.** Ejecuta lint, typecheck, formato, pruebas unitarias y e2e, las coberturas mínimas, la verificación de que el OpenAPI y los tipos de `packages/shared` están al día y `pnpm audit --audit-level=high`. Requiere PostgreSQL y Redis levantados. El hook `.githooks/pre-commit` lo ejecuta; `pnpm install` lo activa (`core.hooksPath`). No se omite con `--no-verify`.
+12. **Ninguna llamada a servicios externos (pasarela de pagos, correo, APIs de terceros) dentro de una transacción de base de datos.** La transacción deja el estado listo (por ejemplo, el pago en `PENDING`); la llamada externa va después del commit, con su clave de idempotencia, y debe poder reintentarse. Los efectos asíncronos van por el outbox.
+13. Mantén al día `docs/pendientes-produccion.md`: todo lo que bloquea salir a producción. Revísalo al cerrar cada fase.
 
 ---
 
@@ -407,10 +409,57 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
        └──▶ CANCELLED (pago rechazado o cancelado)
 ```
 
-- Las transiciones se implementan en **un solo lugar** (`BookingStateMachine`). Cualquier transición no listada lanza error.
+- Las transiciones se implementan en **un solo lugar** (`BookingStateMachine`, `modules/bookings/booking-state-machine.ts`). Cualquier transición no listada lanza `INVALID_STATE_TRANSITION` (409). Además de las del diagrama: `CONFIRMED → CANCELLED`.
 - Cada transición escribe en `booking_status_history` y publica un evento de dominio, todo en la misma transacción.
 - `ATTENDED` y `NO_SHOW` solo pueden marcarse después de `start_at`.
 - Solo una reserva `ATTENDED` permite crear una valoración (RF-VAL-001).
+- **Outbox (entrega "al menos una vez"):** `OutboxService.publish(tx, …)` dentro de la transacción del cambio. `OutboxRelay` reclama lotes con `FOR UPDATE SKIP LOCKED`, cada 5 s como trabajo repetible de BullMQ.
+  - Si un consumidor falla, el evento se reintenta con espera creciente (2^n s, máximo 10 min) y queda `FAILED` tras 8 intentos.
+  - Un evento "en proceso" abandonado durante más de 5 min se reentrega.
+  - Cada evento tiene un ID único y el payload lleva solo IDs, nunca datos personales.
+  - **Todo consumidor debe ser idempotente por ese ID**: `IdempotentConsumerStore.runOnce(consumidor, eventId, efecto)`, con la marca en Redis por 30 días. Si el efecto debe ser idempotente para siempre (por ejemplo, un cobro), se apoya además en una restricción única en la base.
+- **Eventos:** `booking.created`, `booking.confirmed`, `booking.cancelled`, `booking.expired`, `booking.attended`, `booking.no_show`, `payment.orphaned` y `payment.refund_decision_pending`.
+- **Trabajos programados** (`SCHEDULED_JOBS_ENABLED`, activo por defecto; las e2e los apagan y los ejecutan a mano con el reloj fijo): el relay del outbox y el vencimiento de reservas sin pago.
+
+#### Reservas (Fase 7)
+
+- **Crear (`POST /bookings`):**
+  - **Cabecera `Idempotency-Key` (UUID) obligatoria:** la misma petición devuelve la misma reserva (200); otra petición con la misma clave da 409 `IDEMPOTENCY_KEY_REUSED`.
+  - **Correo verificado:** obligatorio (403 `EMAIL_NOT_VERIFIED`).
+  - **Validación del turno:** `startAt` debe ser futuro, respetar la anticipación mínima y coincidir exactamente con un turno del motor. Si no, 409 `SLOT_NOT_AVAILABLE`, también para fechas pasadas, fuera del horizonte o en una barbería no `OPEN`.
+  - **En una transacción:**
+    1. bloqueo consultivo por cliente;
+    2. límite de pendientes;
+    3. expirar las `PENDING_PAYMENT` vencidas que se solapan con el turno (por la máquina de estados);
+    4. insertar copiando del servicio el nombre, la duración y el precio, más una línea `SERVICE` en `booking_price_lines` (el precio incluye impuestos);
+    5. historial y evento;
+    6. pago `PENDING`.
+
+    La restricción de exclusión es la garantía final contra la doble reserva.
+- **"Cualquier barbero":** el libre con menos reservas activas ese día y, a igualdad, por ID. Hasta 3 candidatos, con un savepoint entre intentos. Guarda `barber_chosen_by_client = false`.
+- **Abuso:**
+  - como máximo `booking.max_pending_per_client` (2) reservas `PENDING_PAYMENT` vigentes por cliente (409 `TOO_MANY_PENDING_BOOKINGS`); las vencidas no cuentan;
+  - `booking.rate_limit_per_minute` (20) creaciones por minuto **por cliente**, además del límite por IP;
+  - sí se permiten reservas del mismo cliente que se solapen (acompañante) y no hay máximo de reservas futuras.
+- **Plazo para pagar:** `booking.pending_payment_ttl_minutes` (10). Un trabajo cada minuto pasa a `EXPIRED` las vencidas, con `FOR UPDATE SKIP LOCKED`; es idempotente.
+- **Pago (punto de unión, Fase 7):**
+  - La fila `payments` (`PENDING`) se crea en la transacción de la reserva.
+  - `PaymentGateway.createPayment` se llama después del commit, con `idempotencyKey = booking:{id}`. Si falla, la reserva existe igual y se reintenta con `POST /bookings/{id}/payment` (502 `PAYMENT_PROVIDER_ERROR` mientras siga fallando).
+  - La reserva pasa a `CONFIRMED` **solo** desde `PaymentsService.handleResult`, que en la Fase 8 llamará el webhook verificado; hoy lo llama un endpoint que solo existe con `NODE_ENV=test`.
+  - Un pago rechazado o cancelado lleva la reserva a `CANCELLED`, con el sistema como actor.
+  - Un pago confirmado sobre una reserva vencida o cancelada no la reactiva: queda `refundDecision: ORPHANED` y se emite el evento `payment.orphaned`.
+  - La app no arranca en producción con `payments.provider = FAKE`.
+- **Cancelar (`POST /bookings/{id}/cancel`):**
+  - el cliente, o el OWNER/MANAGER con motivo obligatorio; el barbero no (403);
+  - con `booking.cancellation_deadline_minutes = null` (provisional): el cliente cancela una `PENDING_PAYMENT` siempre y una `CONFIRMED` hasta que empiece; con un número N, hasta N minutos antes;
+  - la barbería cancela hasta que empiece;
+  - se guarda quién canceló (`cancelled_by`) y con qué rol (`metadata.cancelledByRole`: `CLIENT`, `BARBERSHOP` o `SYSTEM`);
+  - **no se devuelve dinero:** un pago cobrado queda con `refundDecision: PENDING_POLICY` y se emite `payment.refund_decision_pending`, a la espera de la política y de la Fase 8.
+- **Consultar:**
+  - `GET /me/bookings`, `GET /me/barber/bookings` y `GET /barbershops/{id}/bookings`, con `scope=upcoming|history` y cursor;
+  - `GET /bookings/{id}`;
+  - el barbero y el responsable ven solo el **nombre** del cliente (ni teléfono, ni correo, ni documento);
+  - quien no tiene relación con la reserva recibe 404.
 
 ---
 
@@ -450,9 +499,9 @@ Servicio único `AvailabilityService`. Para una barbería, servicio, fecha y (op
 
 ## 11. Pruebas
 
-- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings` y `payments`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) y en `search` con `pnpm --filter api test:cov:search`; CI falla si alguna baja del 80 %.
+- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings` y `payments`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) en `search` con `pnpm --filter api test:cov:search` y en `bookings` + `payments` con `pnpm --filter api test:cov:bookings`; CI y `pnpm verify` fallan si alguna baja del 80 %.
 - e2e por cada RF de prioridad Alta, contra PostgreSQL real en Docker (no simular la base de datos).
-- **Prueba de concurrencia obligatoria** (RF-RES-007): dos peticiones simultáneas por el mismo turno → exactamente una tiene éxito.
+- **Prueba de concurrencia obligatoria** (RF-RES-007): dos peticiones simultáneas por el mismo turno → exactamente una tiene éxito. Está en `test/bookings/bookings.e2e-spec.ts`: 10 rondas por API, más las variantes de "cualquier barbero" y de la misma clave de idempotencia.
 - Pruebas de autorización: por cada endpoint privado, un caso que verifique que otro usuario **no** puede acceder.
 - Pruebas de webhook: firma inválida rechazada y evento duplicado procesado una sola vez.
 

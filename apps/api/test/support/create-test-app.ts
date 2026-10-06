@@ -15,18 +15,30 @@ interface TestAppOptions {
   imports?: ModuleMetadata['imports'];
   /** Reloj fijo o controlable (por defecto, el del sistema). */
   clock?: Clock;
+  /** Reemplazos puntuales de proveedores (por ejemplo, una comprobación de arranque). */
+  overrides?: { provide: unknown; useValue: unknown }[];
 }
 
 /** Levanta la app completa (igual que `main.ts`) con los endpoints de prueba. */
 export async function createTestApp(options: TestAppOptions = {}): Promise<NestExpressApplication> {
-  const moduleRef = await Test.createTestingModule({
+  let builder = Test.createTestingModule({
     imports: [AppModule, TestProbeModule, ...(options.imports ?? [])],
   })
     .overrideProvider(APP_CONFIG)
-    .useFactory({ factory: (): AppConfig => ({ ...validateEnv(process.env), ...options.config }) })
+    .useFactory({
+      factory: (): AppConfig => ({
+        ...validateEnv(process.env),
+        // Los trabajos programados se ejecutan a mano en las pruebas (reloj fijo, sin carreras).
+        scheduledJobsEnabled: false,
+        ...options.config,
+      }),
+    })
     .overrideProvider(CLOCK)
-    .useValue(options.clock ?? { now: () => Date.now() })
-    .compile();
+    .useValue(options.clock ?? { now: () => Date.now() });
+  for (const override of options.overrides ?? []) {
+    builder = builder.overrideProvider(override.provide).useValue(override.useValue);
+  }
+  const moduleRef = await builder.compile();
 
   const app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
   configureApp(app);

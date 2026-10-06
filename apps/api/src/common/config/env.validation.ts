@@ -123,6 +123,14 @@ export class EnvironmentVariables {
 
   @IsEnum(MailerDriver)
   MAILER_DRIVER: MailerDriver = MailerDriver.Fake;
+
+  /**
+   * Trabajos programados (vencer reservas sin pago, publicar el outbox). Las e2e los apagan y
+   * ejecutan cada trabajo a mano, con el reloj fijo.
+   */
+  @Transform(toBoolean)
+  @IsBoolean()
+  SCHEDULED_JOBS_ENABLED = true;
 }
 
 /** Configuración ya validada e interpretada que consume la aplicación. */
@@ -149,6 +157,7 @@ export interface AppConfig {
     refreshTokenTtlDays: number;
   };
   mail: { driver: MailerDriver };
+  scheduledJobsEnabled: boolean;
 }
 
 interface Parsed<T> {
@@ -291,5 +300,6 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
       refreshTokenTtlDays: env.REFRESH_TOKEN_TTL_DAYS,
     },
     mail: { driver: env.MAILER_DRIVER },
+    scheduledJobsEnabled: env.SCHEDULED_JOBS_ENABLED,
   };
 }

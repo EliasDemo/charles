@@ -331,6 +331,15 @@ export class BarbersService {
     return barber?.id ?? null;
   }
 
+  /** Perfiles de barbero (no eliminados) vinculados a la cuenta. */
+  async barberIdsOfUser(userId: string): Promise<string[]> {
+    const rows = await this.prisma.barber.findMany({
+      where: { userId, deletedAt: null },
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
+  }
+
   async idsOfBarbershop(barbershopId: string): Promise<string[]> {
     const rows = await this.prisma.barber.findMany({
       where: { barbershopId, deletedAt: null },

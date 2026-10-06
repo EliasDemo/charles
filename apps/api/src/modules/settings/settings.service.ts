@@ -20,6 +20,10 @@ export const SettingKey = {
   SEARCH_MAX_PAGE_SIZE: 'search.max_page_size',
   SEARCH_MAX_CANDIDATES: 'search.max_candidates',
   SEARCH_RATE_LIMIT_PER_MINUTE: 'search.rate_limit_per_minute',
+  BOOKING_MAX_PENDING_PER_CLIENT: 'booking.max_pending_per_client',
+  BOOKING_RATE_LIMIT_PER_MINUTE: 'booking.rate_limit_per_minute',
+  CANCELLATION_DEADLINE_MINUTES: 'booking.cancellation_deadline_minutes',
+  PAYMENTS_PROVIDER: 'payments.provider',
 } as const;
 
 /** Lectura de `app_settings` (clave/valor). Las políticas pendientes valen JSON `null`. */

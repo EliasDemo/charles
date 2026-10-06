@@ -1,9 +1,14 @@
 import { Module } from '@nestjs/common';
+import { BookingStateMachine } from './booking-state-machine';
 import { BookingsReadService } from './bookings-read.service';
 
-/** Fase 4: solo lectura. Reservas, máquina de estados y outbox llegan en la Fase 7. */
+/**
+ * Núcleo de reservas que otros módulos pueden importar sin ciclos: lecturas para la
+ * disponibilidad y la máquina de estados (pagos la usa para confirmar). La gestión de reservas
+ * (crear, cancelar, consultar) vive en `BookingsManagementModule`.
+ */
 @Module({
-  providers: [BookingsReadService],
-  exports: [BookingsReadService],
+  providers: [BookingsReadService, BookingStateMachine],
+  exports: [BookingsReadService, BookingStateMachine],
 })
 export class BookingsModule {}
