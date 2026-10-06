@@ -34,6 +34,9 @@ export const SettingKey = {
   PAYMENTS_PENDING_CHECK_INTERVAL_MINUTES: 'payments.pending_check_interval_minutes',
   WEBHOOK_RATE_LIMIT_PER_MINUTE: 'payments.webhook_rate_limit_per_minute',
   PAYMENTS_PROVIDER: 'payments.provider',
+  REVIEWS_WINDOW_DAYS: 'reviews.window_days',
+  REVIEWS_REPORT_THRESHOLD: 'reviews.report_threshold',
+  REVIEWS_RATE_LIMIT_PER_MINUTE: 'reviews.rate_limit_per_minute',
 } as const;
 
 /** Lectura de `app_settings` (clave/valor). Las políticas pendientes valen JSON `null`. */

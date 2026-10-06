@@ -1,0 +1,52 @@
+import {
+  normalizeText,
+  publicAuthorName,
+  reachesReportThreshold,
+  withinReviewWindow,
+} from './review-policy';
+
+describe('RF-VAL-002 reglas de valoraciones', () => {
+  describe('nombre público ("Ana R.")', () => {
+    it.each([
+      ['Ana Rodríguez', 'Ana R.'],
+      ['  ana   maría   rodríguez  ', 'ana R.'],
+      ['Ana', 'Ana'],
+      ['José Ñahui', 'José Ñ.'],
+      ['Ana  élida', 'Ana É.'],
+      ['', 'Cliente'],
+      ['   ', 'Cliente'],
+    ])('%j → %j', (input, expected) => {
+      expect(publicAuthorName(input)).toBe(expected);
+    });
+
+    it('nunca contiene el apellido completo', () => {
+      expect(publicAuthorName('Ana Rodríguez')).not.toContain('Rodríguez');
+    });
+  });
+
+  describe('texto plano', () => {
+    it('recorta, colapsa espacios y conserva saltos simples', () => {
+      expect(normalizeText('  Muy   bien \r\n\r\n\r\n  gracias  ')).toBe('Muy bien\n\ngracias');
+    });
+    it('vacío o solo espacios → null', () => {
+      expect(normalizeText('   ')).toBeNull();
+      expect(normalizeText(undefined)).toBeNull();
+      expect(normalizeText(null)).toBeNull();
+    });
+    it('no interpreta HTML: lo deja como texto', () => {
+      expect(normalizeText('<b>hola</b>')).toBe('<b>hola</b>');
+    });
+  });
+
+  it('plazo inclusivo de N días desde ATTENDED', () => {
+    const attended = new Date('2030-01-07T12:00:00Z');
+    const day = 24 * 3600 * 1000;
+    expect(withinReviewWindow(attended, attended.getTime() + 14 * day, 14)).toBe(true);
+    expect(withinReviewWindow(attended, attended.getTime() + 14 * day + 1, 14)).toBe(false);
+  });
+
+  it('umbral de reportes', () => {
+    expect(reachesReportThreshold(2, 3)).toBe(false);
+    expect(reachesReportThreshold(3, 3)).toBe(true);
+  });
+});

@@ -155,6 +155,10 @@ Todos los errores tienen la misma forma:
 | `ATTENDANCE_NOT_ALLOWED`               | 409       | Fuera de la ventana para marcar atendida                                                  | Mostrar `message`.                                                            |
 | `ATTENDANCE_CORRECTION_NOT_ALLOWED`    | 409       | Fuera del plazo de corrección (48 h)                                                      | "Contacta a soporte."                                                         |
 | `ALREADY_REVIEWED`                     | 409       | Ya calificada (soporte)                                                                   | —                                                                             |
+| `REVIEW_NOT_ALLOWED`                   | 409       | La reserva no está atendida o pasó el plazo de 14 días                                    | Ocultar "Valorar".                                                            |
+| `REVIEW_ALREADY_EXISTS`                | 409       | Ya valoraste esta reserva                                                                 | Ir a la valoración existente.                                                 |
+| `REVIEW_EDIT_NOT_ALLOWED`              | 409       | Ya se editó una vez o pasó el plazo                                                       | Ocultar "Editar" (`canEdit`).                                                 |
+| `ALREADY_REPORTED`                     | 409       | Ya reportaste ese contenido                                                               | "Ya lo reportaste."                                                           |
 | `WEBHOOK_MISMATCH` / `WEBHOOK_TOO_OLD` | 409 / 400 | Solo para la pasarela                                                                     | No aplica a la app.                                                           |
 | `INVALID_CODE`                         | 400       | Código incorrecto, vencido o usado                                                        | "Código inválido o vencido." Ofrecer reenviar.                                |
 | `TERMS_VERSION_OUTDATED`               | 400       | Cambió la versión de los términos                                                         | Volver a pedir `GET /auth/terms` y aceptar de nuevo.                          |
@@ -235,6 +239,16 @@ Las rutas son relativas a `/api/v1`. "Sesión" significa la cabecera `Authorizat
 
    Política: con 5 h o más de anticipación se devuelve todo; con 2 h o más, el 50 %; con menos, nada. Una reserva sin pagar se puede cancelar siempre.
 
+9. **Favoritos:**
+   - marcar y quitar: `PUT` y `DELETE /me/favorites/{barbershopId}` (204, idempotentes; marcar una barbería no pública da 404);
+   - listar: `GET /me/favorites` (las más recientes primero). Una barbería suspendida desaparece de la lista y vuelve si se reactiva.
+10. **Valorar:** `POST /bookings/{id}/review` con `{ rating: 1..5, comment? }` (comentario de 3 a 500 caracteres, texto plano).
+    - Solo reservas propias `ATTENDED`, una vez, dentro de 14 días desde que quedaron atendidas. Si no: 409 `REVIEW_NOT_ALLOWED` o `REVIEW_ALREADY_EXISTS`.
+    - Editar **una sola vez** dentro del plazo: `PATCH /reviews/{id}` (si no, 409 `REVIEW_EDIT_NOT_ALLOWED`). Retirar: `DELETE /reviews/{id}`.
+    - `GET /me/reviews` trae `status` y `canEdit` (úsalo para mostrar u ocultar "Editar").
+11. **Opiniones de una barbería:** `GET /barbershops/{id}/reviews?barberId=&rating=` sin sesión. El autor llega como "Ana R."; `response` es la respuesta de la barbería o `null`. El promedio está en `rating` de la barbería y de cada barbero.
+12. **Reportar:** `POST /reviews/{id}/reports` con `{ target: "REVIEW" | "RESPONSE", reason, details? }` (motivos: `OFFENSIVE`, `PERSONAL_DATA`, `FAKE`, `SPAM`, `OTHER`). 204; una vez por contenido (409 `ALREADY_REPORTED`); el propio contenido no se reporta (403).
+
 ### Responsable (OWNER o MANAGER)
 
 1. **Crear la barbería:**
@@ -279,6 +293,7 @@ Las rutas son relativas a `/api/v1`. "Sesión" significa la cabecera `Authorizat
 10. **Reservas:**
     - listar: `GET /barbershops/{id}/bookings?scope=`;
     - cancelar con motivo obligatorio: `POST /bookings/{id}/cancel` con `{ reason }`. Se devuelve todo y la cancelación queda registrada para revisión.
+11. **Responder valoraciones:** `PUT /reviews/{id}/response` con `{ text }` (hasta 500 caracteres). Una respuesta por valoración, editable con la misma llamada. El barbero no responde.
 
 ### Barbero
 
@@ -332,15 +347,14 @@ Reembolso: `PENDING` (enviado o por enviar a la pasarela), `SUCCEEDED` o `FAILED
 
 ## 7. Qué está disponible hoy y qué no
 
-| Fase       | Estado                                                                                                                                                          | Qué deja preparado la app                                                                   |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| 1–7, 8A, 9 | **Disponible**: cuentas, barberías, servicios, barberos, horarios, disponibilidad, búsqueda, reservas, pagos con `FakeGateway`, reembolsos, asistencia y agenda | —                                                                                           |
-| 8B         | **Falta**: pago real con Izipay (SDK, `formToken`)                                                                                                              | Pantalla de pago detrás de un módulo intercambiable; ver `PAGOS.md`                         |
-| 10         | **Falta**: notificaciones push y correo real; registro de `device_tokens`                                                                                       | Pedir el permiso de notificaciones y obtener el token del dispositivo, sin enviarlo todavía |
-| 11         | **Falta**: favoritos y valoraciones                                                                                                                             | Espacios en el detalle de la barbería (estrellas, opiniones) y botón de favorito            |
-| 12         | **Falta**: tickets de soporte y panel de operación                                                                                                              | Entrada "Ayuda / reportar un problema"                                                      |
-| 13         | **Falta**: promociones, cupones, auspiciadores y destacados                                                                                                     | Hoy `featured` siempre es `false`; espacio para banners                                     |
-| 14         | **Falta**: galería e imágenes (logo, portada, fotos de barberos y trabajos)                                                                                     | Hoy no hay imágenes: usar marcadores                                                        |
-| 15–16      | **Falta**: planes de suscripción y membresías                                                                                                                   | —                                                                                           |
+| Fase           | Estado                                                                                                                                                                                   | Qué deja preparado la app                                                                   |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 1–7, 8A, 9, 11 | **Disponible**: cuentas, barberías, servicios, barberos, horarios, disponibilidad, búsqueda, reservas, pagos con `FakeGateway`, reembolsos, asistencia, agenda, favoritos y valoraciones | —                                                                                           |
+| 8B             | **Falta**: pago real con Izipay (SDK, `formToken`)                                                                                                                                       | Pantalla de pago detrás de un módulo intercambiable; ver `PAGOS.md`                         |
+| 10             | **Falta**: notificaciones push y correo real; registro de `device_tokens`                                                                                                                | Pedir el permiso de notificaciones y obtener el token del dispositivo, sin enviarlo todavía |
+| 12             | **Falta**: tickets de soporte y panel de operación                                                                                                                                       | Entrada "Ayuda / reportar un problema"                                                      |
+| 13             | **Falta**: promociones, cupones, auspiciadores y destacados                                                                                                                              | Hoy `featured` siempre es `false`; espacio para banners                                     |
+| 14             | **Falta**: galería e imágenes (logo, portada, fotos de barberos y trabajos)                                                                                                              | Hoy no hay imágenes: usar marcadores                                                        |
+| 15–16          | **Falta**: planes de suscripción y membresías                                                                                                                                            | —                                                                                           |
 
 Estado detallado del proyecto: `docs/ESTADO.md`.

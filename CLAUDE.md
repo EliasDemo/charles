@@ -347,12 +347,12 @@ El objetivo es agregar funciones nuevas **sin modificar los módulos existentes*
 
 **Experiencia del cliente**
 
-| Tabla            | Columnas clave                                                                                                                                 |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `favorites`      | `client_id`, `barbershop_id` — único por par                                                                                                   |
-| `reviews`        | `booking_id` (**único**), `client_id`, `barbershop_id`, `barber_id`, `rating` (1–5), `comment`, `status` (`VISIBLE`, `HIDDEN`, `UNDER_REVIEW`) |
-| `review_reports` | `review_id`, `reported_by`, `reason`, `resolved_at`, `resolution`                                                                              |
-| `notifications`  | `user_id`, `type`, `title`, `body`, `data` JSONB, `channel` (`PUSH`, `EMAIL`, `IN_APP`), `sent_at`, `read_at`                                  |
+| Tabla            | Columnas clave                                                                                                                                                                                                                                             |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `favorites`      | `client_id`, `barbershop_id` — único por par                                                                                                                                                                                                               |
+| `reviews`        | `booking_id` (**único**), `client_id`, `barbershop_id`, `barber_id`, `rating` (1–5), `comment`, `status` (`VISIBLE`, `HIDDEN`, `UNDER_REVIEW`), `hidden_reason`, `edited_at`, respuesta (`response_text`, `response_by`, `response_at`, `response_status`) |
+| `review_reports` | `review_id`, `target` (`REVIEW`, `RESPONSE`), `reported_by` (único por valoración y objetivo), `reason` (lista cerrada), `details`, `resolved_at`, `resolution`                                                                                            |
+| `notifications`  | `user_id`, `type`, `title`, `body`, `data` JSONB, `channel` (`PUSH`, `EMAIL`, `IN_APP`), `sent_at`, `read_at`                                                                                                                                              |
 
 **Soporte y operación**
 
@@ -548,6 +548,33 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
   - el evento normalizado trae importe, moneda, modo e ID de transacción;
   - referencia técnica en `docs/izipay/referencia.md`.
 
+### Favoritos y valoraciones (Fase 11)
+
+- **Favoritos (RF-FAV-001…003):** `PUT` y `DELETE /me/favorites/{barbershopId}` (idempotentes) y `GET /me/favorites` (por cursor, los más recientes primero).
+  - Solo se marca una barbería visible públicamente.
+  - Una barbería suspendida, pendiente de revisión o eliminada desaparece de la lista sin borrar el favorito: vuelve si se reactiva.
+- **Valorar (RF-VAL-001):** `POST /bookings/{id}/review` con `{ rating, comment? }`.
+  - Solo el cliente, sobre su reserva `ATTENDED`, una vez, dentro de `reviews.window_days` (14) desde la primera vez que quedó `ATTENDED` (incluido el cierre automático).
+  - `rating` entero 1–5; comentario opcional de 3 a 500 caracteres, texto plano (se recortan los espacios, no se interpreta HTML).
+  - Se bloquea la reserva: dos valoraciones simultáneas de la misma reserva, una sola gana (y además `booking_id` es único).
+  - `PATCH /reviews/{id}`: **una sola edición**, en el mismo plazo, sin cambiar la fecha original (`edited_at`).
+  - `DELETE /reviews/{id}`: retirarla en cualquier momento (borrado lógico); no se puede volver a valorar esa reserva.
+- **Público (RF-VAL-002):** `GET /barbershops/{id}/reviews?barberId=&rating=` (por cursor, las más recientes primero). Autor como "Ana R." (nombre e inicial del apellido); nunca el contacto. Se muestran `VISIBLE` y `UNDER_REVIEW`; nunca `HIDDEN`.
+- **Respuesta de la barbería:** `PUT /reviews/{id}/response` (OWNER o MANAGER; el barbero no). Una por valoración, editable, hasta 500 caracteres, auditada. Editarla no cambia la visibilidad decidida por soporte.
+- **Reportes:** `POST /reviews/{id}/reports` con `{ target: REVIEW | RESPONSE, reason, details? }`.
+  - Motivos: `OFFENSIVE`, `PERSONAL_DATA`, `FAKE`, `SPAM`, `OTHER`. Uno por usuario y objetivo.
+  - Nadie reporta lo propio: el autor no reporta su valoración ni la barbería su respuesta.
+  - Con `reviews.report_threshold` (3) reportes abiertos, el objetivo pasa a `UNDER_REVIEW`, **sigue visible** y queda en la cola de soporte.
+  - Límite propio por cuenta para valoraciones y reportes: `reviews.rate_limit_per_minute` (10).
+- **Moderación:** solo `ReviewModerationService` cambia la visibilidad (soporte la usa en la Fase 12): `KEEP` (vuelve a `VISIBLE`), `HIDE` y `RESTORE`, para la valoración o para la respuesta por separado; resuelve los reportes abiertos y queda auditada.
+- **Corrección de asistencia:** consumidor idempotente de `booking.attendance_corrected` que lee el estado actual de la reserva:
+  - a `NO_SHOW` oculta la valoración (`hidden_reason = attendance_corrected`);
+  - de vuelta a `ATTENDED` la restaura solo si la ocultó esa corrección, nunca si la ocultó soporte.
+- **Promedios (RF-VAL-003):** `barbershops` y `barbers` (`rating_avg`, `rating_count`).
+  - Se recalculan con una consulta agregada sobre las visibles (`UNDER_REVIEW` cuenta) en la misma transacción que el cambio; nunca con sumas incrementales.
+  - Se bloquea la barbería y luego el barbero con `FOR NO KEY UPDATE` (no `FOR UPDATE`: chocaría con el `FOR KEY SHARE` de las claves foráneas y daría interbloqueos).
+  - Una verificación nocturna (03:30 de Lima) corrige descuadres y los audita (`rating.corrected`).
+
 ---
 
 ## 9. Motor de disponibilidad (RF-DIS-001 a 004, RF-BRB-003)
@@ -586,7 +613,7 @@ Servicio único `AvailabilityService`. Para una barbería, servicio, fecha y (op
 
 ## 11. Pruebas
 
-- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings` y `payments`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) en `search` con `pnpm --filter api test:cov:search` y en `bookings` + `payments` + `moderation` con `pnpm --filter api test:cov:bookings`; CI y `pnpm verify` fallan si alguna baja del 80 %.
+- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings`, `payments` y `reviews`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) en `search` con `pnpm --filter api test:cov:search` y en `bookings` + `payments` + `moderation` con `pnpm --filter api test:cov:bookings`, y en `reviews` con `pnpm --filter api test:cov:reviews`; CI y `pnpm verify` fallan si alguna baja del 80 %.
 - e2e por cada RF de prioridad Alta, contra PostgreSQL real en Docker (no simular la base de datos).
 - **Prueba de concurrencia obligatoria** (RF-RES-007): dos peticiones simultáneas por el mismo turno → exactamente una tiene éxito. Está en `test/bookings/bookings.e2e-spec.ts`: 10 rondas por API, más las variantes de "cualquier barbero" y de la misma clave de idempotencia.
 - Pruebas de autorización: por cada endpoint privado, un caso que verifique que otro usuario **no** puede acceder.

@@ -565,6 +565,7 @@ export class BarbersService {
       serviceIds: barber.services
         .filter((s) => !onlyAvailableServices || s.service.isAvailable)
         .map((s) => s.serviceId),
+      rating: { average: Number(barber.ratingAvg), count: barber.ratingCount },
     };
   }
 

@@ -1,3 +1,4 @@
+import { RatingDto } from '../../barbershops/dto/barbershop.dto';
 import { BarbershopStatus } from '../../../generated/prisma/enums';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
@@ -135,6 +136,9 @@ export class BarberPublicDto {
 
   @ApiProperty({ type: [String] })
   serviceIds!: string[];
+
+  @ApiProperty({ type: RatingDto, description: 'Valoraciones visibles del barbero (Fase 11).' })
+  rating!: RatingDto;
 }
 
 export class LinkedUserDto {

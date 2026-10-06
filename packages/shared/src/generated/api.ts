@@ -993,6 +993,153 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/bookings/{id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * RF-VAL-001: valorar una reserva atendida (propia, una vez, dentro del plazo)
+         * @description Plazo: reviews.window_days (14) desde que la reserva quedó ATTENDED.
+         */
+        post: operations["ReviewsController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviews/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** RF-VAL-001: retirar la valoración propia */
+        delete: operations["ReviewsController_retire_v1"];
+        options?: never;
+        head?: never;
+        /** RF-VAL-001: editar la valoración propia (una vez, dentro del plazo) */
+        patch: operations["ReviewsController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/me/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-VAL-001: mis valoraciones (las más recientes primero) */
+        get: operations["ReviewsController_listMine_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * RF-VAL-002: valoraciones públicas de una barbería (las más recientes primero)
+         * @description Autor como "Ana R.". Nunca datos de contacto.
+         */
+        get: operations["ReviewsController_listPublic_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviews/{id}/response": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** RF-VAL-002: responder (o editar la respuesta) como barbería (OWNER o MANAGER) */
+        put: operations["ReviewsController_respond_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviews/{id}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * RF-VAL-002: reportar una valoración o la respuesta de la barbería
+         * @description Una vez por usuario y objetivo. Con reviews.report_threshold (3) reportes pasa a revisión de soporte y sigue visible.
+         */
+        post: operations["ReviewsController_report_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/favorites/{barbershopId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** RF-FAV-001: marcar una barbería como favorita (idempotente) */
+        put: operations["FavoritesController_add_v1"];
+        post?: never;
+        /** RF-FAV-002: quitar de favoritos (idempotente) */
+        delete: operations["FavoritesController_remove_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/favorites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** RF-FAV-003: mis barberías favoritas (las más recientes primero) */
+        get: operations["FavoritesController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1407,6 +1554,8 @@ export interface components {
             bio: string | null;
             photoUrl: string | null;
             serviceIds: string[];
+            /** @description Valoraciones visibles del barbero (Fase 11). */
+            rating: components["schemas"]["RatingDto"];
         };
         BarberPublicPageDto: {
             items: components["schemas"]["BarberPublicDto"][];
@@ -1424,6 +1573,8 @@ export interface components {
             bio: string | null;
             photoUrl: string | null;
             serviceIds: string[];
+            /** @description Valoraciones visibles del barbero (Fase 11). */
+            rating: components["schemas"]["RatingDto"];
             phone: string | null;
             isActive: boolean;
             linkedUser: components["schemas"]["LinkedUserDto"] | null;
@@ -2034,6 +2185,122 @@ export interface components {
         };
         BookingPageDto: {
             items: components["schemas"]["BookingDto"][];
+            nextCursor: string | null;
+        };
+        CreateReviewDto: {
+            /** @description Puntuación entera de 1 a 5. */
+            rating: number;
+            /** @description Texto plano: se recortan los espacios y no se interpreta HTML. */
+            comment?: string | null;
+        };
+        ReviewBarberDto: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+        };
+        ReviewResponseDto: {
+            text: string;
+            /** Format: date-time */
+            respondedAt: string;
+        };
+        ReviewBarbershopDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        MyReviewDto: {
+            /** Format: uuid */
+            id: string;
+            rating: number;
+            comment: string | null;
+            /**
+             * @description Nombre e inicial del apellido.
+             * @example Ana R.
+             */
+            authorName: string;
+            /** @description Servicio tal como se reservó. */
+            serviceName: string;
+            barber: components["schemas"]["ReviewBarberDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            editedAt: string | null;
+            /** @description Respuesta de la barbería (null si no hay o la ocultó soporte). */
+            response: components["schemas"]["ReviewResponseDto"] | null;
+            /** Format: uuid */
+            bookingId: string;
+            barbershop: components["schemas"]["ReviewBarbershopDto"];
+            /**
+             * @description HIDDEN: no se muestra en público (soporte o asistencia corregida).
+             * @enum {string}
+             */
+            status: "VISIBLE" | "HIDDEN" | "UNDER_REVIEW";
+            /** @description Aún se puede editar (una sola vez, dentro del plazo). */
+            canEdit: boolean;
+        };
+        UpdateReviewDto: {
+            rating?: number;
+            /** @description null quita el comentario. */
+            comment?: string | null;
+        };
+        MyReviewPageDto: {
+            items: components["schemas"]["MyReviewDto"][];
+            nextCursor: string | null;
+        };
+        PublicReviewDto: {
+            /** Format: uuid */
+            id: string;
+            rating: number;
+            comment: string | null;
+            /**
+             * @description Nombre e inicial del apellido.
+             * @example Ana R.
+             */
+            authorName: string;
+            /** @description Servicio tal como se reservó. */
+            serviceName: string;
+            barber: components["schemas"]["ReviewBarberDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            editedAt: string | null;
+            /** @description Respuesta de la barbería (null si no hay o la ocultó soporte). */
+            response: components["schemas"]["ReviewResponseDto"] | null;
+        };
+        PublicReviewPageDto: {
+            items: components["schemas"]["PublicReviewDto"][];
+            nextCursor: string | null;
+        };
+        ReviewResponseInputDto: {
+            /** @description Texto plano. */
+            text: string;
+        };
+        CreateReviewReportDto: {
+            /**
+             * @description REVIEW: la valoración. RESPONSE: la respuesta de la barbería.
+             * @default REVIEW
+             * @enum {string}
+             */
+            target: "REVIEW" | "RESPONSE";
+            /** @enum {string} */
+            reason: "OFFENSIVE" | "PERSONAL_DATA" | "FAKE" | "SPAM" | "OTHER";
+            details?: string;
+        };
+        FavoriteDto: {
+            /** Format: uuid */
+            barbershopId: string;
+            name: string;
+            address: string;
+            /** @enum {string} */
+            type: "BARBERSHOP" | "INDEPENDENT";
+            /** @enum {string} */
+            status: "OPEN" | "TEMPORARILY_CLOSED";
+            rating: components["schemas"]["RatingDto"];
+            /** Format: date-time */
+            favoritedAt: string;
+        };
+        FavoritePageDto: {
+            items: components["schemas"]["FavoriteDto"][];
             nextCursor: string | null;
         };
     };
@@ -4486,6 +4753,388 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ReviewsController_create_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateReviewDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyReviewDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ReviewsController_retire_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ReviewsController_update_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateReviewDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyReviewDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ReviewsController_listMine_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyReviewPageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ReviewsController_listPublic_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+                /** @description Solo las de este barbero. */
+                barberId?: string;
+                /** @description Solo esta puntuación. */
+                rating?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicReviewPageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ReviewsController_respond_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewResponseInputDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicReviewDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ReviewsController_report_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateReviewReportDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    FavoritesController_add_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                barbershopId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    FavoritesController_remove_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                barbershopId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FavoritesController_list_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavoritePageDto"];
                 };
             };
         };

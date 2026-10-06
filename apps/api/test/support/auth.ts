@@ -90,10 +90,12 @@ export class AuthClient {
   }
 
   /** Registra, espera el correo de bienvenida e inicia sesión. */
-  async newUser(): Promise<{ email: string; password: string; tokens: AuthTokensDto }> {
+  async newUser(
+    overrides: Record<string, unknown> = {},
+  ): Promise<{ email: string; password: string; tokens: AuthTokensDto }> {
     const email = uniqueEmail();
     const password = randomPassword();
-    await this.register({ email, password }).expect(202);
+    await this.register({ ...overrides, email, password }).expect(202);
     await waitForMail(this.app, email, 'welcome-verification');
     const res = await this.login(email, password).expect(200);
     return { email, password, tokens: res.body as AuthTokensDto };

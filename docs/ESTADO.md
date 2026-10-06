@@ -2,7 +2,7 @@
 
 Punto de partida para retomar el trabajo en una conversación nueva. **Léelo antes de hacer nada**, junto con `CLAUDE.md` y `docs/pendientes-produccion.md`. Se actualiza al cerrar cada fase (CLAUDE.md §1).
 
-Última actualización: ajustes para la app móvil previos a la Fase 11.
+Última actualización: cierre de la Fase 11.
 
 ## Resumen
 
@@ -28,6 +28,7 @@ Punto de partida para retomar el trabajo en una conversación nueva. **Léelo an
 | 8A   | Pagos con `FakeGateway`: webhooks, reembolsos, conciliación, no-show, sanción a barberías | `29182fc`, `044e34b`, `eeda3dd` (contención y bloqueo ordenado), `9d19023` (regla 10 ampliada) |
 | 9    | Atención, inasistencias, corrección y agenda del día                                      | `e546048`                                                                                      |
 | —    | Ajustes para la app: `dev:pay`, `dev:mail`, `GET /me/barber`, gracia de rotación (10 s)   | (ver `git log`)                                                                                |
+| 11   | Favoritos y valoraciones: respuesta, reportes, moderación, promedios por barbero          | (ver `git log`)                                                                                |
 
 ## Fase en curso
 
@@ -45,8 +46,17 @@ Implementada en `e546048` según el plan aprobado (detalle en CLAUDE.md §8, "At
 
 Queda para otras fases:
 
-- **Fase 11:** ocultar la valoración si una reserva se corrige a `NO_SHOW`, y reactivarla si vuelve a `ATTENDED`.
 - **Fase 12:** corrección por soporte pasado el plazo de 48 h.
+
+### 11 — Favoritos y valoraciones: cerrada
+
+Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Favoritos y valoraciones (Fase 11)"). Migraciones `20261012000000_reviews_favorites` y `20261012000001_reviews_response_by_index`, y ajustes `reviews.window_days` (14), `reviews.report_threshold` (3) y `reviews.rate_limit_per_minute` (10), aplicados en `charles`.
+
+- La ocultación y restauración por corrección de asistencia (pendiente de la Fase 9) ya está hecha.
+- **Para la Fase 12:** los endpoints de soporte sobre `ReviewModerationService` (`GET /admin/reviews/reported` y la moderación).
+- **Hallazgo:** el recálculo de promedios con `FOR UPDATE` producía interbloqueos con el `FOR KEY SHARE` de las claves foráneas al insertar valoraciones simultáneas; se usa `FOR NO KEY UPDATE`.
+
+### Siguiente: Fase 12 (soporte y operación), plan aprobado
 
 ### Fases futuras registradas (no implementadas)
 
@@ -118,7 +128,7 @@ Las e2e usan `charles_test` (debe existir) y Redis en una base distinta de la 0.
 pnpm verify
 ```
 
-- **Pasos:** lint, typecheck, formato, unitarias, e2e, coberturas mínimas (`availability`, `search`, `bookings` + `payments` + `moderation`), OpenAPI y tipos de `packages/shared` al día, y `pnpm audit --audit-level=high`.
+- **Pasos:** lint, typecheck, formato, unitarias, e2e, coberturas mínimas (`availability`, `search`, `bookings` + `payments` + `moderation`, `reviews`), OpenAPI y tipos de `packages/shared` al día, y `pnpm audit --audit-level=high`.
 - **Duración:** unos 4 minutos. Necesita Docker levantado.
 - **Hook `.githooks/pre-commit`:** lo ejecuta en cada commit. Nunca se omite con `--no-verify`.
 - **Prueba de carga** (fuera de `verify`): `pnpm --filter api test:load:race`.

@@ -31,6 +31,7 @@ import { SearchModule } from './modules/search/search.module';
 import { OutboxModule } from './common/outbox/outbox.module';
 import { ServicesModule } from './modules/services/services.module';
 import { UsersModule } from './modules/users/users.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { UsersModule } from './modules/users/users.module';
     SearchModule,
     PaymentsModule,
     BookingsManagementModule,
+    ReviewsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

@@ -113,6 +113,9 @@ jobs:
       - name: Cobertura de bookings y payments (mínimo 80 %)
         run: pnpm --filter api test:cov:bookings
 
+      - name: Cobertura de reviews (mínimo 80 %)
+        run: pnpm --filter api test:cov:reviews
+
       - name: Verificar que OpenAPI y el cliente generado están al día
         run: |
           pnpm --filter @charles/shared generate

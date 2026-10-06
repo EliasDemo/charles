@@ -303,6 +303,23 @@ export const SEED_SETTINGS: {
       'Horas tras el inicio en las que el responsable puede corregir ATTENDED ↔ NO_SHOW (con motivo).',
   },
   {
+    key: 'reviews.window_days',
+    value: 14,
+    description:
+      'Días desde que la reserva queda ATTENDED para valorarla (y para su única edición).',
+  },
+  {
+    key: 'reviews.report_threshold',
+    value: 3,
+    description:
+      'Reportes distintos con los que una valoración o respuesta pasa a UNDER_REVIEW (sigue visible).',
+  },
+  {
+    key: 'reviews.rate_limit_per_minute',
+    value: 10,
+    description: 'Valoraciones y reportes que una misma cuenta puede crear por minuto.',
+  },
+  {
     key: 'payments.webhook_rate_limit_per_minute',
     value: 600,
     description:
