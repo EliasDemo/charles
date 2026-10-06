@@ -85,7 +85,10 @@ pnpm --filter api seed:reference      # categorías de servicio (datos de refere
 pnpm test | pnpm test:e2e | pnpm lint | pnpm typecheck
 pnpm verify                           # todo lo anterior + coberturas + OpenAPI + audit
 pnpm --filter api test:load:race      # carrera por un turno bajo carga (fuera de verify)
+pnpm --filter api dev:pay <bookingId> [--reject] | dev:mail <correo> | admin:grant <correo>
 ```
+
+Los scripts de consola (`dev:pay`, `dev:mail`, `admin:grant`, `openapi:export`) se ejecutan sobre el código fuente con `ts-node --transpile-only` (conserva la metadata de los decoradores; tsx no). **Nunca con `nest build`**: borraría `dist` y tumbaría el `start:dev` en marcha. Por lo mismo, `pnpm verify` no compila a `dist`.
 
 ---
 
