@@ -29,7 +29,10 @@ export type NotificationType =
   | 'NEW_REVIEW'
   | 'SUPPORT_REPLY'
   | 'ACCOUNT_DISABLED'
-  | 'BARBERSHOP_SUSPENDED';
+  | 'BARBERSHOP_SUSPENDED'
+  | 'ACCOUNT_DELETION_REQUESTED'
+  | 'ACCOUNT_DELETION_REMINDER'
+  | 'ACCOUNT_DELETION_CANCELLED';
 
 export type ResourceType = 'booking' | 'review' | 'ticket' | 'barbershop' | 'account';
 
@@ -394,6 +397,57 @@ export function planBarbershopSuspended(input: {
     email: { subject: 'Tu barbería fue suspendida', text: body },
     resource: { type: 'barbershop' as const, id: input.barbershopId },
   }));
+}
+
+/**
+ * Eliminación de cuenta: correo obligatorio (seguridad). Sin bandeja: la cuenta no tiene sesión
+ * normal mientras está pendiente.
+ */
+export function planAccountDeletion(input: {
+  userId: string;
+  kind: 'REQUESTED' | 'REMINDER' | 'CANCELLED';
+  scheduledFor: number | null;
+}): PlannedNotification {
+  const when = input.scheduledFor
+    ? DateTime.fromMillis(input.scheduledFor, { zone: 'America/Lima' })
+        .setLocale('es')
+        .toFormat("d 'de' LLLL 'de' yyyy")
+    : '';
+  const cancelHow =
+    'Si cambias de opinión, abre la app, entra con tu correo y tu contraseña y elige ' +
+    '«Cancelar eliminación» antes de esa fecha.';
+  const text =
+    input.kind === 'CANCELLED'
+      ? {
+          subject: 'Cancelaste la eliminación de tu cuenta',
+          body: 'Tu cuenta de Charles sigue activa. Ya puedes volver a iniciar sesión. Las reservas que se cancelaron al solicitar la eliminación no se restauran.',
+        }
+      : input.kind === 'REMINDER'
+        ? {
+            subject: 'Tu cuenta de Charles se eliminará en 3 días',
+            body: `Tu cuenta se eliminará el ${when}. ${cancelHow}`,
+          }
+        : {
+            subject: 'Programamos la eliminación de tu cuenta',
+            body: `Recibimos tu solicitud. Tu cuenta de Charles se eliminará el ${when}. ${cancelHow}`,
+          };
+  const type =
+    input.kind === 'CANCELLED'
+      ? 'ACCOUNT_DELETION_CANCELLED'
+      : input.kind === 'REMINDER'
+        ? 'ACCOUNT_DELETION_REMINDER'
+        : 'ACCOUNT_DELETION_REQUESTED';
+  return {
+    userId: input.userId,
+    type,
+    channels: EMAIL,
+    mandatory: true,
+    urgent: true,
+    push: { title: 'Tu cuenta', body: 'Abre la app para más información.' },
+    detail: { title: text.subject, body: text.body },
+    email: { subject: text.subject, text: text.body },
+    resource: { type: 'account', id: null },
+  };
 }
 
 /** Una persona con varios papeles (p. ej. dueña y barbera) recibe un solo aviso: el primero. */

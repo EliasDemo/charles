@@ -44,11 +44,15 @@ Resueltas en la Fase 8A: devoluciones al cancelar, plazo para cancelar, no-show 
 
 ## Aspectos legales
 
-| Pendiente                              | Situación actual                                                                                                                                                                        |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Validación legal de la edad mínima** | 18 años, autodeclarados con una casilla al registrarse (ADR 0003). Falta la validación legal.                                                                                           |
-| **Términos y condiciones definitivos** | `legal.terms_version` tiene un valor provisional (`borrador-2026-10`). Falta el texto publicado y su versión.                                                                           |
-| **URLs de términos y privacidad**      | `legal.terms_url` y `legal.privacy_url` tienen valores provisionales (`https://charles.example/...`). Reemplazarlos por las URLs publicadas (editables por ADMIN en `/admin/settings`). |
+| Pendiente                                                                | Situación actual                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Validación legal de la edad mínima**                                   | 18 años, autodeclarados con una casilla al registrarse (ADR 0003). Falta la validación legal.                                                                                                                                             |
+| **Términos y condiciones definitivos**                                   | `legal.terms_version` tiene un valor provisional (`borrador-2026-10`). Falta el texto publicado y su versión.                                                                                                                             |
+| **URLs de términos y privacidad**                                        | `legal.terms_url` y `legal.privacy_url` tienen valores provisionales (`https://charles.example/...`). Reemplazarlos por las URLs publicadas (editables por ADMIN en `/admin/settings`).                                                   |
+| **Plazo de conservación tras eliminar una cuenta** (decisión del asesor) | `account_deletion.legal_retention_days` está en `null`. Definir cuánto se conservan pagos, reembolsos y reservas anonimizados (obligación tributaria y contable) y, al vencer, purgarlos.                                                 |
+| **Política de privacidad: eliminación de cuenta**                        | Describir qué se borra, qué se anonimiza y qué se conserva y por cuánto (pagos, reservas, auditoría sin IP, puntuación de valoraciones), los 30 días de gracia y el bloqueo de 12 meses del correo de cuentas deshabilitadas por soporte. |
+| **Página web para pedir la eliminación** (Google Play)                   | Google exige una URL donde pedir la eliminación sin la app. Hoy solo existe desde la app.                                                                                                                                                 |
+| **Respaldos y logs respetan la eliminación**                             | Los respaldos de la base y los logs (y sus copias) deben dejar de contener los datos de una cuenta eliminada dentro de su plazo de retención: definir esos plazos y documentarlos en la política de privacidad.                           |
 
 ## Web y seguridad
 
@@ -64,8 +68,9 @@ Resueltas en la Fase 8A: devoluciones al cancelar, plazo para cancelar, no-show 
 
 ## Operación
 
-| Pendiente                                | Situación actual                                                                                                                                                            |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Ejecución real del CI**                | `.github/workflows/ci.yml` existe pero nunca se ejecutó: el proyecto todavía no tiene remoto. Hasta entonces, `pnpm verify` (hook de pre-commit) es la única verificación.  |
-| **Privilegios de la base en producción** | `postgis` no es una extensión "trusted": el usuario de migraciones necesita privilegios para crearla (la app no).                                                           |
-| **Datos de referencia en producción**    | Las categorías de servicio se cargan con `pnpm --filter api seed:reference`; hay que incluirlo en el despliegue. El seed de datos de prueba nunca se ejecuta en producción. |
+| Pendiente                                | Situación actual                                                                                                                                                                                                                                                     |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Ejecución real del CI**                | `.github/workflows/ci.yml` existe pero nunca se ejecutó: el proyecto todavía no tiene remoto. Hasta entonces, `pnpm verify` (hook de pre-commit) es la única verificación.                                                                                           |
+| **Privilegios de la base en producción** | `postgis` no es una extensión "trusted": el usuario de migraciones necesita privilegios para crearla (la app no).                                                                                                                                                    |
+| **Datos de referencia en producción**    | Las categorías de servicio se cargan con `pnpm --filter api seed:reference`; hay que incluirlo en el despliegue. El seed de datos de prueba nunca se ejecuta en producción.                                                                                          |
+| **Dueño de `audit_log_redact_ip`**       | La función `SECURITY DEFINER` que borra la IP de la auditoría de una cuenta eliminada debe pertenecer al usuario de migraciones (con UPDATE sobre `audit_log`), aunque a la app se le revoque UPDATE/DELETE en producción. Es la única excepción a "solo inserción". |

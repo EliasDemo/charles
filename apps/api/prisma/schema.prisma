@@ -232,30 +232,38 @@ enum OutboxStatus {
 // ───────────────────────────── Cuentas ─────────────────────────────
 
 model User {
-  id                String     @id @default(uuid(7)) @db.Uuid
-  emailEnc          String     @map("email_enc")
-  emailHash         Bytes      @unique @map("email_hash")
-  passwordHash      String     @map("password_hash")
-  fullName          String     @map("full_name")
-  phoneEnc          String?    @map("phone_enc")
-  phoneHash         Bytes?     @map("phone_hash")
-  documentNumberEnc String?    @map("document_number_enc")
+  id                    String     @id @default(uuid(7)) @db.Uuid
+  emailEnc              String     @map("email_enc")
+  emailHash             Bytes      @unique @map("email_hash")
+  passwordHash          String     @map("password_hash")
+  fullName              String     @map("full_name")
+  phoneEnc              String?    @map("phone_enc")
+  phoneHash             Bytes?     @map("phone_hash")
+  documentNumberEnc     String?    @map("document_number_enc")
   /// Único solo cuando no es nulo: índice único parcial en SQL manual (users_document_hash_key).
-  documentHash      Bytes?     @map("document_hash")
-  birthDateEnc      String?    @map("birth_date_enc")
-  status            UserStatus @default(ACTIVE)
+  documentHash          Bytes?     @map("document_hash")
+  birthDateEnc          String?    @map("birth_date_enc")
+  status                UserStatus @default(ACTIVE)
   /// Nulo = correo sin verificar (se exige verificado para reservar, Fase 7).
-  emailVerifiedAt   DateTime?  @map("email_verified_at") @db.Timestamptz(3)
+  emailVerifiedAt       DateTime?  @map("email_verified_at") @db.Timestamptz(3)
   /// Declaración de mayoría de edad (18+) al aceptar los términos (ADR 0003). El registro siempre la
   /// exige; nulo solo en cuentas creadas antes de esta regla.
-  adultDeclaredAt   DateTime?  @map("adult_declared_at") @db.Timestamptz(3)
-  termsAcceptedAt   DateTime   @map("terms_accepted_at") @db.Timestamptz(3)
-  termsVersion      String     @map("terms_version")
-  preferences       Json       @default("{}")
-  metadata          Json       @default("{}")
-  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt         DateTime?  @map("deleted_at") @db.Timestamptz(3)
+  adultDeclaredAt       DateTime?  @map("adult_declared_at") @db.Timestamptz(3)
+  termsAcceptedAt       DateTime   @map("terms_accepted_at") @db.Timestamptz(3)
+  termsVersion          String     @map("terms_version")
+  preferences           Json       @default("{}")
+  metadata              Json       @default("{}")
+  createdAt             DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt             DateTime?  @map("deleted_at") @db.Timestamptz(3)
+  /// Eliminación de cuenta (Apple y Google): solicitada y programada tras el periodo de gracia.
+  /// Mientras `deletionScheduledFor` no es nulo, la cuenta está pendiente de eliminación.
+  deletionRequestedAt   DateTime?  @map("deletion_requested_at") @db.Timestamptz(3)
+  deletionScheduledFor  DateTime?  @map("deletion_scheduled_for") @db.Timestamptz(3)
+  deletionRemindedAt    DateTime?  @map("deletion_reminded_at") @db.Timestamptz(3)
+  deletionFinalNoticeAt DateTime?  @map("deletion_final_notice_at") @db.Timestamptz(3)
+  /// Datos personales borrados o anonimizados (irreversible).
+  anonymizedAt          DateTime?  @map("anonymized_at") @db.Timestamptz(3)
 
   roles                     UserRole[]
   refreshTokens             RefreshToken[]
@@ -286,6 +294,19 @@ model User {
 
   @@index([phoneHash])
   @@map("users")
+}
+
+/// Índice ciego del correo de una cuenta deshabilitada por soporte que pidió su eliminación: no
+/// puede registrarse de nuevo hasta `blockedUntil`. Ningún otro dato.
+model EmailBlocklist {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  emailHash    Bytes    @unique @map("email_hash")
+  blockedUntil DateTime @map("blocked_until") @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([blockedUntil])
+  @@map("email_blocklist")
 }
 
 model UserRole {

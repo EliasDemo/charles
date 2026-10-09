@@ -1,6 +1,7 @@
 import type { AppConfig } from '../../common/config/env.validation';
 import {
   type BookingContext,
+  planAccountDeletion,
   formatMoney,
   planAccountDisabled,
   planBarbershopSuspended,
@@ -176,6 +177,28 @@ describe('RF-NOT-002 catálogo de avisos', () => {
     expect(planNewReview({ staffIds: ['o'], reviewId: 'r', rating: 1 })[0]!.detail.body).toContain(
       '1 estrella.',
     );
+  });
+});
+
+describe('Avisos de eliminación de cuenta', () => {
+  const at = Date.UTC(2030, 1, 8, 17);
+  it.each([
+    ['REQUESTED', 'ACCOUNT_DELETION_REQUESTED', /se eliminará el 8 de febrero de 2030/],
+    ['REMINDER', 'ACCOUNT_DELETION_REMINDER', /en 3 días|8 de febrero de 2030/],
+    ['CANCELLED', 'ACCOUNT_DELETION_CANCELLED', /sigue activa/],
+  ] as const)('%s → %s, solo correo y obligatorio', (kind, type, text) => {
+    const plan = planAccountDeletion({
+      userId: 'u',
+      kind,
+      scheduledFor: kind === 'CANCELLED' ? null : at,
+    });
+    expect(plan).toMatchObject({
+      type,
+      channels: ['EMAIL'],
+      mandatory: true,
+      resource: { type: 'account', id: null },
+    });
+    expect(`${plan.email!.subject} ${plan.email!.text}`).toMatch(text);
   });
 });
 

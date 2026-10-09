@@ -6,6 +6,9 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 export const SettingKey = {
   TERMS_VERSION: 'legal.terms_version',
   TERMS_URL: 'legal.terms_url',
+  ACCOUNT_DELETION_GRACE_DAYS: 'account_deletion.grace_days',
+  ACCOUNT_DELETION_EMAIL_BLOCK_DAYS: 'account_deletion.email_block_days',
+  ACCOUNT_DELETION_LEGAL_RETENTION_DAYS: 'account_deletion.legal_retention_days',
   PRIVACY_URL: 'legal.privacy_url',
   LOCKOUT_ACCOUNT_MAX_FAILURES: 'auth.lockout.account_max_failures',
   LOCKOUT_IP_MAX_FAILURES: 'auth.lockout.ip_max_failures',

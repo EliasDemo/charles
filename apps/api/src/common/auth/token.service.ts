@@ -3,7 +3,7 @@ import { sign, verify } from 'jsonwebtoken';
 import { Role } from '../../generated/prisma/enums';
 import { APP_CONFIG } from '../config/app-config.token';
 import type { AppConfig } from '../config/env.validation';
-import type { AuthUser } from './auth-user';
+import type { AuthUser, RestrictedScope } from './auth-user';
 
 const ALGORITHM = 'ES256';
 const CLOCK_TOLERANCE_SECONDS = 5;
@@ -15,7 +15,7 @@ interface AccessTokenClaims {
   sid: string;
   roles: Role[];
   /** Fase 12: `support` = sesión restringida de una cuenta deshabilitada (solo tickets). */
-  scp?: 'support';
+  scp?: RestrictedScope;
 }
 
 export interface SignedAccessToken {
@@ -31,11 +31,11 @@ export class TokenService {
   signAccessToken(
     user: { id: string; roles: Role[] },
     sessionId: string,
-    options: { restricted?: boolean } = {},
+    options: { restricted?: RestrictedScope } = {},
   ): SignedAccessToken {
     const { jwtKeys, issuer, audience, accessTokenTtlSeconds } = this.config.auth;
     const claims: Omit<AccessTokenClaims, 'sub'> = options.restricted
-      ? { sid: sessionId, roles: [], scp: 'support' }
+      ? { sid: sessionId, roles: [], scp: options.restricted }
       : { sid: sessionId, roles: user.roles };
     const token = sign(claims, jwtKeys.privateKey, {
       algorithm: ALGORITHM,
@@ -66,12 +66,12 @@ export class TokenService {
         !UUID.test(sid) ||
         !Array.isArray(roles) ||
         !roles.every((r) => VALID_ROLES.has(r)) ||
-        (scp !== undefined && scp !== 'support')
+        (scp !== undefined && scp !== 'support' && scp !== 'deletion')
       ) {
         return undefined;
       }
-      return scp === 'support'
-        ? { id: sub, sessionId: sid, roles: [], restricted: true }
+      return scp
+        ? { id: sub, sessionId: sid, roles: [], restricted: scp }
         : { id: sub, sessionId: sid, roles };
     } catch {
       return undefined;

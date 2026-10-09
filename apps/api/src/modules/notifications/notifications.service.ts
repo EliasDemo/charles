@@ -16,6 +16,7 @@ import { DevicesService } from './devices.service';
 import type { NotificationDto, NotificationQueryDto } from './dto/notification.dto';
 import {
   type BookingContext,
+  planAccountDeletion,
   planAccountDisabled,
   planBarbershopSuspended,
   planBookingEvent,
@@ -47,7 +48,18 @@ export const NOTIFICATION_EVENTS = [
   'ticket.replied',
   'user.disabled',
   'barbershop.suspended',
+  'user.deletion_requested',
+  'user.deletion_reminder',
+  'user.deletion_cancelled',
 ] as const;
+
+/** Avisos que recibe una cuenta aunque no esté activa (seguridad de la propia cuenta). */
+const ACCOUNT_LEVEL_TYPES = new Set([
+  'ACCOUNT_DISABLED',
+  'ACCOUNT_DELETION_REQUESTED',
+  'ACCOUNT_DELETION_REMINDER',
+  'ACCOUNT_DELETION_CANCELLED',
+]);
 
 const DEFAULT_TIMEZONE = 'America/Lima';
 const MAX_ATTEMPTS = 5;
@@ -169,6 +181,33 @@ export class NotificationsService implements OnModuleInit {
             ]
           : [];
       }
+      case 'user.deletion_requested':
+      case 'user.deletion_reminder':
+      case 'user.deletion_cancelled': {
+        const userId = id('userId');
+        const user = userId
+          ? await this.prisma.user.findUnique({
+              where: { id: userId },
+              select: { deletionScheduledFor: true },
+            })
+          : null;
+        if (!userId || !user) return [];
+        const kind =
+          message.type === 'user.deletion_cancelled'
+            ? 'CANCELLED'
+            : message.type === 'user.deletion_reminder'
+              ? 'REMINDER'
+              : 'REQUESTED';
+        // Un recordatorio de una eliminación ya cancelada no se envía.
+        if (kind !== 'CANCELLED' && !user.deletionScheduledFor) return [];
+        return [
+          planAccountDeletion({
+            userId,
+            kind,
+            scheduledFor: user.deletionScheduledFor?.getTime() ?? null,
+          }),
+        ];
+      }
       case 'user.disabled': {
         const userId = id('userId');
         return userId ? [planAccountDisabled(userId)] : [];
@@ -209,8 +248,8 @@ export class NotificationsService implements OnModuleInit {
     for (const plan of plans) {
       const who = recipients.get(plan.userId);
       if (!who || who.deleted) continue;
-      // Una cuenta deshabilitada solo recibe el aviso de su deshabilitación.
-      if (who.status !== 'ACTIVE' && plan.type !== 'ACCOUNT_DISABLED') continue;
+      // Una cuenta deshabilitada solo recibe los avisos sobre su propia cuenta.
+      if (who.status !== 'ACTIVE' && !ACCOUNT_LEVEL_TYPES.has(plan.type)) continue;
       if (plan.reminder && !who.reminders) continue;
       for (const channel of plan.channels) {
         if (!plan.mandatory && !who.channels.has(channel)) continue;

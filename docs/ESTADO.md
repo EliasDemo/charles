@@ -2,7 +2,7 @@
 
 Punto de partida para retomar el trabajo en una conversación nueva. **Léelo antes de hacer nada**, junto con `CLAUDE.md` y `docs/pendientes-produccion.md`. Se actualiza al cerrar cada fase (CLAUDE.md §1).
 
-Última actualización: cierre de la Fase 10.
+Última actualización: eliminación de cuenta.
 
 ## Resumen
 
@@ -16,21 +16,22 @@ Punto de partida para retomar el trabajo en una conversación nueva. **Léelo an
 
 ## Fases cerradas y sus commits
 
-| Fase | Contenido                                                                                 | Commits                                                                                        |
-| ---- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| 1    | Base del monorepo y API NestJS, CI, seguridad base                                        | `c67c951`, `6371135`                                                                           |
-| 2    | Esquema completo, `EncryptionService`, datos de prueba                                    | `97ecf93`                                                                                      |
-| 3    | Autenticación, sesiones, recuperación, perfil                                             | `f7f52f4`, `21a3e95`                                                                           |
-| 4    | Barberías, responsables, barberos, servicios; barbero independiente                       | `4918a4a`, `121ad72`, `1e7d43a`                                                                |
-| 5    | Horarios, bloqueos y motor de disponibilidad                                              | `009c79c`                                                                                      |
-| 6    | Búsqueda, cercanía, filtros, alternativas; categorías de servicio                         | `55d90a9`; `255c732` (cobertura propia de availability y `pnpm verify`)                        |
-| 7    | Reservas, máquina de estados, outbox, expiración                                          | `329c5eb`, `aa2a171` (columna `cancelled_by_role`, arranque sin `NODE_ENV=test`)               |
-| 8A   | Pagos con `FakeGateway`: webhooks, reembolsos, conciliación, no-show, sanción a barberías | `29182fc`, `044e34b`, `eeda3dd` (contención y bloqueo ordenado), `9d19023` (regla 10 ampliada) |
-| 9    | Atención, inasistencias, corrección y agenda del día                                      | `e546048`                                                                                      |
-| —    | Ajustes para la app: `dev:pay`, `dev:mail`, `GET /me/barber`, gracia de rotación (10 s)   | (ver `git log`)                                                                                |
-| 11   | Favoritos y valoraciones: respuesta, reportes, moderación, promedios por barbero          | (ver `git log`)                                                                                |
-| 12   | Soporte y operación: tickets, `/admin`, ADMIN, suspensión, reembolso manual, ajustes      | (ver `git log`)                                                                                |
-| 10   | Notificaciones: push (Expo), correo y bandeja; recordatorios; dispositivos                | (ver `git log`)                                                                                |
+| Fase | Contenido                                                                                  | Commits                                                                                        |
+| ---- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| 1    | Base del monorepo y API NestJS, CI, seguridad base                                         | `c67c951`, `6371135`                                                                           |
+| 2    | Esquema completo, `EncryptionService`, datos de prueba                                     | `97ecf93`                                                                                      |
+| 3    | Autenticación, sesiones, recuperación, perfil                                              | `f7f52f4`, `21a3e95`                                                                           |
+| 4    | Barberías, responsables, barberos, servicios; barbero independiente                        | `4918a4a`, `121ad72`, `1e7d43a`                                                                |
+| 5    | Horarios, bloqueos y motor de disponibilidad                                               | `009c79c`                                                                                      |
+| 6    | Búsqueda, cercanía, filtros, alternativas; categorías de servicio                          | `55d90a9`; `255c732` (cobertura propia de availability y `pnpm verify`)                        |
+| 7    | Reservas, máquina de estados, outbox, expiración                                           | `329c5eb`, `aa2a171` (columna `cancelled_by_role`, arranque sin `NODE_ENV=test`)               |
+| 8A   | Pagos con `FakeGateway`: webhooks, reembolsos, conciliación, no-show, sanción a barberías  | `29182fc`, `044e34b`, `eeda3dd` (contención y bloqueo ordenado), `9d19023` (regla 10 ampliada) |
+| 9    | Atención, inasistencias, corrección y agenda del día                                       | `e546048`                                                                                      |
+| —    | Ajustes para la app: `dev:pay`, `dev:mail`, `GET /me/barber`, gracia de rotación (10 s)    | (ver `git log`)                                                                                |
+| 11   | Favoritos y valoraciones: respuesta, reportes, moderación, promedios por barbero           | (ver `git log`)                                                                                |
+| 12   | Soporte y operación: tickets, `/admin`, ADMIN, suspensión, reembolso manual, ajustes       | (ver `git log`)                                                                                |
+| 10   | Notificaciones: push (Expo), correo y bandeja; recordatorios; dispositivos                 | (ver `git log`)                                                                                |
+| —    | Eliminación de cuenta (Apple y Google): gracia de 30 días, anonimización, lista de bloqueo | (ver `git log`)                                                                                |
 
 ## Fase en curso
 
@@ -69,6 +70,14 @@ Implementada según el plan aprobado y sus precisiones (detalle en CLAUDE.md §8
 
 - **Pendiente de producción:** dominio verificado para el correo real y credenciales de Firebase y Apple en Expo (`docs/pendientes-produccion.md`).
 - **Confirmado con pruebas:** `POST /auth/support-access` comparte el bloqueo por intentos (cuenta e IP) y el límite de peticiones del login, y su token se rechaza en todos los endpoints autenticados salvo los de sus tickets.
+
+### Eliminación de cuenta: cerrada
+
+Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Eliminación de cuenta"). Migración `20261015000000_account_deletion` y ajustes `account_deletion.*` aplicados en `charles`.
+
+- **Decisión del usuario:** la IP de `audit_log` de una cuenta eliminada se borra con una excepción acotada al "solo inserción" (función `audit_log_redact_ip`); cualquier otra modificación sigue rechazada (con prueba).
+- **Hallazgos de la prueba de barrido:** el motivo de cancelación también estaba copiado en `booking_status_history.reason`, y la IP en `audit_log`; ambos se borran ahora.
+- **Pendiente:** plazo de conservación legal, política de privacidad, página web de eliminación y respaldos y logs (`docs/pendientes-produccion.md`).
 
 ### Siguiente: a definir por el usuario (8B en espera de la documentación de Izipay)
 

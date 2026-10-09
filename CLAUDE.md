@@ -613,6 +613,21 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
 - **Bandeja:** `GET /me/notifications`, contador de no leídos, marcar leído uno o todos; se conservan `notifications.retention_days` (90).
 - **Soporte:** `GET /admin/refunds/failed` lista los reembolsos fallidos.
 
+### Eliminación de cuenta (Apple y Google)
+
+- **Solicitud:** `GET /me/account/deletion/preview` (bloqueos y reservas que se cancelarán, con la devolución calculada por la misma política que la vista previa de cancelación) y `POST /me/account/deletion` con la contraseña.
+  - Bloqueos (409 `DELETION_BLOCKED`): único OWNER de una barbería activa (`SOLE_OWNER`) o rol SUPPORT/ADMIN (`STAFF_ROLE`).
+  - Al confirmar, en una transacción: cancela sus reservas activas como cancelación del cliente, cierra sus tickets, revoca todas sus sesiones (y sus dispositivos) y la programa a `account_deletion.grace_days` (30).
+- **Plazo de gracia:** login responde 403 `ACCOUNT_PENDING_DELETION`; `POST /auth/support-access` da un token con `scope: deletion` que solo sirve en `GET` y `DELETE /me/account/deletion`. Cancelar no restaura las reservas. Una cuenta deshabilitada la pide con su sesión `scope: support`.
+- **Ejecución** (trabajo horario, una transacción por cuenta, sin llamadas externas; el correo final sale antes):
+  - borra sesiones, códigos, dispositivos, favoritos, notificaciones, roles, invitaciones, membresías y los mensajes de sus tickets; desvincula su perfil de barbero;
+  - anonimiza: nombre "Cuenta eliminada", correo interno único (el original puede registrarse otra vez), sin teléfono, documento, fecha de nacimiento, preferencias ni contraseña válida; asuntos de tickets, comentarios de valoraciones (queda la puntuación), textos de reportes y motivos de cancelación (también en el historial);
+  - la IP de su auditoría se borra con `audit_log_redact_ip`, la **única** excepción a "solo inserción": el trigger acepta solo poner `ip` en NULL sin tocar ninguna otra columna;
+  - conserva, sin datos personales: reservas, pagos, reembolsos, historial y auditoría.
+  - Cuenta deshabilitada por soporte: su índice ciego de correo va a `email_blocklist` por `account_deletion.email_block_days` (365); el registro responde igual pero no crea la cuenta.
+- **Prueba de barrido:** recorre todas las columnas de texto, JSON y bytea de todas las tablas (incluidos metadata, payloads del outbox y notificaciones) y exige que no quede ningún dato de la cuenta eliminada.
+- `account_deletion.legal_retention_days` queda pendiente (asesor legal).
+
 ---
 
 ## 9. Motor de disponibilidad (RF-DIS-001 a 004, RF-BRB-003)
@@ -651,7 +666,7 @@ Servicio único `AvailabilityService`. Para una barbería, servicio, fecha y (op
 
 ## 11. Pruebas
 
-- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings`, `payments`, `reviews`, `admin`, `support` y `notifications`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) en `search` con `pnpm --filter api test:cov:search` y en `bookings` + `payments` + `moderation` con `pnpm --filter api test:cov:bookings`, en `reviews` con `pnpm --filter api test:cov:reviews` en `admin` + `support` con `pnpm --filter api test:cov:admin` y en `notifications` con `pnpm --filter api test:cov:notifications`; CI y `pnpm verify` fallan si alguna baja del 80 %.
+- Unitarias para toda la lógica de negocio. Cobertura mínima 80 % en `availability`, `bookings`, `payments`, `reviews`, `admin`, `support` y `notifications`. En `availability` se mide con `pnpm --filter api test:cov:availability` (unitarias del motor + e2e) en `search` con `pnpm --filter api test:cov:search` y en `bookings` + `payments` + `moderation` con `pnpm --filter api test:cov:bookings`, en `reviews` con `pnpm --filter api test:cov:reviews` en `admin` + `support` + `account` con `pnpm --filter api test:cov:admin` y en `notifications` con `pnpm --filter api test:cov:notifications`; CI y `pnpm verify` fallan si alguna baja del 80 %.
 - e2e por cada RF de prioridad Alta, contra PostgreSQL real en Docker (no simular la base de datos).
 - **Prueba de concurrencia obligatoria** (RF-RES-007): dos peticiones simultáneas por el mismo turno → exactamente una tiene éxito. Está en `test/bookings/bookings.e2e-spec.ts`: 10 rondas por API, más las variantes de "cualquier barbero" y de la misma clave de idempotencia.
 - Pruebas de autorización: por cada endpoint privado, un caso que verifique que otro usuario **no** puede acceder.

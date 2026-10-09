@@ -7,13 +7,21 @@ import { AuthClient, createAuthTestApp, randomPassword, uniqueEmail } from '../s
 
 const API = '/api/v1';
 
-/** Únicos endpoints que acepta la sesión restringida de una cuenta deshabilitada. */
-const ALLOWED_FOR_RESTRICTED = new Set([
-  'post /support/tickets',
-  'get /me/support/tickets',
-  'get /me/support/tickets/{id}',
-  'post /me/support/tickets/{id}/messages',
-]);
+/** Únicos endpoints que acepta cada alcance de sesión restringida. */
+const ALLOWED_FOR_SCOPE = {
+  // Cuenta deshabilitada: sus tickets y pedir la eliminación de la cuenta.
+  support: new Set([
+    'post /support/tickets',
+    'get /me/support/tickets',
+    'get /me/support/tickets/{id}',
+    'post /me/support/tickets/{id}/messages',
+    'get /me/account/deletion/preview',
+    'get /me/account/deletion',
+    'post /me/account/deletion',
+  ]),
+  // Cuenta pendiente de eliminación: solo consultarla o cancelarla.
+  deletion: new Set(['get /me/account/deletion', 'delete /me/account/deletion']),
+} as const;
 
 interface OpenApi {
   paths: Record<string, Record<string, { security?: unknown[] }>>;
@@ -105,20 +113,17 @@ describe('Fase 12: POST /auth/support-access (acceso limitado de una cuenta desh
     expect(statuses[10]).toBe(429);
   });
 
-  it('el token restringido no sirve en ningún endpoint autenticado salvo los de sus tickets', async () => {
-    const account = await disabledAccount();
-    const access = await supportAccess(account.client, account.email, account.password).expect(200);
-    const token = access.body.accessToken as string;
+  /** Llama a cada endpoint autenticado del OpenAPI con el token; todos deben rechazarlo. */
+  async function sweep(token: string, allowed: ReadonlySet<string>, code: string): Promise<number> {
     const spec = JSON.parse(
       readFileSync(join(__dirname, '..', '..', 'openapi.json'), 'utf8'),
     ) as OpenApi;
-
     let checked = 0;
     for (const [path, operations] of Object.entries(spec.paths)) {
       for (const [method, operation] of Object.entries(operations)) {
         if (!operation.security) continue;
         const relative = path.replace(/^\/api\/v1/, '');
-        if (ALLOWED_FOR_RESTRICTED.has(`${method} ${relative}`)) continue;
+        if (allowed.has(`${method} ${relative}`)) continue;
         const url = path.replace(/\{[^}]+\}/g, randomUUID());
         const client = new AuthClient(app);
         const res = await client.http[method as 'get'](url)
@@ -128,13 +133,34 @@ describe('Fase 12: POST /auth/support-access (acceso limitado de una cuenta desh
         expect([`${method} ${path}`, res.status, res.body.code]).toEqual([
           `${method} ${path}`,
           403,
-          'ACCOUNT_DISABLED',
+          code,
         ]);
         checked++;
       }
     }
-    expect(checked).toBeGreaterThan(80);
-    // Y sí sirve en sus tickets.
+    return checked;
+  }
+
+  it('scope support: el token no sirve en ningún endpoint autenticado salvo sus tickets y pedir la eliminación', async () => {
+    const account = await disabledAccount();
+    const access = await supportAccess(account.client, account.email, account.password).expect(200);
+    expect(access.body.scope).toBe('support');
+    const token = access.body.accessToken as string;
+    expect(await sweep(token, ALLOWED_FOR_SCOPE.support, 'ACCOUNT_DISABLED')).toBeGreaterThan(80);
     await account.client.get(`${API}/me/support/tickets`, token).expect(200);
+    await account.client.get(`${API}/me/account/deletion/preview`, token).expect(200);
+  });
+
+  it('scope deletion: el token de una cuenta pendiente de eliminación solo consulta o cancela', async () => {
+    const client = new AuthClient(app);
+    const { email, password, tokens } = await client.newUser();
+    await client.post(`${API}/me/account/deletion`, { password }, tokens.accessToken).expect(200);
+    const access = await supportAccess(client, email, password).expect(200);
+    expect(access.body.scope).toBe('deletion');
+    const token = access.body.accessToken as string;
+    expect(
+      await sweep(token, ALLOWED_FOR_SCOPE.deletion, 'ACCOUNT_PENDING_DELETION'),
+    ).toBeGreaterThan(80);
+    await client.get(`${API}/me/account/deletion`, token).expect(200);
   });
 });

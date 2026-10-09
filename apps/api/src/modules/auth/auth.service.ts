@@ -85,7 +85,11 @@ export class AuthService {
     }
 
     const passwordHash = await PasswordHasher.hash(dto.password);
-    const existingId = await this.users.findIdByEmailHash(this.users.emailHash(dto.email));
+    const emailHash = this.users.emailHash(dto.email);
+    // Correo de una cuenta deshabilitada por soporte que se eliminó: no se registra hasta que
+    // venza el bloqueo. La respuesta es idéntica (no revela nada) y no se envía correo.
+    if (await this.users.isEmailBlocked(emailHash)) return REGISTER_ACCEPTED;
+    const existingId = await this.users.findIdByEmailHash(emailHash);
 
     const createdId = existingId
       ? null
@@ -115,7 +119,14 @@ export class AuthService {
   async login(dto: LoginDto, ctx: RequestContext): Promise<AuthTokensDto> {
     const user = await this.verifyCredentials(dto, ctx);
 
-    // Contraseña correcta: recién ahora se puede revelar que la cuenta está deshabilitada.
+    // Contraseña correcta: recién ahora se puede revelar el estado de la cuenta.
+    if (user.pendingDeletion) {
+      throw new AppException(
+        ErrorCode.ACCOUNT_PENDING_DELETION,
+        'Tu cuenta está pendiente de eliminación. Usa el acceso limitado para consultarla o cancelarla.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
     if (user.status !== 'ACTIVE') {
       throw new AppException(
         ErrorCode.ACCOUNT_DISABLED,
@@ -132,33 +143,37 @@ export class AuthService {
   }
 
   /**
-   * Fase 12: acceso limitado a soporte para una cuenta **deshabilitada**. Mismas comprobaciones
-   * que el inicio de sesión (bloqueo por intentos, contraseña); devuelve solo un token de acceso
-   * restringido a los tickets propios, sin token de renovación. Una cuenta activa usa `login`.
+   * Acceso limitado, con las mismas comprobaciones que el inicio de sesión (bloqueo por intentos,
+   * contraseña) y sin token de renovación:
+   * - cuenta pendiente de eliminación → alcance `deletion` (consultar o cancelar la eliminación);
+   * - cuenta deshabilitada → alcance `support` (sus tickets y pedir su eliminación).
+   * Una cuenta activa usa `login`.
    */
   async supportAccess(dto: LoginDto, ctx: RequestContext): Promise<SupportAccessDto> {
     const user = await this.verifyCredentials(dto, ctx);
-    if (user.status === 'ACTIVE') {
+    const scope = user.pendingDeletion ? 'deletion' : user.status !== 'ACTIVE' ? 'support' : null;
+    if (!scope) {
       throw new AppException(
         ErrorCode.CONFLICT,
         'Tu cuenta está activa: inicia sesión normalmente.',
         HttpStatus.CONFLICT,
       );
     }
-    const signed = this.tokens.signAccessToken(user, randomUUID(), { restricted: true });
+    const signed = this.tokens.signAccessToken(user, randomUUID(), { restricted: scope });
     await this.audit.record({
       actorId: user.id,
       action: 'auth.support_access',
       entityType: 'user',
       entityId: user.id,
       ip: ctx.ip,
-      changes: {},
+      changes: { scope },
     });
     return {
       tokenType: 'Bearer',
       accessToken: signed.token,
       accessTokenExpiresAt: signed.expiresAt,
       restricted: true,
+      scope,
     };
   }
 
@@ -196,7 +211,7 @@ export class AuthService {
   async refresh(refreshToken: string, ctx: RequestContext): Promise<AuthTokensDto> {
     const rotated = await this.sessions.rotate(refreshToken, ctx.ip);
     const user = await this.users.findCredentialsById(rotated.userId);
-    if (!user || user.isDeleted || user.status !== 'ACTIVE') {
+    if (!user || user.isDeleted || user.status !== 'ACTIVE' || user.pendingDeletion) {
       await this.sessions.revokeSession(rotated.userId, rotated.sessionId);
       throw new AppException(
         ErrorCode.INVALID_REFRESH_TOKEN,

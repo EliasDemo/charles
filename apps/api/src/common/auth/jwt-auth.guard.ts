@@ -66,18 +66,24 @@ export class JwtAuthGuard implements CanActivate {
     }
     if (revoked) throw unauthorized();
 
-    if (
-      user.restricted &&
-      !this.reflector.getAllAndOverride<boolean>(ALLOW_RESTRICTED_SESSION_KEY, [
-        context.getHandler(),
-        context.getClass(),
-      ])
-    ) {
-      throw new AppException(
-        ErrorCode.ACCOUNT_DISABLED,
-        'Tu cuenta está deshabilitada. Solo puedes comunicarte con soporte.',
-        HttpStatus.FORBIDDEN,
+    if (user.restricted) {
+      const allowed = this.reflector.getAllAndOverride<string[] | undefined>(
+        ALLOW_RESTRICTED_SESSION_KEY,
+        [context.getHandler(), context.getClass()],
       );
+      if (!allowed?.includes(user.restricted)) {
+        throw user.restricted === 'deletion'
+          ? new AppException(
+              ErrorCode.ACCOUNT_PENDING_DELETION,
+              'Tu cuenta está pendiente de eliminación. Solo puedes consultarla o cancelarla.',
+              HttpStatus.FORBIDDEN,
+            )
+          : new AppException(
+              ErrorCode.ACCOUNT_DISABLED,
+              'Tu cuenta está deshabilitada. Solo puedes comunicarte con soporte.',
+              HttpStatus.FORBIDDEN,
+            );
+      }
     }
 
     request.user = user;

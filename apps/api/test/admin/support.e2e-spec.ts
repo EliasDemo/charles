@@ -339,6 +339,7 @@ describe('RF-SOP-001…003 Tickets de soporte y reportes de barberías — Fase 
         accessToken: expect.any(String),
         accessTokenExpiresAt: expect.any(String),
         restricted: true,
+        scope: 'support',
       });
       expect(access.body).not.toHaveProperty('refreshToken');
       const token = access.body.accessToken as string;

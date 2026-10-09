@@ -104,14 +104,14 @@ describe('TokenService (JWT ES256)', () => {
       { id: user.id, roles: ['CLIENT', 'OWNER'] },
       randomUUID(),
       {
-        restricted: true,
+        restricted: 'support',
       },
     );
     expect(service.verifyAccessToken(signed.token)).toEqual({
       id: user.id,
       sessionId: expect.any(String),
       roles: [],
-      restricted: true,
+      restricted: 'support',
     });
   });
 

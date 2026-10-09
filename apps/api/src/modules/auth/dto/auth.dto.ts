@@ -214,4 +214,12 @@ export class SupportAccessDto {
 
   @ApiProperty({ example: true })
   restricted!: true;
+
+  @ApiProperty({
+    enum: ['support', 'deletion'],
+    description:
+      'support: cuenta deshabilitada (sus tickets y pedir su eliminación). deletion: cuenta ' +
+      'pendiente de eliminación (consultar o cancelar la eliminación).',
+  })
+  scope!: 'support' | 'deletion';
 }

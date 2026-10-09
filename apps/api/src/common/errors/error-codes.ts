@@ -68,6 +68,9 @@ export const ErrorCode = {
   SETTING_READ_ONLY: 'SETTING_READ_ONLY',
   REFUND_EXCEEDS_PAID: 'REFUND_EXCEEDS_PAID',
   TICKET_CLOSED: 'TICKET_CLOSED',
+  // Eliminación de cuenta
+  ACCOUNT_PENDING_DELETION: 'ACCOUNT_PENDING_DELETION',
+  DELETION_BLOCKED: 'DELETION_BLOCKED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode] | (string & {});

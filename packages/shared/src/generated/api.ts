@@ -1874,6 +1874,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/account/deletion/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Vista previa: reservas que se cancelarán (y cuánto se devuelve) y bloqueos */
+        get: operations["AccountController_preview_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/account/deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Estado de la eliminación de la cuenta */
+        get: operations["AccountController_status_v1"];
+        put?: never;
+        /**
+         * Solicitar la eliminación de la cuenta (con la contraseña)
+         * @description Cancela al instante sus reservas activas como cancelación del cliente, cierra sus tickets y todas sus sesiones. La eliminación se ejecuta tras account_deletion.grace_days (30); hasta entonces se puede cancelar desde el acceso limitado (POST /auth/support-access). 409 DELETION_BLOCKED con los bloqueos en details.
+         */
+        post: operations["AccountController_request_v1"];
+        /** Cancelar la eliminación (dentro del plazo); las reservas canceladas no se restauran */
+        delete: operations["AccountController_cancel_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2011,6 +2050,11 @@ export interface components {
             accessTokenExpiresAt: string;
             /** @example true */
             restricted: boolean;
+            /**
+             * @description support: cuenta deshabilitada (sus tickets y pedir su eliminación). deletion: cuenta pendiente de eliminación (consultar o cancelar la eliminación).
+             * @enum {string}
+             */
+            scope: "support" | "deletion";
         };
         RefreshDto: {
             refreshToken: string;
@@ -3649,6 +3693,53 @@ export interface components {
         };
         MarkedReadDto: {
             updated: number;
+        };
+        DeletionBlockerDto: {
+            /**
+             * @description SOLE_OWNER: único OWNER de una barbería (transfiere la propiedad o elimínala). STAFF_ROLE: cuenta de soporte o ADMIN (pide que te quiten el rol).
+             * @enum {string}
+             */
+            reason: "SOLE_OWNER" | "STAFF_ROLE";
+            /** Format: uuid */
+            barbershopId: string | null;
+            barbershopName: string | null;
+        };
+        AccountDeletionBookingDto: {
+            /** Format: uuid */
+            bookingId: string;
+            /** @enum {string} */
+            status: "PENDING_PAYMENT" | "CONFIRMED";
+            /** Format: date-time */
+            startAt: string;
+            barbershop: components["schemas"]["BookingBarbershopDto"];
+            refund: components["schemas"]["RefundQuoteDto"];
+        };
+        AccountDeletionPreviewDto: {
+            /** @description Se puede solicitar ahora (sin bloqueos ni solicitud pendiente). */
+            canRequest: boolean;
+            blockers: components["schemas"]["DeletionBlockerDto"][];
+            /** @description Reservas que se cancelarán al confirmar (como cancelación del cliente) y cuánto se devuelve por cada una. No se restauran si luego se cancela la eliminación. */
+            bookings: components["schemas"]["AccountDeletionBookingDto"][];
+            /** @example 30 */
+            graceDays: number;
+            /** Format: date-time */
+            scheduledForIfRequestedNow: string;
+            pending: boolean;
+        };
+        AccountDeletionStatusDto: {
+            /** @description Hay una eliminación programada (se puede cancelar). */
+            pending: boolean;
+            /** Format: date-time */
+            requestedAt: string | null;
+            /**
+             * Format: date-time
+             * @description Cuándo se ejecuta (hasta entonces se puede cancelar).
+             */
+            scheduledFor: string | null;
+        };
+        RequestAccountDeletionDto: {
+            /** @description Contraseña actual (confirmación). */
+            password: string;
         };
     };
     responses: never;
@@ -8308,6 +8399,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MarkedReadDto"];
+                };
+            };
+        };
+    };
+    AccountController_preview_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletionPreviewDto"];
+                };
+            };
+        };
+    };
+    AccountController_status_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletionStatusDto"];
+                };
+            };
+        };
+    };
+    AccountController_request_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestAccountDeletionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletionStatusDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AccountController_cancel_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletionStatusDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
                 };
             };
         };

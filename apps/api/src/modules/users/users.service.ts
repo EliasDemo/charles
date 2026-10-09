@@ -31,9 +31,14 @@ export interface UserCredentials {
   emailVerified: boolean;
   fullName: string;
   roles: Role[];
+  /** Eliminación solicitada y aún dentro del periodo de gracia. */
+  pendingDeletion: boolean;
 }
 
 type Tx = Prisma.TransactionClient;
+
+/** Nombre visible de una cuenta eliminada (en valoraciones y registros que se conservan). */
+export const ANONYMIZED_NAME = 'Cuenta eliminada';
 
 export interface StaffUserView {
   id: string;
@@ -56,6 +61,15 @@ export class UsersService {
 
   emailHash(email: string): Buffer<ArrayBuffer> {
     return this.encryption.blindIndex(email, BlindIndexKind.EMAIL);
+  }
+
+  /** Eliminación de cuenta: correo bloqueado temporalmente para un nuevo registro. */
+  async isEmailBlocked(emailHash: Uint8Array<ArrayBuffer>): Promise<boolean> {
+    const row = await this.prisma.emailBlocklist.findUnique({
+      where: { emailHash },
+      select: { blockedUntil: true },
+    });
+    return !!row && row.blockedUntil > new Date();
   }
 
   async findIdByEmailHash(emailHash: Uint8Array<ArrayBuffer>): Promise<string | null> {
@@ -186,6 +200,36 @@ export class UsersService {
       deleted: u.deletedAt !== null,
       preferences: u.preferences,
     }));
+  }
+
+  /**
+   * Eliminación de cuenta: borra los datos personales de la fila (irreversible). El correo se
+   * reemplaza por uno interno único, así el original puede registrarse de nuevo; la contraseña
+   * queda inválida. La fila se conserva para los registros anonimizados que la referencian.
+   */
+  async anonymize(id: string, now: Date, tx: Tx = this.prisma): Promise<void> {
+    const placeholder = `eliminada+${id}@charles.invalid`;
+    await tx.user.update({
+      where: { id },
+      data: {
+        fullName: ANONYMIZED_NAME,
+        emailEnc: this.encryption.encrypt(placeholder, EncryptedField.USER_EMAIL),
+        emailHash: this.emailHash(placeholder),
+        passwordHash: '!',
+        phoneEnc: null,
+        phoneHash: null,
+        documentNumberEnc: null,
+        documentHash: null,
+        birthDateEnc: null,
+        emailVerifiedAt: null,
+        preferences: {},
+        metadata: {},
+        status: 'DISABLED',
+        deletedAt: now,
+        anonymizedAt: now,
+      },
+    });
+    await tx.userRole.deleteMany({ where: { userId: id } });
   }
 
   /** Fase 12: contacto en claro, solo para el acceso auditado de soporte. */
@@ -326,11 +370,13 @@ export class UsersService {
         deletedAt: true,
         emailVerifiedAt: true,
         fullName: true,
+        deletionScheduledFor: true,
         roles: { select: { role: true } },
       },
     });
     if (!user) return null;
     return {
+      pendingDeletion: user.deletionScheduledFor !== null,
       id: user.id,
       passwordHash: user.passwordHash,
       status: user.status,

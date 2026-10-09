@@ -553,6 +553,63 @@ describe('RF-NOT-001…004 Notificaciones — Fase 10 (e2e)', () => {
     });
   });
 
+  it('eliminación de cuenta: correo al solicitar y al cancelar; sin recordatorio si ya se canceló', async () => {
+    const me = await kit.verified();
+    const event = (type: string) =>
+      notifications.onEvent({
+        id: `${type}-${me.userId}`,
+        type,
+        payload: { userId: me.userId },
+      } as never);
+    await prisma.user.update({
+      where: { id: me.userId },
+      data: {
+        deletionRequestedAt: new Date(clock.current),
+        deletionScheduledFor: new Date(clock.current + 30 * DAY),
+      },
+    });
+    await event('user.deletion_requested');
+    await event('user.deletion_reminder');
+    await prisma.user.update({
+      where: { id: me.userId },
+      data: { deletionRequestedAt: null, deletionScheduledFor: null },
+    });
+    await event('user.deletion_cancelled');
+    // Un recordatorio que llega después de cancelar no se envía.
+    await notifications.onEvent({
+      id: `late-${me.userId}`,
+      type: 'user.deletion_reminder',
+      payload: { userId: me.userId },
+    } as never);
+    const types = (await rowsOf(me.userId)).map((r) => `${r.type}:${r.channel}`).sort();
+    expect(types).toEqual([
+      'ACCOUNT_DELETION_CANCELLED:EMAIL',
+      'ACCOUNT_DELETION_REMINDER:EMAIL',
+      'ACCOUNT_DELETION_REQUESTED:EMAIL',
+    ]);
+    // Una cuenta deshabilitada también los recibe (avisos sobre su propia cuenta).
+    const disabled = await kit.verified();
+    await prisma.user.update({
+      where: { id: disabled.userId },
+      data: {
+        status: 'DISABLED',
+        deletionRequestedAt: new Date(),
+        deletionScheduledFor: new Date(clock.current + DAY),
+      },
+    });
+    await notifications.onEvent({
+      id: `d-${disabled.userId}`,
+      type: 'user.deletion_requested',
+      payload: { userId: disabled.userId },
+    } as never);
+    expect(await rowsOf(disabled.userId, 'ACCOUNT_DELETION_REQUESTED')).toHaveLength(1);
+    await notifications.onEvent({
+      id: `x-${disabled.userId}`,
+      type: 'user.deletion_requested',
+      payload: {},
+    } as never);
+  });
+
   it('eventos incompletos o de recursos inexistentes no generan avisos', async () => {
     const before = await prisma.notification.count();
     const id = '00000000-0000-7000-8000-00000000000a';

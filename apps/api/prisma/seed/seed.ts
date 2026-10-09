@@ -166,6 +166,24 @@ export const SEED_SETTINGS: {
     description: 'Anticipación mínima para reservar, en minutos.',
   },
   {
+    key: 'account_deletion.grace_days',
+    value: 30,
+    description:
+      'Días entre la solicitud de eliminación de cuenta y su ejecución (se puede cancelar en ese plazo).',
+  },
+  {
+    key: 'account_deletion.email_block_days',
+    value: 365,
+    description:
+      'Días que el correo de una cuenta deshabilitada por soporte y luego eliminada no puede volver a registrarse.',
+  },
+  {
+    key: 'account_deletion.legal_retention_days',
+    value: null,
+    description:
+      'PENDIENTE (asesor legal): plazo de conservación de pagos, reembolsos y reservas anonimizados tras eliminar una cuenta.',
+  },
+  {
     key: 'legal.terms_url',
     // Provisional: reemplazar por la URL publicada de los términos (CLAUDE.md §4.2).
     value: 'https://charles.example/terminos',

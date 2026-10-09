@@ -16,7 +16,9 @@ import { SettingKey, SettingsService } from '../settings/settings.service';
 import { UsersService } from '../users/users.service';
 import { cancellationDecision, NO_SHOW_DEFAULTS, noShowAllowed } from './booking-policy';
 import { type BookingActor, BookingStateMachine, SYSTEM_ACTOR } from './booking-state-machine';
+import type { BookingStatus } from '../../generated/prisma/enums';
 import type {
+  AccountDeletionBookingDto,
   BookingDto,
   BookingListQueryDto,
   BookingPageDto,
@@ -506,6 +508,100 @@ export class BookingsService {
    * Vista previa (Fase 8A): si se puede cancelar ahora y cuánto se devolvería. Usa la misma
    * función que la cancelación, así lo que ve el cliente es lo que se aplica.
    */
+  // ───────────── Eliminación de cuenta ─────────────
+
+  /** Reservas del cliente que se cancelarían ahora (activas y aún no empezadas). */
+  private async cancellableForClient(
+    clientId: string,
+    tx: Prisma.TransactionClient = this.prisma,
+  ): Promise<
+    { id: string; status: BookingStatus; startAt: Date; currency: string; barbershopId: string }[]
+  > {
+    const now = this.clock.now();
+    const rows = await tx.booking.findMany({
+      where: { clientId, status: { in: ['PENDING_PAYMENT', 'CONFIRMED'] } },
+      select: { id: true, status: true, startAt: true, currency: true, barbershopId: true },
+      orderBy: { id: 'asc' },
+    });
+    return rows.filter(
+      (b) =>
+        cancellationDecision({ status: b.status, startAt: b.startAt.getTime(), now, by: 'CLIENT' })
+          .allowed,
+    );
+  }
+
+  /**
+   * Vista previa para eliminar la cuenta: qué reservas se cancelarán y cuánto se devuelve por
+   * cada una, con la **misma** política que la vista previa de cancelación del cliente.
+   */
+  async previewForAccountDeletion(clientId: string): Promise<AccountDeletionBookingDto[]> {
+    const bookings = await this.cancellableForClient(clientId);
+    const shops = await this.access.basicsIncludingDeleted([
+      ...new Set(bookings.map((b) => b.barbershopId)),
+    ]);
+    const items: AccountDeletionBookingDto[] = [];
+    for (const b of bookings) {
+      const quote = await this.payments.quoteCancellation(
+        { id: b.id, startAt: b.startAt },
+        'CLIENT',
+      );
+      items.push({
+        bookingId: b.id,
+        status: b.status,
+        startAt: b.startAt,
+        barbershop: {
+          id: b.barbershopId,
+          name: shops.get(b.barbershopId)?.name ?? null,
+          timezone: shops.get(b.barbershopId)?.timezone ?? 'America/Lima',
+        },
+        refund: {
+          amount: { amount: quote.amount, currency: b.currency },
+          percent: quote.percent,
+          rule: quote.rule,
+          paid: { amount: quote.refundableAmount, currency: b.currency },
+        },
+      });
+    }
+    return items;
+  }
+
+  /**
+   * Al confirmar la eliminación de la cuenta (en su transacción): cancela sus reservas activas
+   * como **cancelación del cliente**, con la política de devolución normal. Bloquea en orden de id.
+   */
+  async cancelForAccountDeletionInTx(
+    tx: Prisma.TransactionClient,
+    clientId: string,
+  ): Promise<string[]> {
+    const ids = (await this.cancellableForClient(clientId, tx)).map((b) => b.id);
+    const cancelled: string[] = [];
+    for (const id of ids) {
+      const [current] = await tx.$queryRaw<{ status: BookingStatus; start_at: Date }[]>`
+        SELECT status::text AS status, start_at FROM bookings WHERE id = ${id}::uuid FOR UPDATE`;
+      if (
+        !current ||
+        !cancellationDecision({
+          status: current.status,
+          startAt: current.start_at.getTime(),
+          now: this.clock.now(),
+          by: 'CLIENT',
+        }).allowed
+      ) {
+        continue;
+      }
+      await this.stateMachine.transition(
+        tx,
+        id,
+        'CANCELLED',
+        { userId: clientId, role: 'CLIENT' },
+        'account_deletion',
+      );
+      await this.payments.onBookingCancelled(tx, { id, startAt: current.start_at }, 'CLIENT');
+      cancelled.push(id);
+    }
+    return cancelled;
+  }
+
   async cancellationPreview(userId: string, bookingId: string): Promise<CancellationPreviewDto> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },

@@ -1,3 +1,4 @@
+import { ANONYMIZED_NAME } from '../users/users.service';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import { OutboxService } from '../../common/outbox/outbox.service';
@@ -27,7 +28,7 @@ import { publicAuthorName, REVIEW_DEFAULTS, withinReviewWindow } from './review-
 import { ReviewRatings } from './review-ratings';
 
 const reviewInclude = {
-  client: { select: { fullName: true } },
+  client: { select: { fullName: true, anonymizedAt: true } },
   barber: { select: { id: true, displayName: true } },
   booking: { select: { serviceNameSnapshot: true } },
   barbershop: { select: { id: true, name: true } },
@@ -365,7 +366,7 @@ export class ReviewsService {
       id: row.id,
       rating: row.rating,
       comment: row.comment,
-      authorName: publicAuthorName(row.client.fullName),
+      authorName: row.client.anonymizedAt ? ANONYMIZED_NAME : publicAuthorName(row.client.fullName),
       serviceName: row.booking.serviceNameSnapshot,
       barber: { id: row.barber.id, displayName: row.barber.displayName },
       createdAt: row.createdAt.toISOString(),

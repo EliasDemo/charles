@@ -35,6 +35,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { SupportModule } from './modules/support/support.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { AccountModule } from './modules/account/account.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     SupportModule,
     AdminModule,
     NotificationsModule,
+    AccountModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

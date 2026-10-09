@@ -249,3 +249,21 @@ export class BookingPageDto {
   @ApiProperty({ nullable: true, type: String })
   nextCursor!: string | null;
 }
+
+/** Eliminación de cuenta: una reserva que se cancelará y cuánto se devuelve (misma política). */
+export class AccountDeletionBookingDto {
+  @ApiProperty({ format: 'uuid' })
+  bookingId!: string;
+
+  @ApiProperty({ enum: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED] })
+  status!: BookingStatus;
+
+  @ApiProperty({ format: 'date-time' })
+  startAt!: Date;
+
+  @ApiProperty({ type: BookingBarbershopDto })
+  barbershop!: BookingBarbershopDto;
+
+  @ApiProperty({ type: RefundQuoteDto })
+  refund!: RefundQuoteDto;
+}

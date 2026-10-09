@@ -7602,6 +7602,151 @@
           "notifications"
         ]
       }
+    },
+    "/api/v1/me/account/deletion/preview": {
+      "get": {
+        "operationId": "AccountController_preview_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletionPreviewDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Vista previa: reservas que se cancelarán (y cuánto se devuelve) y bloqueos",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/v1/me/account/deletion": {
+      "get": {
+        "operationId": "AccountController_status_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletionStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Estado de la eliminación de la cuenta",
+        "tags": [
+          "account"
+        ]
+      },
+      "post": {
+        "description": "Cancela al instante sus reservas activas como cancelación del cliente, cierra sus tickets y todas sus sesiones. La eliminación se ejecuta tras account_deletion.grace_days (30); hasta entonces se puede cancelar desde el acceso limitado (POST /auth/support-access). 409 DELETION_BLOCKED con los bloqueos en details.",
+        "operationId": "AccountController_request_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestAccountDeletionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletionStatusDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solicitar la eliminación de la cuenta (con la contraseña)",
+        "tags": [
+          "account"
+        ]
+      },
+      "delete": {
+        "operationId": "AccountController_cancel_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletionStatusDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancelar la eliminación (dentro del plazo); las reservas canceladas no se restauran",
+        "tags": [
+          "account"
+        ]
+      }
     }
   },
   "info": {
@@ -7980,13 +8125,22 @@
           "restricted": {
             "type": "boolean",
             "example": true
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "support",
+              "deletion"
+            ],
+            "description": "support: cuenta deshabilitada (sus tickets y pedir su eliminación). deletion: cuenta pendiente de eliminación (consultar o cancelar la eliminación)."
           }
         },
         "required": [
           "tokenType",
           "accessToken",
           "accessTokenExpiresAt",
-          "restricted"
+          "restricted",
+          "scope"
         ]
       },
       "RefreshDto": {
@@ -13395,6 +13549,144 @@
         },
         "required": [
           "updated"
+        ]
+      },
+      "DeletionBlockerDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "SOLE_OWNER",
+              "STAFF_ROLE"
+            ],
+            "description": "SOLE_OWNER: único OWNER de una barbería (transfiere la propiedad o elimínala). STAFF_ROLE: cuenta de soporte o ADMIN (pide que te quiten el rol)."
+          },
+          "barbershopId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "barbershopName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "reason",
+          "barbershopId",
+          "barbershopName"
+        ]
+      },
+      "AccountDeletionBookingDto": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING_PAYMENT",
+              "CONFIRMED"
+            ]
+          },
+          "startAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "barbershop": {
+            "$ref": "#/components/schemas/BookingBarbershopDto"
+          },
+          "refund": {
+            "$ref": "#/components/schemas/RefundQuoteDto"
+          }
+        },
+        "required": [
+          "bookingId",
+          "status",
+          "startAt",
+          "barbershop",
+          "refund"
+        ]
+      },
+      "AccountDeletionPreviewDto": {
+        "type": "object",
+        "properties": {
+          "canRequest": {
+            "type": "boolean",
+            "description": "Se puede solicitar ahora (sin bloqueos ni solicitud pendiente)."
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeletionBlockerDto"
+            }
+          },
+          "bookings": {
+            "description": "Reservas que se cancelarán al confirmar (como cancelación del cliente) y cuánto se devuelve por cada una. No se restauran si luego se cancela la eliminación.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountDeletionBookingDto"
+            }
+          },
+          "graceDays": {
+            "type": "number",
+            "example": 30
+          },
+          "scheduledForIfRequestedNow": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "pending": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "canRequest",
+          "blockers",
+          "bookings",
+          "graceDays",
+          "scheduledForIfRequestedNow",
+          "pending"
+        ]
+      },
+      "AccountDeletionStatusDto": {
+        "type": "object",
+        "properties": {
+          "pending": {
+            "type": "boolean",
+            "description": "Hay una eliminación programada (se puede cancelar)."
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "scheduledFor": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "Cuándo se ejecuta (hasta entonces se puede cancelar)."
+          }
+        },
+        "required": [
+          "pending",
+          "requestedAt",
+          "scheduledFor"
+        ]
+      },
+      "RequestAccountDeletionDto": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "description": "Contraseña actual (confirmación)."
+          }
+        },
+        "required": [
+          "password"
         ]
       }
     }

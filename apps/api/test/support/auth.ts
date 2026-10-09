@@ -40,9 +40,11 @@ export async function createAuthTestApp(
 }
 
 export class AuthClient {
-  readonly ip = randomIp();
-
-  constructor(private readonly app: NestExpressApplication) {}
+  /** IP del cliente (X-Forwarded-For). Por defecto aleatoria; fija si la prueba la rastrea. */
+  constructor(
+    private readonly app: NestExpressApplication,
+    readonly ip: string = randomIp(),
+  ) {}
 
   get http() {
     return request(this.app.getHttpServer());
