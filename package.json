@@ -30,7 +30,8 @@
   "pnpm": {
     "overrides": {
       "mysql2": "3.24.5",
-      "deepmerge-ts": "8.0.2"
+      "deepmerge-ts": "8.0.2",
+      "handlebars": "4.7.10"
     }
   }
 }

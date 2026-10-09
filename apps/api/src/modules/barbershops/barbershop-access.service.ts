@@ -87,6 +87,17 @@ export class BarbershopAccessService {
     return new Map(shops.map((s) => [s.id, s.name]));
   }
 
+  /** Nombre y zona horaria aunque la barbería se haya eliminado (historial de reservas). */
+  async basicsIncludingDeleted(
+    ids: string[],
+  ): Promise<Map<string, { name: string; timezone: string }>> {
+    const shops = await this.prisma.barbershop.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, timezone: true },
+    });
+    return new Map(shops.map((s) => [s.id, { name: s.name, timezone: s.timezone }]));
+  }
+
   async names(ids: string[]): Promise<Map<string, string>> {
     const shops = await this.prisma.barbershop.findMany({
       where: { id: { in: ids }, deletedAt: null },

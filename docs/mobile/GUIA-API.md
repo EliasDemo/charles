@@ -207,6 +207,10 @@ Todos los errores tienen la misma forma:
 
 ## 5. Flujos paso a paso
 
+**Zona horaria:** toda respuesta con horas de una barbería trae su `timezone` (IANA): reservas (`barbershop.timezone`), disponibilidad (día, ahora y siguiente), horario de la barbería y del barbero, bloqueos, agenda, resultados de búsqueda y alternativas. Muestra siempre las horas en **esa** zona, no en la del teléfono.
+
+**Términos:** `GET /auth/terms` devuelve `{ version, termsUrl, privacyUrl }`. Abre esas URLs en el registro; si llegan `null`, oculta el enlace. Hoy son provisionales.
+
 Las rutas son relativas a `/api/v1`. "Sesión" significa la cabecera `Authorization`.
 
 ### Cliente

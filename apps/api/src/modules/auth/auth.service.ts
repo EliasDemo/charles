@@ -6,7 +6,7 @@ import { TokenService } from '../../common/auth/token.service';
 import { PasswordHasher } from '../../common/crypto/password-hasher';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
-import { SettingsService } from '../settings/settings.service';
+import { SettingKey, SettingsService } from '../settings/settings.service';
 import { type UserCredentials, UsersService } from '../users/users.service';
 import type {
   AcceptedResponseDto,
@@ -14,6 +14,7 @@ import type {
   LoginDto,
   RegisterDto,
   SupportAccessDto,
+  TermsDto,
 } from './dto/auth.dto';
 import { LoginAttemptsService } from './login-attempts.service';
 import { AuthMailProducer } from './mail/auth-mail.producer';
@@ -53,6 +54,20 @@ export class AuthService {
 
   async termsVersion(): Promise<string> {
     return this.settings.termsVersion();
+  }
+
+  /** Versión vigente y enlaces públicos a los documentos legales. */
+  async terms(): Promise<TermsDto> {
+    const [version, termsUrl, privacyUrl] = await Promise.all([
+      this.settings.termsVersion(),
+      this.settings.get(SettingKey.TERMS_URL),
+      this.settings.get(SettingKey.PRIVACY_URL),
+    ]);
+    return {
+      version,
+      termsUrl: httpsUrlOrNull(termsUrl),
+      privacyUrl: httpsUrlOrNull(privacyUrl),
+    };
   }
 
   /**
@@ -235,4 +250,9 @@ export class AuthService {
     this.dummyHash ??= PasswordHasher.hash(`dummy-${Math.random()}-${Date.now()}`);
     return this.dummyHash;
   }
+}
+
+/** Solo URLs https; un valor mal configurado no se envía a la app. */
+function httpsUrlOrNull(value: unknown): string | null {
+  return typeof value === 'string' && /^https:\/\/\S+$/.test(value) ? value : null;
 }

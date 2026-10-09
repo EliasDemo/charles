@@ -594,7 +594,11 @@ describe('RF-DIS-001…004 y RF-BRB-003 Horarios, bloqueos y disponibilidad (e2e
       expect(hhmm(res.body.slot.startAt)).toBe('10:15');
 
       clock.current = lima(MONDAY, '12:50'); // el último turno (12:30) ya empezó
-      expect((await now(s).expect(200)).body).toEqual({ available: false, slot: null });
+      expect((await now(s).expect(200)).body).toEqual({
+        available: false,
+        slot: null,
+        timezone: 'America/Lima',
+      });
 
       clock.current = lima(MONDAY, '08:00'); // abre en 60 min: fuera de la ventana
       expect((await now(s).expect(200)).body.available).toBe(false);
@@ -633,7 +637,7 @@ describe('RF-DIS-001…004 y RF-BRB-003 Horarios, bloqueos y disponibilidad (e2e
 
     it('RF-DIS-004 sin turnos dentro del horizonte devuelve null', async () => {
       const s = await shopReady({ days: [] });
-      expect((await next(s).expect(200)).body).toEqual({ slot: null });
+      expect((await next(s).expect(200)).body).toEqual({ slot: null, timezone: 'America/Lima' });
     });
 
     it('RF-DIS-004 con un barbero concreto busca solo sus turnos', async () => {

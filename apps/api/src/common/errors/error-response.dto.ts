@@ -11,7 +11,11 @@ export class ErrorResponseDto {
   })
   message!: string;
 
-  @ApiProperty({ type: 'array', items: { type: 'object' }, example: [] })
+  @ApiProperty({
+    type: 'array',
+    items: { type: 'object', additionalProperties: true },
+    example: [],
+  })
   details!: unknown[];
 
   @ApiProperty({ example: '0f8fad5b-d9cb-469f-a165-70867728950e' })

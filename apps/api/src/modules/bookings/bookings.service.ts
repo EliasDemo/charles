@@ -763,7 +763,7 @@ export class BookingsService {
   private async toDtos(bookings: BookingRow[], viewer: Viewer): Promise<BookingDto[]> {
     const unique = <T>(values: T[]) => [...new Set(values)];
     const [shops, barbers, clients] = await Promise.all([
-      this.access.namesIncludingDeleted(unique(bookings.map((b) => b.barbershopId))),
+      this.access.basicsIncludingDeleted(unique(bookings.map((b) => b.barbershopId))),
       this.barbers.displayNames(unique(bookings.map((b) => b.barberId))),
       viewer === 'STAFF'
         ? this.users.fullNames(unique(bookings.map((b) => b.clientId)))
@@ -774,7 +774,11 @@ export class BookingsService {
       return {
         id: b.id,
         status: b.status,
-        barbershop: { id: b.barbershopId, name: shops.get(b.barbershopId) ?? null },
+        barbershop: {
+          id: b.barbershopId,
+          name: shops.get(b.barbershopId)?.name ?? null,
+          timezone: shops.get(b.barbershopId)?.timezone ?? 'America/Lima',
+        },
         service: { id: b.serviceId, name: b.serviceNameSnapshot },
         barber: { id: b.barberId, name: barbers.get(b.barberId) ?? null },
         barberChosenByClient: b.barberChosenByClient,

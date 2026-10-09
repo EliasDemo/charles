@@ -145,6 +145,22 @@ export class AcceptedResponseDto {
 export class TermsDto {
   @ApiProperty({ example: '2026-10' })
   version!: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'https://charles.example/terminos',
+    description: 'Términos y condiciones (legal.terms_url). null si no está configurada.',
+  })
+  termsUrl!: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'https://charles.example/privacidad',
+    description: 'Política de privacidad (legal.privacy_url). null si no está configurada.',
+  })
+  privacyUrl!: string | null;
 }
 
 export class SessionUserDto {

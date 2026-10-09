@@ -7683,7 +7683,8 @@
           "details": {
             "type": "array",
             "items": {
-              "type": "object"
+              "type": "object",
+              "additionalProperties": true
             },
             "example": []
           },
@@ -7790,7 +7791,7 @@
             "example": "Ana Pérez"
           },
           "phone": {
-            "type": "object",
+            "type": "string",
             "example": "+51 987 654 321",
             "nullable": true,
             "description": "null lo elimina"
@@ -7806,10 +7807,24 @@
           "version": {
             "type": "string",
             "example": "2026-10"
+          },
+          "termsUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://charles.example/terminos",
+            "description": "Términos y condiciones (legal.terms_url). null si no está configurada."
+          },
+          "privacyUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://charles.example/privacidad",
+            "description": "Política de privacidad (legal.privacy_url). null si no está configurada."
           }
         },
         "required": [
-          "version"
+          "version",
+          "termsUrl",
+          "privacyUrl"
         ]
       },
       "RegisterDto": {
@@ -10034,6 +10049,11 @@
           "available": {
             "type": "boolean"
           },
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima",
+            "description": "Zona IANA de la barbería: muestra las horas en esta zona."
+          },
           "slot": {
             "nullable": true,
             "type": "object",
@@ -10046,6 +10066,7 @@
         },
         "required": [
           "available",
+          "timezone",
           "slot"
         ]
       },
@@ -10060,10 +10081,16 @@
                 "$ref": "#/components/schemas/SlotDto"
               }
             ]
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima",
+            "description": "Zona IANA de la barbería: muestra las horas en esta zona."
           }
         },
         "required": [
-          "slot"
+          "slot",
+          "timezone"
         ]
       },
       "WeeklyScheduleDto": {
@@ -10116,6 +10143,11 @@
             "type": "string",
             "format": "uuid"
           },
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima",
+            "description": "Zona IANA de la barbería: muestra las horas en esta zona."
+          },
           "inheritsBusinessHours": {
             "type": "boolean",
             "description": "true: no tiene horario propio y usa el de la barbería."
@@ -10129,6 +10161,7 @@
         },
         "required": [
           "barberId",
+          "timezone",
           "inheritsBusinessHours",
           "days"
         ]
@@ -10139,6 +10172,11 @@
           "barberId": {
             "type": "string",
             "format": "uuid"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima",
+            "description": "Zona IANA de la barbería: muestra las horas en esta zona."
           },
           "inheritsBusinessHours": {
             "type": "boolean",
@@ -10156,6 +10194,7 @@
         },
         "required": [
           "barberId",
+          "timezone",
           "inheritsBusinessHours",
           "days",
           "bookingsOutsideSchedule"
@@ -10200,6 +10239,11 @@
           "reason": {
             "type": "string",
             "nullable": true
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima",
+            "description": "Zona IANA de la barbería: muestra las horas en esta zona."
           }
         },
         "required": [
@@ -10208,7 +10252,8 @@
           "startAt",
           "endAt",
           "type",
-          "reason"
+          "reason",
+          "timezone"
         ]
       },
       "CreateTimeBlockDto": {
@@ -10751,6 +10796,29 @@
           "EXPIRED"
         ]
       },
+      "BookingBarbershopDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima",
+            "description": "Zona IANA de la barbería: muestra las horas en esta zona."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "timezone"
+        ]
+      },
       "NamedRefDto": {
         "type": "object",
         "properties": {
@@ -10872,7 +10940,7 @@
             ]
           },
           "barbershop": {
-            "$ref": "#/components/schemas/NamedRefDto"
+            "$ref": "#/components/schemas/BookingBarbershopDto"
           },
           "service": {
             "description": "Nombre del servicio al reservar (copia).",
@@ -10969,7 +11037,7 @@
             ]
           },
           "barbershop": {
-            "$ref": "#/components/schemas/NamedRefDto"
+            "$ref": "#/components/schemas/BookingBarbershopDto"
           },
           "service": {
             "description": "Nombre del servicio al reservar (copia).",
@@ -11333,7 +11401,7 @@
             ]
           },
           "barbershop": {
-            "$ref": "#/components/schemas/NamedRefDto"
+            "$ref": "#/components/schemas/BookingBarbershopDto"
           },
           "service": {
             "description": "Nombre del servicio al reservar (copia).",
@@ -12381,7 +12449,7 @@
           "resolution"
         ]
       },
-      "RefNameDto": {
+      "RefShopWithZoneDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -12390,11 +12458,17 @@
           },
           "name": {
             "type": "string"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Lima",
+            "description": "Zona IANA de la barbería: muestra las horas en esta zona."
           }
         },
         "required": [
           "id",
-          "name"
+          "name",
+          "timezone"
         ]
       },
       "RefBarberDto": {
@@ -12560,7 +12634,7 @@
             "type": "string"
           },
           "barbershop": {
-            "$ref": "#/components/schemas/RefNameDto"
+            "$ref": "#/components/schemas/RefShopWithZoneDto"
           },
           "barber": {
             "$ref": "#/components/schemas/RefBarberDto"
@@ -12704,6 +12778,22 @@
         "required": [
           "items",
           "nextCursor"
+        ]
+      },
+      "RefNameDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
         ]
       },
       "AdminCancellationReviewDto": {
@@ -12967,8 +13057,27 @@
             "type": "string"
           },
           "value": {
-            "type": "object",
-            "nullable": true
+            "nullable": true,
+            "description": "Valor actual (cualquier JSON).",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "array",
+                "items": {}
+              },
+              {
+                "type": "object",
+                "additionalProperties": true
+              }
+            ]
           },
           "description": {
             "type": "string",
@@ -12984,6 +13093,7 @@
           "schema": {
             "type": "object",
             "nullable": true,
+            "additionalProperties": true,
             "description": "type y rango (min, max, multipleOf) o longitud."
           },
           "updatedAt": {
@@ -13011,8 +13121,26 @@
             "maxLength": 500
           },
           "value": {
-            "type": "object",
-            "description": "Nuevo valor, según el esquema del ajuste."
+            "description": "Nuevo valor, según el esquema del ajuste (cualquier JSON).",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "array",
+                "items": {}
+              },
+              {
+                "type": "object",
+                "additionalProperties": true
+              }
+            ]
           }
         },
         "required": [

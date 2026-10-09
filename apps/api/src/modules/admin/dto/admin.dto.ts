@@ -133,7 +133,16 @@ export class ReviewModerationDto extends ReasonDto {
 }
 
 export class UpdateSettingDto extends ReasonDto {
-  @ApiProperty({ description: 'Nuevo valor, según el esquema del ajuste.' })
+  @ApiProperty({
+    description: 'Nuevo valor, según el esquema del ajuste (cualquier JSON).',
+    oneOf: [
+      { type: 'string' },
+      { type: 'number' },
+      { type: 'boolean' },
+      { type: 'array', items: {} },
+      { type: 'object', additionalProperties: true },
+    ],
+  })
   @IsDefined()
   value!: unknown;
 }
@@ -188,6 +197,14 @@ export class RefNameDto {
 
   @ApiProperty()
   name!: string;
+}
+
+export class RefShopWithZoneDto extends RefNameDto {
+  @ApiProperty({
+    example: 'America/Lima',
+    description: 'Zona IANA de la barbería: muestra las horas en esta zona.',
+  })
+  timezone!: string;
 }
 
 export class RefBarberDto {
@@ -386,8 +403,8 @@ export class AdminBookingDto {
   @ApiProperty()
   currency!: string;
 
-  @ApiProperty({ type: RefNameDto })
-  barbershop!: RefNameDto;
+  @ApiProperty({ type: RefShopWithZoneDto })
+  barbershop!: RefShopWithZoneDto;
 
   @ApiProperty({ type: RefBarberDto })
   barber!: RefBarberDto;
@@ -498,7 +515,17 @@ export class AdminSettingDto {
   @ApiProperty()
   key!: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({
+    nullable: true,
+    description: 'Valor actual (cualquier JSON).',
+    oneOf: [
+      { type: 'string' },
+      { type: 'number' },
+      { type: 'boolean' },
+      { type: 'array', items: {} },
+      { type: 'object', additionalProperties: true },
+    ],
+  })
   value!: unknown;
 
   @ApiProperty({ nullable: true, type: String })
@@ -512,7 +539,8 @@ export class AdminSettingDto {
 
   @ApiProperty({
     nullable: true,
-    type: Object,
+    type: 'object',
+    additionalProperties: true,
     description: 'type y rango (min, max, multipleOf) o longitud.',
   })
   schema!: Record<string, unknown> | null;

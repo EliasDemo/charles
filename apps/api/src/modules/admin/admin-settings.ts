@@ -32,6 +32,13 @@ const HH_MM: SettingSchema = {
   pattern: /^([01]\d|2[0-3]):[0-5]\d$/,
 };
 
+const HTTPS_URL: SettingSchema = {
+  type: 'string',
+  minLength: 12,
+  maxLength: 300,
+  pattern: /^https:\/\/[^\s]+$/,
+};
+
 const SECURITY = 'Ajuste de seguridad: se cambia por despliegue, no desde el panel.';
 const PAYMENTS = 'Ajuste de pagos sensible: se cambia por despliegue, no desde el panel.';
 const PENDING = 'Decisión de negocio pendiente (CLAUDE.md §4.2).';
@@ -44,6 +51,8 @@ export const SETTING_RULES: Readonly<Record<string, SettingRule>> = {
   [SettingKey.TERMS_VERSION]: {
     schema: { type: 'string', minLength: 1, maxLength: 20, pattern: /^[0-9A-Za-z._-]+$/ },
   },
+  [SettingKey.TERMS_URL]: { schema: HTTPS_URL },
+  [SettingKey.PRIVACY_URL]: { schema: HTTPS_URL },
   [SettingKey.LOCKOUT_ACCOUNT_MAX_FAILURES]: readOnly(SECURITY),
   [SettingKey.LOCKOUT_IP_MAX_FAILURES]: readOnly(SECURITY),
   [SettingKey.BARBERSHOPS_REQUIRE_REVIEW]: { schema: { type: 'boolean' } },

@@ -166,6 +166,19 @@ export const SEED_SETTINGS: {
     description: 'Anticipación mínima para reservar, en minutos.',
   },
   {
+    key: 'legal.terms_url',
+    // Provisional: reemplazar por la URL publicada de los términos (CLAUDE.md §4.2).
+    value: 'https://charles.example/terminos',
+    description:
+      'URL pública de los términos y condiciones (https). La app la abre al registrarse.',
+  },
+  {
+    key: 'legal.privacy_url',
+    // Provisional: reemplazar por la URL publicada de la política de privacidad.
+    value: 'https://charles.example/privacidad',
+    description: 'URL pública de la política de privacidad (https).',
+  },
+  {
     key: 'legal.terms_version',
     // Valor provisional: reemplazar por la versión publicada de los términos (no está definida).
     value: 'borrador-2026-10',

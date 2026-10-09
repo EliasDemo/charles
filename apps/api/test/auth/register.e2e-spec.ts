@@ -157,7 +157,29 @@ describe('RF-AUT-001 Registro de cuenta (e2e)', () => {
       const res = await new AuthClient(app).register({ termsVersion: 'vieja' }).expect(400);
       expect(res.body.code).toBe('TERMS_VERSION_OUTDATED');
       const terms = await new AuthClient(app).get('/api/v1/auth/terms').expect(200);
-      expect(terms.body).toEqual({ version: TEST_TERMS_VERSION });
+      // Sin URLs configuradas (charles_test no siembra ajustes): null.
+      expect(terms.body).toEqual({ version: TEST_TERMS_VERSION, termsUrl: null, privacyUrl: null });
+    });
+
+    it('GET /auth/terms devuelve los enlaces de app_settings; un valor que no es https no se envía', async () => {
+      const prisma = app.get(PrismaService);
+      const rows = {
+        'legal.terms_url': 'https://charles.example/terminos',
+        'legal.privacy_url': 'http://inseguro.example/privacidad',
+      };
+      for (const [key, value] of Object.entries(rows)) {
+        await prisma.appSetting.create({ data: { key, value } });
+      }
+      try {
+        const terms = await new AuthClient(app).get('/api/v1/auth/terms').expect(200);
+        expect(terms.body).toEqual({
+          version: TEST_TERMS_VERSION,
+          termsUrl: 'https://charles.example/terminos',
+          privacyUrl: null,
+        });
+      } finally {
+        await prisma.appSetting.deleteMany({ where: { key: { in: Object.keys(rows) } } });
+      }
     });
   });
 });

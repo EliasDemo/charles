@@ -1,3 +1,4 @@
+import { BarbershopAccessService } from '../barbershops/barbershop-access.service';
 import {
   Body,
   Controller,
@@ -64,6 +65,7 @@ export class AvailabilityController {
   constructor(
     private readonly availability: AvailabilityService,
     private readonly schedules: ScheduleService,
+    private readonly access: BarbershopAccessService,
   ) {}
 
   // ───────────── Público ─────────────
@@ -107,7 +109,11 @@ export class AvailabilityController {
     @Query() query: AvailabilityQueryDto,
   ): Promise<AvailableNowDto> {
     const slot = await this.availability.availableNow({ barbershopId: id, ...query });
-    return { available: slot !== null, slot: slot ? toSlotDto(slot) : null };
+    return {
+      available: slot !== null,
+      timezone: await this.access.timezoneOf(id),
+      slot: slot ? toSlotDto(slot) : null,
+    };
   }
 
   @Public()
@@ -122,7 +128,7 @@ export class AvailabilityController {
     @Query() query: AvailabilityQueryDto,
   ): Promise<NextAvailabilityDto> {
     const slot = await this.availability.nextAvailable({ barbershopId: id, ...query });
-    return { slot: slot ? toSlotDto(slot) : null };
+    return { slot: slot ? toSlotDto(slot) : null, timezone: await this.access.timezoneOf(id) };
   }
 
   // ───────────── Gestión ─────────────

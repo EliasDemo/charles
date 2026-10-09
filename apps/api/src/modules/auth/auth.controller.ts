@@ -52,8 +52,8 @@ export class AuthController {
   @Get('terms')
   @ApiOperation({ summary: 'Versión vigente de los términos y condiciones' })
   @ApiOkResponse({ type: TermsDto })
-  async terms(): Promise<TermsDto> {
-    return { version: await this.auth.termsVersion() };
+  terms(): Promise<TermsDto> {
+    return this.auth.terms();
   }
 
   @Public()

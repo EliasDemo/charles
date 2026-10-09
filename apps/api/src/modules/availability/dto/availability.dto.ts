@@ -84,6 +84,12 @@ export class BarberScheduleDto {
   @ApiProperty({ format: 'uuid' })
   barberId!: string;
 
+  @ApiProperty({
+    example: 'America/Lima',
+    description: 'Zona IANA de la barbería: muestra las horas en esta zona.',
+  })
+  timezone!: string;
+
   @ApiProperty({ description: 'true: no tiene horario propio y usa el de la barbería.' })
   inheritsBusinessHours!: boolean;
 
@@ -158,6 +164,12 @@ export class TimeBlockDto {
 
   @ApiProperty({ nullable: true, type: String })
   reason!: string | null;
+
+  @ApiProperty({
+    example: 'America/Lima',
+    description: 'Zona IANA de la barbería: muestra las horas en esta zona.',
+  })
+  timezone!: string;
 }
 
 // ───────────── Disponibilidad pública ─────────────
@@ -209,6 +221,12 @@ export class AvailableNowDto {
   @ApiProperty()
   available!: boolean;
 
+  @ApiProperty({
+    example: 'America/Lima',
+    description: 'Zona IANA de la barbería: muestra las horas en esta zona.',
+  })
+  timezone!: string;
+
   @ApiProperty({ type: SlotDto, nullable: true })
   slot!: SlotDto | null;
 }
@@ -216,4 +234,10 @@ export class AvailableNowDto {
 export class NextAvailabilityDto {
   @ApiProperty({ type: SlotDto, nullable: true })
   slot!: SlotDto | null;
+
+  @ApiProperty({
+    example: 'America/Lima',
+    description: 'Zona IANA de la barbería: muestra las horas en esta zona.',
+  })
+  timezone!: string;
 }

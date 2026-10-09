@@ -5,6 +5,8 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 
 export const SettingKey = {
   TERMS_VERSION: 'legal.terms_version',
+  TERMS_URL: 'legal.terms_url',
+  PRIVACY_URL: 'legal.privacy_url',
   LOCKOUT_ACCOUNT_MAX_FAILURES: 'auth.lockout.account_max_failures',
   LOCKOUT_IP_MAX_FAILURES: 'auth.lockout.ip_max_failures',
   BARBERSHOPS_REQUIRE_REVIEW: 'barbershops.require_review',

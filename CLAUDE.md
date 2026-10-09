@@ -73,6 +73,10 @@ Módulos de `apps/api/src/modules/`:
 
 Cada módulo contiene: `*.controller.ts`, `*.service.ts`, `dto/`, `*.module.ts`, `*.spec.ts`. Un módulo solo accede a otro a través de su servicio exportado o de eventos de dominio, nunca tocando directamente sus tablas.
 
+### Contrato OpenAPI
+
+`src/openapi-contract.spec.ts` exige que toda propiedad del OpenAPI tenga un tipo concreto: un `string | null` declarado sin `type: String` sale como `object` vacío y rompe el tipo generado para la app.
+
 ### Comandos
 
 ```

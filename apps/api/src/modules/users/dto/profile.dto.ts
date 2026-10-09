@@ -46,6 +46,7 @@ export class UpdateProfileDto {
   fullName?: string;
 
   @ApiPropertyOptional({
+    type: String,
     example: '+51 987 654 321',
     nullable: true,
     description: 'null lo elimina',

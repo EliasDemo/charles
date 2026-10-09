@@ -44,10 +44,11 @@ Resueltas en la Fase 8A: devoluciones al cancelar, plazo para cancelar, no-show 
 
 ## Aspectos legales
 
-| Pendiente                              | Situación actual                                                                                              |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Validación legal de la edad mínima** | 18 años, autodeclarados con una casilla al registrarse (ADR 0003). Falta la validación legal.                 |
-| **Términos y condiciones definitivos** | `legal.terms_version` tiene un valor provisional (`borrador-2026-10`). Falta el texto publicado y su versión. |
+| Pendiente                              | Situación actual                                                                                                                                                                        |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Validación legal de la edad mínima** | 18 años, autodeclarados con una casilla al registrarse (ADR 0003). Falta la validación legal.                                                                                           |
+| **Términos y condiciones definitivos** | `legal.terms_version` tiene un valor provisional (`borrador-2026-10`). Falta el texto publicado y su versión.                                                                           |
+| **URLs de términos y privacidad**      | `legal.terms_url` y `legal.privacy_url` tienen valores provisionales (`https://charles.example/...`). Reemplazarlos por las URLs publicadas (editables por ADMIN en `/admin/settings`). |
 
 ## Web y seguridad
 

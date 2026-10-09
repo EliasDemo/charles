@@ -166,7 +166,12 @@ export class ScheduleService {
   ): Promise<BarberScheduleDto> {
     await this.actorFor(userId, barbershopId, barberId);
     const schedule = (await this.repository.barberSchedules([barberId])).get(barberId);
-    return { barberId, inheritsBusinessHours: !schedule, days: toDays(schedule ?? []) };
+    return {
+      barberId,
+      timezone: await this.access.timezoneOf(barbershopId),
+      inheritsBusinessHours: !schedule,
+      days: toDays(schedule ?? []),
+    };
   }
 
   /** Solo responsables. Una semana vacía significa "hereda el horario de la barbería". */
@@ -208,6 +213,7 @@ export class ScheduleService {
     );
     return {
       barberId,
+      timezone,
       inheritsBusinessHours: windows.length === 0,
       days: toDays(windows),
       bookingsOutsideSchedule: outside,
@@ -225,10 +231,11 @@ export class ScheduleService {
     const from = query.from ?? new Date(this.clock.now());
     const to = query.to ?? new Date(this.clock.now() + (settings.horizonDays + 1) * 24 * 3600_000);
     const blocks = await this.repository.blocks([barbershopId], { from, to });
+    const timezone = await this.access.timezoneOf(barbershopId);
     return blocks
       .filter((b) => actor.kind === 'manager' || b.barberId === actor.barberId)
       .slice(0, 500)
-      .map(toBlockDto);
+      .map((b) => toBlockDto(b, timezone));
   }
 
   /** RF-DIS-001 / RF-BRB-003. Rechaza (409) un bloqueo que choca con reservas activas. */
@@ -298,7 +305,7 @@ export class ScheduleService {
       );
       return created;
     });
-    return toBlockDto(block);
+    return toBlockDto(block, await this.access.timezoneOf(barbershopId));
   }
 
   async deleteBlock(
@@ -374,8 +381,9 @@ export class ScheduleService {
   }
 }
 
-function toBlockDto(block: TimeBlock): TimeBlockDto {
+function toBlockDto(block: TimeBlock, timezone: string): TimeBlockDto {
   return {
+    timezone,
     id: block.id,
     barberId: block.barberId,
     startAt: block.startAt,

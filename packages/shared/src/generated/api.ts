@@ -1901,7 +1901,9 @@ export interface components {
              */
             message: string;
             /** @example [] */
-            details: Record<string, never>[];
+            details: {
+                [key: string]: unknown;
+            }[];
             /** @example 0f8fad5b-d9cb-469f-a165-70867728950e */
             requestId: string;
         };
@@ -1937,12 +1939,22 @@ export interface components {
              * @description null lo elimina
              * @example +51 987 654 321
              */
-            phone?: Record<string, never> | null;
+            phone?: string | null;
             preferences?: components["schemas"]["NotificationPreferencesDto"];
         };
         TermsDto: {
             /** @example 2026-10 */
             version: string;
+            /**
+             * @description Términos y condiciones (legal.terms_url). null si no está configurada.
+             * @example https://charles.example/terminos
+             */
+            termsUrl: string | null;
+            /**
+             * @description Política de privacidad (legal.privacy_url). null si no está configurada.
+             * @example https://charles.example/privacidad
+             */
+            privacyUrl: string | null;
         };
         RegisterDto: {
             /** @example Ana Pérez */
@@ -2655,10 +2667,20 @@ export interface components {
         };
         AvailableNowDto: {
             available: boolean;
+            /**
+             * @description Zona IANA de la barbería: muestra las horas en esta zona.
+             * @example America/Lima
+             */
+            timezone: string;
             slot: components["schemas"]["SlotDto"] | null;
         };
         NextAvailabilityDto: {
             slot: components["schemas"]["SlotDto"] | null;
+            /**
+             * @description Zona IANA de la barbería: muestra las horas en esta zona.
+             * @example America/Lima
+             */
+            timezone: string;
         };
         WeeklyScheduleDto: {
             days: components["schemas"]["DayScheduleDto"][];
@@ -2675,6 +2697,11 @@ export interface components {
         BarberScheduleDto: {
             /** Format: uuid */
             barberId: string;
+            /**
+             * @description Zona IANA de la barbería: muestra las horas en esta zona.
+             * @example America/Lima
+             */
+            timezone: string;
             /** @description true: no tiene horario propio y usa el de la barbería. */
             inheritsBusinessHours: boolean;
             days: components["schemas"]["DayScheduleDto"][];
@@ -2682,6 +2709,11 @@ export interface components {
         BarberScheduleUpdateDto: {
             /** Format: uuid */
             barberId: string;
+            /**
+             * @description Zona IANA de la barbería: muestra las horas en esta zona.
+             * @example America/Lima
+             */
+            timezone: string;
             /** @description true: no tiene horario propio y usa el de la barbería. */
             inheritsBusinessHours: boolean;
             days: components["schemas"]["DayScheduleDto"][];
@@ -2700,6 +2732,11 @@ export interface components {
             endAt: string;
             type: components["schemas"]["TimeBlockType"];
             reason: string | null;
+            /**
+             * @description Zona IANA de la barbería: muestra las horas en esta zona.
+             * @example America/Lima
+             */
+            timezone: string;
         };
         CreateTimeBlockDto: {
             /**
@@ -2871,6 +2908,16 @@ export interface components {
         };
         /** @enum {string} */
         BookingStatus: "PENDING_PAYMENT" | "CONFIRMED" | "ATTENDED" | "CANCELLED" | "NO_SHOW" | "EXPIRED";
+        BookingBarbershopDto: {
+            /** Format: uuid */
+            id: string;
+            name: string | null;
+            /**
+             * @description Zona IANA de la barbería: muestra las horas en esta zona.
+             * @example America/Lima
+             */
+            timezone: string;
+        };
         NamedRefDto: {
             /** Format: uuid */
             id: string;
@@ -2900,7 +2947,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             status: components["schemas"]["BookingStatus"];
-            barbershop: components["schemas"]["NamedRefDto"];
+            barbershop: components["schemas"]["BookingBarbershopDto"];
             /** @description Nombre del servicio al reservar (copia). */
             service: components["schemas"]["NamedRefDto"];
             barber: components["schemas"]["NamedRefDto"];
@@ -2928,7 +2975,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             status: components["schemas"]["BookingStatus"];
-            barbershop: components["schemas"]["NamedRefDto"];
+            barbershop: components["schemas"]["BookingBarbershopDto"];
             /** @description Nombre del servicio al reservar (copia). */
             service: components["schemas"]["NamedRefDto"];
             barber: components["schemas"]["NamedRefDto"];
@@ -3038,7 +3085,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             status: components["schemas"]["BookingStatus"];
-            barbershop: components["schemas"]["NamedRefDto"];
+            barbershop: components["schemas"]["BookingBarbershopDto"];
             /** @description Nombre del servicio al reservar (copia). */
             service: components["schemas"]["NamedRefDto"];
             barber: components["schemas"]["NamedRefDto"];
@@ -3328,10 +3375,15 @@ export interface components {
             /** @description Resolución (queda en los reportes). */
             resolution: string;
         };
-        RefNameDto: {
+        RefShopWithZoneDto: {
             /** Format: uuid */
             id: string;
             name: string;
+            /**
+             * @description Zona IANA de la barbería: muestra las horas en esta zona.
+             * @example America/Lima
+             */
+            timezone: string;
         };
         RefBarberDto: {
             /** Format: uuid */
@@ -3382,7 +3434,7 @@ export interface components {
             serviceName: string;
             totalAmount: number;
             currency: string;
-            barbershop: components["schemas"]["RefNameDto"];
+            barbershop: components["schemas"]["RefShopWithZoneDto"];
             barber: components["schemas"]["RefBarberDto"];
             client: components["schemas"]["RefPersonDto"];
             history: components["schemas"]["AdminHistoryDto"][];
@@ -3418,6 +3470,11 @@ export interface components {
         AdminFailedRefundPageDto: {
             items: components["schemas"]["AdminFailedRefundDto"][];
             nextCursor: string | null;
+        };
+        RefNameDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
         };
         AdminCancellationReviewDto: {
             /** Format: uuid */
@@ -3492,19 +3549,26 @@ export interface components {
         };
         AdminSettingDto: {
             key: string;
-            value: Record<string, never> | null;
+            /** @description Valor actual (cualquier JSON). */
+            value: (string | number | boolean | unknown[] | {
+                [key: string]: unknown;
+            }) | null;
             description: string | null;
             editable: boolean;
             readOnlyReason: string | null;
             /** @description type y rango (min, max, multipleOf) o longitud. */
-            schema: Record<string, never> | null;
+            schema: {
+                [key: string]: unknown;
+            } | null;
             /** Format: date-time */
             updatedAt: string | null;
         };
         UpdateSettingDto: {
             reason: string;
-            /** @description Nuevo valor, según el esquema del ajuste. */
-            value: Record<string, never>;
+            /** @description Nuevo valor, según el esquema del ajuste (cualquier JSON). */
+            value: string | number | boolean | unknown[] | {
+                [key: string]: unknown;
+            };
         };
         AdminCategoryDto: {
             /** Format: uuid */

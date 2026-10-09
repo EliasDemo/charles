@@ -97,6 +97,15 @@ export class NamedRefDto {
   name!: string | null;
 }
 
+/** Barbería de una reserva: las horas de la reserva se muestran en su zona. */
+export class BookingBarbershopDto extends NamedRefDto {
+  @ApiProperty({
+    example: 'America/Lima',
+    description: 'Zona IANA de la barbería: muestra las horas en esta zona.',
+  })
+  timezone!: string;
+}
+
 export class PriceLineDto {
   @ApiProperty({ enum: PriceLineType, enumName: 'PriceLineType' })
   type!: PriceLineType;
@@ -140,8 +149,8 @@ export class BookingDto {
   @ApiProperty({ enum: BookingStatus, enumName: 'BookingStatus' })
   status!: BookingStatus;
 
-  @ApiProperty({ type: NamedRefDto })
-  barbershop!: NamedRefDto;
+  @ApiProperty({ type: BookingBarbershopDto })
+  barbershop!: BookingBarbershopDto;
 
   @ApiProperty({ type: NamedRefDto, description: 'Nombre del servicio al reservar (copia).' })
   service!: NamedRefDto;

@@ -50,7 +50,7 @@ export class AdminOperationsService {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
-        barbershop: { select: { id: true, name: true } },
+        barbershop: { select: { id: true, name: true, timezone: true } },
         barber: { select: { id: true, displayName: true } },
         client: { select: { id: true, fullName: true } },
         statusHistory: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
