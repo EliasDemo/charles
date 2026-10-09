@@ -30,6 +30,9 @@ import { PHONE_PATTERN } from '../../users/dto/profile.dto';
 
 // ───────────── Documento del responsable y revisión ─────────────
 
+/** 8 dígitos (DNI) u 11 (RUC). Se publica como `pattern` en el contrato. */
+export const OWNER_DOCUMENT_NUMBER = /^\d{8}(\d{3})?$/;
+
 export class OwnerDocumentInputDto {
   @ApiProperty({ enum: OwnerDocumentType, enumName: 'OwnerDocumentType' })
   @IsEnum(OwnerDocumentType)
@@ -37,13 +40,21 @@ export class OwnerDocumentInputDto {
 
   @ApiProperty({
     example: '20100047218',
-    description: 'RUC: 11 dígitos con dígito verificador válido. DNI: 8 dígitos.',
+    pattern: OWNER_DOCUMENT_NUMBER.source,
+    minLength: 8,
+    maxLength: 11,
+    description:
+      'Solo dígitos. DNI: 8 dígitos. RUC: 11 dígitos, con prefijo 10, 15, 17 o 20 y dígito ' +
+      'verificador válido (módulo 11 de SUNAT: pesos 5,4,3,2,7,6,5,4,3,2 sobre los 10 primeros ' +
+      'dígitos; verificador = (11 − suma % 11) % 10, que debe ser igual al último dígito). El largo ' +
+      'debe coincidir con el tipo. El prefijo y el verificador no caben en el pattern: el backend ' +
+      'los valida y responde VALIDATION_ERROR en ownerDocument.number.',
   })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.replace(/[\s.-]/g, '') : value,
   )
   @IsString()
-  @Matches(/^\d{8}(\d{3})?$/)
+  @Matches(OWNER_DOCUMENT_NUMBER)
   number!: string;
 }
 

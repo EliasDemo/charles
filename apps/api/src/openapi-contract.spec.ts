@@ -56,6 +56,17 @@ describe('Contrato OpenAPI', () => {
     expect(found).toEqual([]);
   });
 
+  it('el número de documento del responsable publica su pattern (8 u 11 dígitos)', () => {
+    const number = spec.components.schemas.OwnerDocumentInputDto?.properties?.number;
+    expect(number).toMatchObject({
+      type: 'string',
+      pattern: String.raw`^\d{8}(\d{3})?$`,
+      minLength: 8,
+      maxLength: 11,
+    });
+    expect(String(number?.description)).toMatch(/prefijo 10, 15, 17 o 20/);
+  });
+
   it('la comprobación detecta el defecto (control)', () => {
     expect(problems({ type: 'object', nullable: true }, 'X.phone')).toEqual([
       'X.phone: object sin estructura (¿falta type en @ApiProperty?)',
