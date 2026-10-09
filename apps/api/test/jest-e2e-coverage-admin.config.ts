@@ -13,6 +13,8 @@ const config: Config = {
   moduleFileExtensions: ['ts', 'js', 'json'],
   testRegex: [
     'test/(admin|account)/.*\\.e2e-spec\\.ts$',
+    // La revisión del alta (aprobar, pedir cambios, ver el documento) se prueba allí.
+    'test/barbershops/review\\.e2e-spec\\.ts$',
     'src/modules/(admin|support|account)/.*\\.spec\\.ts$',
   ],
   transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/test/tsconfig.coverage.json' }] },

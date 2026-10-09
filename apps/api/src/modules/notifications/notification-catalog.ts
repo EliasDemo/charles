@@ -32,7 +32,9 @@ export type NotificationType =
   | 'BARBERSHOP_SUSPENDED'
   | 'ACCOUNT_DELETION_REQUESTED'
   | 'ACCOUNT_DELETION_REMINDER'
-  | 'ACCOUNT_DELETION_CANCELLED';
+  | 'ACCOUNT_DELETION_CANCELLED'
+  | 'BARBERSHOP_APPROVED'
+  | 'BARBERSHOP_CHANGES_REQUESTED';
 
 export type ResourceType = 'booking' | 'review' | 'ticket' | 'barbershop' | 'account';
 
@@ -395,6 +397,45 @@ export function planBarbershopSuspended(input: {
     push: { title: 'Barbería suspendida', body: 'Abre la app para más información.' },
     detail: { title: 'Tu barbería fue suspendida', body },
     email: { subject: 'Tu barbería fue suspendida', text: body },
+    resource: { type: 'barbershop' as const, id: input.barbershopId },
+  }));
+}
+
+/**
+ * Alta con revisión: aviso a OWNER y MANAGER al aprobarse o al pedirse cambios. El motivo va en la
+ * bandeja y el correo, nunca en el push.
+ */
+export function planBarbershopReview(input: {
+  staffIds: string[];
+  barbershopId: string;
+  barbershopName: string;
+  outcome: 'APPROVED' | 'CHANGES_REQUESTED';
+  reason: string | null;
+}): PlannedNotification[] {
+  const approved = input.outcome === 'APPROVED';
+  const detail = approved
+    ? {
+        title: 'Tu barbería fue aprobada',
+        body: `${input.barbershopName} ya es visible en Charles y puede recibir reservas.`,
+      }
+    : {
+        title: 'Tu barbería necesita cambios',
+        body:
+          `Revisamos ${input.barbershopName} y necesitamos que corrijas algo antes de publicarla: ` +
+          `${input.reason ?? 'revisa los datos'}. Corrígelo y vuelve a enviarla a revisión.`,
+      };
+  return input.staffIds.map((userId) => ({
+    userId,
+    type: approved ? ('BARBERSHOP_APPROVED' as const) : ('BARBERSHOP_CHANGES_REQUESTED' as const),
+    channels: ALL,
+    mandatory: true,
+    urgent: false,
+    push: {
+      title: approved ? 'Barbería aprobada' : 'Tu barbería necesita cambios',
+      body: 'Toca para ver los detalles.',
+    },
+    detail,
+    email: { subject: detail.title, text: `${detail.body}${emailFooter}` },
     resource: { type: 'barbershop' as const, id: input.barbershopId },
   }));
 }

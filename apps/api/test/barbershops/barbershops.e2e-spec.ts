@@ -30,13 +30,17 @@ describe('RF-BAR-001…004 Gestión de barberías (e2e)', () => {
       const client = new AuthClient(app);
       const { email, password, tokens } = await client.newUser();
       const res = await client
-        .post(SHOPS, shopPayload({ ruc: '20123456789' }), tokens.accessToken)
+        .post(
+          SHOPS,
+          shopPayload({ ownerDocument: { type: 'RUC', number: '20100047218' } }),
+          tokens.accessToken,
+        )
         .expect(201);
       expect(res.body).toMatchObject({
         name: 'Barbería E2E',
         status: 'OPEN',
         timezone: 'America/Lima',
-        ruc: '20123456789',
+        ownerDocument: { type: 'RUC', masked: '********218' },
         myRole: 'OWNER',
         ownerRoleGranted: true,
         rating: { average: 0, count: 0 },
@@ -84,8 +88,21 @@ describe('RF-BAR-001…004 Gestión de barberías (e2e)', () => {
     it.each([
       ['sin teléfono', { phone: undefined }, 'phone'],
       ['coordenadas fuera de Perú', { latitude: -34.6, longitude: -58.4 }, 'latitude'],
-      ['RUC de 10 dígitos', { ruc: '2012345678' }, 'ruc'],
-      ['RUC con letras', { ruc: '2012345678A' }, 'ruc'],
+      [
+        'RUC de 10 dígitos',
+        { ownerDocument: { type: 'RUC', number: '2010004721' } },
+        'ownerDocument.number',
+      ],
+      [
+        'RUC con letras',
+        { ownerDocument: { type: 'RUC', number: '2010004721A' } },
+        'ownerDocument.number',
+      ],
+      [
+        'tipo de documento desconocido',
+        { ownerDocument: { type: 'CE', number: '12345678' } },
+        'ownerDocument.type',
+      ],
       ['zona horaria inválida', { timezone: 'Lima/Peru' }, 'timezone'],
       ['Instagram con otro dominio', { instagramUrl: 'https://example.com/x' }, 'instagramUrl'],
       ['sitio web sin https', { websiteUrl: 'http://example.com' }, 'websiteUrl'],
@@ -110,7 +127,10 @@ describe('RF-BAR-001…004 Gestión de barberías (e2e)', () => {
     it('RF-BAR-001 con barbershops.require_review=true queda en PENDING_REVIEW y no es pública', async () => {
       await withSetting('barbershops.require_review', true, async () => {
         const client = new AuthClient(app);
-        const owner = await ownerWithShop(client);
+        // Con el documento del responsable va directo a revisión (sin él, queda en DRAFT).
+        const owner = await ownerWithShop(client, {
+          ownerDocument: { type: 'DNI', number: '12345678' },
+        });
         const mine = await client
           .get(`/api/v1/me/barbershops/${owner.shopId}`, owner.token)
           .expect(200);
@@ -133,7 +153,7 @@ describe('RF-BAR-001…004 Gestión de barberías (e2e)', () => {
   describe('RF-BAR-002 consulta pública', () => {
     it('RF-BAR-002 sin iniciar sesión muestra solo datos públicos', async () => {
       const owner = await ownerWithShop(new AuthClient(app), {
-        ruc: '10456789012',
+        ownerDocument: { type: 'RUC', number: '10467793549' },
         description: 'Cortes clásicos',
         instagramUrl: 'https://www.instagram.com/barberia',
       });
@@ -154,7 +174,7 @@ describe('RF-BAR-001…004 Gestión de barberías (e2e)', () => {
         links: { website: null, instagram: 'https://www.instagram.com/barberia', facebook: null },
         rating: { average: 0, count: 0 },
       });
-      expect(JSON.stringify(res.body)).not.toContain('10456789012');
+      expect(JSON.stringify(res.body)).not.toMatch(/10467793549|ownerDocument/);
     });
 
     it.each(['SUSPENDED', 'PENDING_REVIEW'] as const)(
@@ -198,7 +218,6 @@ describe('RF-BAR-001…004 Gestión de barberías (e2e)', () => {
             name: 'Nuevo Nombre',
             address: 'Calle Nueva 456, Lima',
             phone: '+51 1 999 8888',
-            ruc: '20999999999',
           },
           owner.token,
         )
@@ -215,9 +234,9 @@ describe('RF-BAR-001…004 Gestión de barberías (e2e)', () => {
           name: { from: 'Barbería E2E', to: 'Nuevo Nombre' },
           address: { from: 'Av. Prueba 123, Miraflores, Lima', to: 'Calle Nueva 456, Lima' },
         },
-        personalFields: ['phone', 'ruc'],
+        personalFields: ['phone'],
       });
-      expect(JSON.stringify(audit.changes)).not.toMatch(/999|20999999999/);
+      expect(JSON.stringify(audit.changes)).not.toMatch(/999/);
     });
 
     it('RF-BAR-003 solo el responsable autorizado puede modificar su barbería', async () => {

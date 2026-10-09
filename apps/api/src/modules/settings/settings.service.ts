@@ -13,6 +13,7 @@ export const SettingKey = {
   LOCKOUT_ACCOUNT_MAX_FAILURES: 'auth.lockout.account_max_failures',
   LOCKOUT_IP_MAX_FAILURES: 'auth.lockout.ip_max_failures',
   BARBERSHOPS_REQUIRE_REVIEW: 'barbershops.require_review',
+  BARBERSHOPS_REQUIRE_PHOTO: 'barbershops.require_photo',
   INVITATION_TTL_MINUTES: 'barbershops.invitation_ttl_minutes',
   SLOT_INTERVAL_MINUTES: 'availability.slot_interval_minutes',
   MIN_LEAD_TIME_MINUTES: 'availability.min_lead_time_minutes',

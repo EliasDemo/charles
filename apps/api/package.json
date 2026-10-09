@@ -15,6 +15,7 @@
     "dev:pay": "ts-node --transpile-only -P tsconfig.build.json src/scripts/dev-pay.ts",
     "dev:mail": "ts-node --transpile-only -P tsconfig.build.json src/scripts/dev-mail.ts",
     "admin:grant": "ts-node --transpile-only -P tsconfig.build.json src/scripts/admin-grant.ts",
+    "migrate:ruc": "ts-node --transpile-only -P tsconfig.build.json src/scripts/migrate-ruc.ts",
     "prisma": "prisma",
     "seed:reference": "tsx prisma/seed-reference.ts",
     "postinstall": "prisma generate",

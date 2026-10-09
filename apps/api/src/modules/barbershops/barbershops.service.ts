@@ -12,7 +12,20 @@ import {
 } from '../../common/pagination/pagination';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { type Barbershop, Prisma } from '../../generated/prisma/client';
-import type { BarbershopMemberRole } from '../../generated/prisma/enums';
+import type { BarbershopMemberRole, BarbershopStatus } from '../../generated/prisma/enums';
+import { BlindIndexKind, EncryptedField } from '../../common/crypto/encryption-contexts';
+import { EncryptionService } from '../../common/crypto/encryption.service';
+import {
+  isValidOwnerDocument,
+  maskDocument,
+  missingRequirements,
+  type ReviewRequirement,
+  SUBMITTABLE_STATUSES,
+  wasApproved,
+} from './review-policy';
+
+/** Marca para soporte: una barbería ya aprobada cambió el documento del responsable. */
+export const OWNER_DOCUMENT_CHANGED_FLAG = 'owner_document_changed';
 import { BarbersService } from '../barbers/barbers.service';
 import { BookingsReadService } from '../bookings/bookings-read.service';
 import { SettingKey, SettingsService } from '../settings/settings.service';
@@ -22,18 +35,21 @@ import { MembersService } from './members.service';
 import {
   type BarbershopManageDto,
   type BarbershopPublicDto,
+  type BarbershopReviewDto,
   type CreateBarbershopDto,
   type CreatedBarbershopDto,
   type CreatedIndependentDto,
   type CreateIndependentDto,
   DEFAULT_TIMEZONE,
   type MyBarbershopDto,
+  type OwnerDocumentInputDto,
+  type OwnerDocumentViewDto,
   type UpdateBarbershopDto,
   type UpdateBarbershopStatusDto,
 } from './dto/barbershop.dto';
 
 /** Campos que se tratan como datos personales en la auditoría (solo el nombre del campo). */
-const PERSONAL_FIELDS = ['phone', 'ruc'] as const;
+const PERSONAL_FIELDS = ['phone'] as const;
 const REQUIRED_FIELDS = ['name', 'address', 'latitude', 'longitude', 'phone', 'timezone'] as const;
 
 type AuditableBarbershop = Pick<
@@ -45,7 +61,6 @@ type AuditableBarbershop = Pick<
   | 'longitude'
   | 'timezone'
   | 'phone'
-  | 'ruc'
   | 'websiteUrl'
   | 'instagramUrl'
   | 'facebookUrl'
@@ -73,9 +88,21 @@ export function toPublicDto(shop: Barbershop): BarbershopPublicDto {
   };
 }
 
-function toManageDto(shop: Barbershop, myRole: BarbershopMemberRole): BarbershopManageDto {
-  return { ...toPublicDto(shop), ruc: shop.ruc, myRole, createdAt: shop.createdAt };
+function toManageDto(
+  shop: Barbershop,
+  myRole: BarbershopMemberRole,
+  ownerDocument: OwnerDocumentViewDto | null,
+): BarbershopManageDto {
+  return { ...toPublicDto(shop), ownerDocument, myRole, createdAt: shop.createdAt };
 }
+
+const invalidDocument = (): AppException =>
+  new AppException(
+    ErrorCode.VALIDATION_ERROR,
+    'Los datos enviados no son válidos.',
+    HttpStatus.BAD_REQUEST,
+    [{ field: 'ownerDocument.number', constraints: ['ownerDocument'] }],
+  );
 
 const notFound = (): AppException =>
   new AppException(ErrorCode.NOT_FOUND, 'La barbería no existe.', HttpStatus.NOT_FOUND);
@@ -92,6 +119,7 @@ export class BarbershopsService {
     private readonly members: MembersService,
     private readonly barbers: BarbersService,
     private readonly favorites: FavoritesService,
+    private readonly encryption: EncryptionService,
   ) {}
 
   /**
@@ -111,7 +139,7 @@ export class BarbershopsService {
     const shop = await this.prisma.$transaction((tx) =>
       this.createShop(tx, userId, dto, 'BARBERSHOP', requireReview, ip),
     );
-    return { ...toManageDto(shop, 'OWNER'), ownerRoleGranted };
+    return { ...this.manage(shop, 'OWNER'), ownerRoleGranted };
   }
 
   /**
@@ -149,7 +177,7 @@ export class BarbershopsService {
         return { shop: created, barberId: profile.barberId };
       });
       return {
-        ...toManageDto(shop, 'OWNER'),
+        ...this.manage(shop, 'OWNER'),
         ownerRoleGranted: !roles.includes('OWNER'),
         barberId,
         barberRoleGranted: !roles.includes('BARBER'),
@@ -175,6 +203,18 @@ export class BarbershopsService {
     requireReview: boolean,
     ip: string | null,
   ): Promise<Barbershop> {
+    const document = dto.ownerDocument ?? null;
+    if (document && !isValidOwnerDocument(document.type, document.number)) throw invalidDocument();
+    const requirePhoto = await this.settings.boolean(SettingKey.BARBERSHOPS_REQUIRE_PHOTO, false);
+    const missing = missingRequirements({
+      hasOwnerDocument: document !== null,
+      hasPhoto: false, // las fotos llegan con la Fase 14
+      requirePhoto,
+    });
+    // Sin revisión previa: visible al instante. Con revisión: a revisión si cumple los requisitos,
+    // si no, borrador.
+    const status = !requireReview ? 'OPEN' : missing.length === 0 ? 'PENDING_REVIEW' : 'DRAFT';
+    const now = new Date();
     const created = await tx.barbershop.create({
       data: {
         name: dto.name,
@@ -184,15 +224,21 @@ export class BarbershopsService {
         longitude: dto.longitude,
         timezone: dto.timezone ?? DEFAULT_TIMEZONE,
         phone: dto.phone,
-        ruc: dto.ruc ?? null,
         websiteUrl: dto.websiteUrl ?? null,
         instagramUrl: dto.instagramUrl ?? null,
         facebookUrl: dto.facebookUrl ?? null,
         type,
-        status: requireReview ? 'PENDING_REVIEW' : 'OPEN',
+        status,
+        ...(document ? this.documentData(document) : {}),
+        submittedForReviewAt: status === 'PENDING_REVIEW' ? now : null,
         members: { create: { userId, role: 'OWNER' } },
       },
     });
+    if (status === 'PENDING_REVIEW') {
+      await tx.barbershopReviewSubmission.create({
+        data: { barbershopId: created.id, submittedById: userId, submittedAt: now },
+      });
+    }
     await this.users.addRole(userId, 'OWNER', tx);
     await this.audit.record(
       {
@@ -221,7 +267,7 @@ export class BarbershopsService {
   async findManaged(userId: string, id: string): Promise<BarbershopManageDto> {
     const membership = await this.access.requireMember(userId, id);
     const shop = await this.prisma.barbershop.findUniqueOrThrow({ where: { id } });
-    return toManageDto(shop, membership.role);
+    return this.manage(shop, membership.role);
   }
 
   async listMine(userId: string, query: PaginationQueryDto): Promise<Page<MyBarbershopDto>> {
@@ -269,7 +315,6 @@ export class BarbershopsService {
       longitude: dto.longitude,
       timezone: dto.timezone,
       phone: dto.phone,
-      ruc: dto.ruc,
       websiteUrl: dto.websiteUrl,
       instagramUrl: dto.instagramUrl,
       facebookUrl: dto.facebookUrl,
@@ -297,7 +342,7 @@ export class BarbershopsService {
       }
       return shop;
     });
-    return toManageDto(updated, membership.role);
+    return this.manage(updated, membership.role);
   }
 
   /**
@@ -353,10 +398,175 @@ export class BarbershopsService {
       );
       return shop;
     });
-    return toManageDto(updated, membership.role);
+    return this.manage(updated, membership.role);
   }
 
   /** Borrado lógico (solo OWNER), rechazado si hay reservas futuras activas. */
+  // ───────────── Alta con revisión previa ─────────────
+
+  /**
+   * Registrar o cambiar el documento del responsable (solo OWNER). Si la barbería ya fue
+   * aprobada, no se oculta: queda marcada para soporte como "documento modificado".
+   */
+  async setOwnerDocument(
+    userId: string,
+    id: string,
+    dto: OwnerDocumentInputDto,
+    ip: string | null,
+  ): Promise<BarbershopManageDto> {
+    await this.access.requireMember(userId, id, ['OWNER']);
+    if (!isValidOwnerDocument(dto.type, dto.number)) throw invalidDocument();
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const before = await tx.barbershop.findUniqueOrThrow({
+        where: { id },
+        select: { status: true, ownerDocumentHash: true, ownerDocumentType: true },
+      });
+      const data = this.documentData(dto);
+      const changed =
+        before.ownerDocumentType !== dto.type ||
+        !before.ownerDocumentHash ||
+        !Buffer.from(before.ownerDocumentHash).equals(data.ownerDocumentHash);
+      const flag = changed && wasApproved(before.status);
+      const shop = await tx.barbershop.update({
+        where: { id },
+        data: {
+          ...data,
+          ...(flag ? { flaggedReason: OWNER_DOCUMENT_CHANGED_FLAG, flaggedAt: new Date() } : {}),
+        },
+      });
+      if (changed) {
+        await this.audit.record(
+          {
+            actorId: userId,
+            action: 'barbershop.owner_document_set',
+            entityType: 'barbershop',
+            entityId: id,
+            // Sin el número: solo el tipo y si queda marcada para soporte.
+            changes: { type: dto.type, personalFields: ['ownerDocument'], flagged: flag },
+            ip,
+          },
+          tx,
+        );
+      }
+      return shop;
+    });
+    return this.manage(updated, 'OWNER');
+  }
+
+  /** Estado de la revisión, lo que falta y el historial (OWNER o MANAGER). */
+  async review(userId: string, id: string): Promise<BarbershopReviewDto> {
+    await this.access.requireMember(userId, id);
+    const shop = await this.prisma.barbershop.findUniqueOrThrow({
+      where: { id },
+      select: {
+        status: true,
+        ownerDocumentType: true,
+        reviewNotes: true,
+        submittedForReviewAt: true,
+        reviewSubmissions: {
+          orderBy: { submittedAt: 'desc' },
+          select: { submittedAt: true, decision: true, decidedAt: true, reason: true },
+        },
+      },
+    });
+    const missing = await this.missingFor(shop.ownerDocumentType !== null);
+    return {
+      status: shop.status,
+      missingRequirements: missing,
+      canSubmit: SUBMITTABLE_STATUSES.includes(shop.status) && missing.length === 0,
+      reviewNotes: shop.reviewNotes,
+      submittedAt: shop.submittedForReviewAt,
+      submissions: shop.reviewSubmissions,
+    };
+  }
+
+  /** Enviar (o reenviar) a revisión: DRAFT o CHANGES_REQUESTED → PENDING_REVIEW (solo OWNER). */
+  async submitReview(userId: string, id: string, ip: string | null): Promise<BarbershopReviewDto> {
+    await this.access.requireMember(userId, id, ['OWNER']);
+    await this.prisma.$transaction(async (tx) => {
+      const [shop] = await tx.$queryRaw<{ status: BarbershopStatus; has_document: boolean }[]>`
+        SELECT status, owner_document_hash IS NOT NULL AS has_document
+          FROM barbershops WHERE id = ${id}::uuid AND deleted_at IS NULL FOR UPDATE`;
+      if (!shop) throw notFound();
+      if (!SUBMITTABLE_STATUSES.includes(shop.status)) {
+        throw new AppException(
+          ErrorCode.STATUS_CHANGE_NOT_ALLOWED,
+          shop.status === 'PENDING_REVIEW'
+            ? 'La barbería ya está en revisión.'
+            : 'Solo se envía a revisión una barbería en borrador o con cambios pedidos.',
+          HttpStatus.CONFLICT,
+          [{ from: shop.status, to: 'PENDING_REVIEW' }],
+        );
+      }
+      const missing = await this.missingFor(shop.has_document);
+      if (missing.length > 0) {
+        throw new AppException(
+          ErrorCode.REVIEW_REQUIREMENTS_MISSING,
+          'Completa lo que falta antes de enviar la barbería a revisión.',
+          HttpStatus.CONFLICT,
+          missing.map((requirement) => ({ requirement })),
+        );
+      }
+      const now = new Date();
+      await tx.barbershop.update({
+        where: { id },
+        data: { status: 'PENDING_REVIEW', submittedForReviewAt: now },
+      });
+      await tx.barbershopReviewSubmission.create({
+        data: { barbershopId: id, submittedById: userId, submittedAt: now },
+      });
+      await this.audit.record(
+        {
+          actorId: userId,
+          action: 'barbershop.review_submitted',
+          entityType: 'barbershop',
+          entityId: id,
+          changes: { values: { status: { from: shop.status, to: 'PENDING_REVIEW' } } },
+          ip,
+        },
+        tx,
+      );
+    });
+    return this.review(userId, id);
+  }
+
+  private async missingFor(hasOwnerDocument: boolean): Promise<ReviewRequirement[]> {
+    const requirePhoto = await this.settings.boolean(SettingKey.BARBERSHOPS_REQUIRE_PHOTO, false);
+    return missingRequirements({ hasOwnerDocument, hasPhoto: false, requirePhoto });
+  }
+
+  private documentData(document: OwnerDocumentInputDto): {
+    ownerDocumentType: OwnerDocumentInputDto['type'];
+    ownerDocumentEnc: string;
+    ownerDocumentHash: Buffer<ArrayBuffer>;
+  } {
+    return {
+      ownerDocumentType: document.type,
+      ownerDocumentEnc: this.encryption.encrypt(
+        document.number,
+        EncryptedField.BARBERSHOP_OWNER_DOCUMENT,
+      ),
+      ownerDocumentHash: this.encryption.blindIndex(document.number, BlindIndexKind.DOCUMENT),
+    };
+  }
+
+  /** Vista de gestión: el documento solo para el OWNER, enmascarado. */
+  private manage(shop: Barbershop, role: BarbershopMemberRole): BarbershopManageDto {
+    const document =
+      role === 'OWNER' && shop.ownerDocumentType && shop.ownerDocumentEnc
+        ? {
+            type: shop.ownerDocumentType,
+            masked: maskDocument(
+              this.encryption.decrypt(
+                shop.ownerDocumentEnc,
+                EncryptedField.BARBERSHOP_OWNER_DOCUMENT,
+              ),
+            ),
+          }
+        : null;
+    return toManageDto(shop, role, document);
+  }
+
   async remove(userId: string, id: string, ip: string | null): Promise<void> {
     await this.access.requireMember(userId, id, ['OWNER']);
     await this.prisma.$transaction(async (tx) => {

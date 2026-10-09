@@ -144,6 +144,9 @@ const SERVICE_TEMPLATES: {
  * Valores iniciales de `app_settings` (CLAUDE.md §4.1). Las políticas pendientes (§4.2)
  * se siembran con JSON `null` hasta que se definan. Si la clave ya existe, no se sobrescribe.
  */
+/** DNI ficticio del responsable de las barberías de prueba. */
+const SEED_OWNER_DNI = '40000001';
+
 export const SEED_SETTINGS: {
   key: string;
   value: Prisma.InputJsonValue | null;
@@ -214,8 +217,14 @@ export const SEED_SETTINGS: {
     description: 'Fallos de acceso por IP antes del bloqueo progresivo (mayor: redes compartidas).',
   },
   {
-    key: 'barbershops.require_review',
+    key: 'barbershops.require_photo',
     value: false,
+    description:
+      'true: para enviar una barbería a revisión se exige la foto del local (llega con la Fase 14).',
+  },
+  {
+    key: 'barbershops.require_review',
+    value: true,
     description:
       'true: las barberías nuevas quedan en PENDING_REVIEW hasta que soporte las apruebe.',
   },
@@ -489,7 +498,19 @@ export async function seed({ prisma, encryption, password, jsonNull }: SeedDeps)
     await prisma.barbershop.upsert({
       where: { id: shop.id },
       update: {},
-      create: { ...shop, timezone: 'America/Lima', phone: '+51 1 000 0000' },
+      create: {
+        ...shop,
+        timezone: 'America/Lima',
+        phone: '+51 1 000 0000',
+        // Aprobadas: el seed no pasa por la revisión previa (barbershops.require_review).
+        status: 'OPEN',
+        ownerDocumentType: 'DNI',
+        ownerDocumentEnc: encryption.encrypt(
+          SEED_OWNER_DNI,
+          EncryptedField.BARBERSHOP_OWNER_DOCUMENT,
+        ),
+        ownerDocumentHash: encryption.blindIndex(SEED_OWNER_DNI, BlindIndexKind.DOCUMENT),
+      },
     });
     await prisma.barbershopMember.upsert({
       where: { barbershopId_userId: { barbershopId: shop.id, userId: SEED_USERS.owner.id } },

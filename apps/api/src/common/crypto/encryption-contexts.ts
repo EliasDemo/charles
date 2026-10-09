@@ -13,6 +13,8 @@ export const EncryptedField = {
   USER_BIRTH_DATE: 'charles/user.birth-date/v1',
   BARBER_PHONE: 'charles/barber.phone/v1',
   TICKET_MESSAGE_BODY: 'charles/ticket-message.body/v1',
+  /** Documento (RUC o DNI) del responsable de una barbería. */
+  BARBERSHOP_OWNER_DOCUMENT: 'charles/barbershop.owner-document/v1',
   /** Fase 10: token push del dispositivo. */
   DEVICE_PUSH_TOKEN: 'charles/device.push-token/v1',
   /** Sucesor de un token de renovación, guardado unos segundos en Redis (gracia de rotación). */

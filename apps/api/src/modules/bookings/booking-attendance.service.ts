@@ -1,3 +1,4 @@
+import { ServicesService } from '../services/services.service';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import { CLOCK, type Clock } from '../../common/clock/clock';
@@ -51,6 +52,7 @@ export class BookingAttendanceService {
     private readonly availability: AvailabilityService,
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
+    private readonly services: ServicesService,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
@@ -315,9 +317,10 @@ export class BookingAttendanceService {
       this.availability.blocksBetween(barbershopId, range),
       this.access.namesIncludingDeleted([barbershopId]),
     ]);
-    const [barberNames, clientNames] = await Promise.all([
+    const [barberNames, clientNames, categories] = await Promise.all([
       this.barbers.displayNames([...new Set(bookings.map((b) => b.barberId))]),
       this.users.fullNames([...new Set(bookings.map((b) => b.clientId))]),
+      this.services.categoryKeysOf(bookings.map((b) => b.serviceId)),
     ]);
 
     const items = bookings.map((b) => {
@@ -328,7 +331,11 @@ export class BookingAttendanceService {
         status: b.status,
         startAt: b.startAt,
         endAt: b.endAt,
-        service: { id: b.serviceId, name: b.serviceNameSnapshot },
+        service: {
+          id: b.serviceId,
+          name: b.serviceNameSnapshot,
+          categoryKey: categories.get(b.serviceId) ?? 'other',
+        },
         barber: { id: b.barberId, name: barberNames.get(b.barberId) ?? null },
         // Solo el nombre (decisión de la Fase 7).
         client: { id: b.clientId, name: clientNames.get(b.clientId) ?? null },

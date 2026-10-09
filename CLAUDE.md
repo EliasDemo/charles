@@ -134,7 +134,7 @@ Los scripts de consola (`dev:pay`, `dev:mail`, `admin:grant`, `openapi:export`) 
 
 #### Barberías, barberos y servicios (Fase 4)
 
-- **Publicación:** inmediata por defecto. Si `barbershops.require_review` (`app_settings`, por defecto `false`) es `true`, una barbería nueva queda en `PENDING_REVIEW` y no es visible públicamente hasta que soporte la apruebe (Fase 12).
+- **Publicación:** con revisión previa (`barbershops.require_review = true`, decisión de negocio): una barbería nueva no es visible hasta que soporte la apruebe, y para enviarla se exige el documento del responsable (RUC o DNI). Ver §8, "Alta con revisión previa".
 - **Visibilidad pública:** solo barberías no eliminadas en `OPEN` o `TEMPORARILY_CLOSED`. `PENDING_REVIEW` y `SUSPENDED` nunca aparecen en consultas públicas (detalle, servicios ni barberos); responden 404.
 - **Ámbito:** solo Perú. Coordenadas dentro de Perú, zona horaria `America/Lima` por defecto (IANA válida) y precios solo en `PEN`.
 - **Datos de la barbería:** obligatorios nombre, dirección, ubicación (latitud/longitud enviadas por la app, sin geocodificación) y teléfono. Opcionales: descripción, enlaces https (sitio web, Instagram, Facebook) y RUC (11 dígitos). ⚠️ Pendiente: el RUC podría ser obligatorio antes de recibir pagos (Fase 8). Fotos y logo quedan para una fase posterior.
@@ -627,6 +627,16 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
   - Cuenta deshabilitada por soporte: su índice ciego de correo va a `email_blocklist` por `account_deletion.email_block_days` (365); el registro responde igual pero no crea la cuenta.
 - **Prueba de barrido:** recorre todas las columnas de texto, JSON y bytea de todas las tablas (incluidos metadata, payloads del outbox y notificaciones) y exige que no quede ningún dato de la cuenta eliminada.
 - `account_deletion.legal_retention_days` queda pendiente (asesor legal).
+
+### Alta con revisión previa
+
+- **Estados:** `DRAFT` → (enviar) `PENDING_REVIEW` → (aprobar) `OPEN`; o (pedir cambios con motivo) `CHANGES_REQUESTED` → (reenviar) `PENDING_REVIEW`. Ninguno salvo `OPEN` y `TEMPORARILY_CLOSED` es público. El rechazo definitivo es la suspensión.
+- Con `barbershops.require_review` (activo en `charles`): `POST /barbershops` y `/independent` aceptan `ownerDocument` opcional; si se cumplen los requisitos nace en `PENDING_REVIEW`, si no en `DRAFT`. Sin revisión previa, `OPEN` al instante.
+- **Requisitos** (`review-policy.ts`): documento del responsable siempre; foto del local si `barbershops.require_photo` (falso hasta la Fase 14).
+- **Documento:** `RUC` (11 dígitos, prefijo 10/15/17/20 y dígito verificador módulo 11) o `DNI` (8). Cifrado (`BARBERSHOP_OWNER_DOCUMENT`) con índice ciego no único, por barbería. Lo ve el OWNER enmascarado (3 últimos dígitos); el MANAGER no; soporte completo con `POST /admin/barbershops/{id}/owner-document` (motivo, auditado, sin caché). Reemplazó a la columna `ruc` en claro (script `migrate:ruc`).
+- **Dueño:** `PUT /barbershops/{id}/owner-document`, `GET /barbershops/{id}/review` y `POST /barbershops/{id}/review/submit`. Cambiar el documento de una barbería ya aprobada no la oculta: la marca `owner_document_changed` para soporte. Otros cambios no vuelven a revisión.
+- **Soporte:** `approve` y `reject` (motivo) cierran el envío en `barbershop_review_submissions` (historial) y publican `barbershop.review_approved` o `barbershop.review_changes_requested` (aviso a OWNER y MANAGER). La cola `/admin/barbershops` se ordena por `waitingSince` (envío, marca o reporte más antiguo).
+- `service.categoryKey` viene en todas las respuestas de reservas y en la agenda.
 
 ---
 

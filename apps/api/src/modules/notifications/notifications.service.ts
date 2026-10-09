@@ -18,6 +18,7 @@ import {
   type BookingContext,
   planAccountDeletion,
   planAccountDisabled,
+  planBarbershopReview,
   planBarbershopSuspended,
   planBookingEvent,
   planNewReview,
@@ -51,6 +52,8 @@ export const NOTIFICATION_EVENTS = [
   'user.deletion_requested',
   'user.deletion_reminder',
   'user.deletion_cancelled',
+  'barbershop.review_approved',
+  'barbershop.review_changes_requested',
 ] as const;
 
 /** Avisos que recibe una cuenta aunque no esté activa (seguridad de la propia cuenta). */
@@ -211,6 +214,24 @@ export class NotificationsService implements OnModuleInit {
       case 'user.disabled': {
         const userId = id('userId');
         return userId ? [planAccountDisabled(userId)] : [];
+      }
+      case 'barbershop.review_approved':
+      case 'barbershop.review_changes_requested': {
+        const barbershopId = id('barbershopId');
+        const shop = barbershopId
+          ? await this.prisma.barbershop.findUnique({
+              where: { id: barbershopId },
+              select: { id: true, name: true, reviewNotes: true },
+            })
+          : null;
+        if (!shop) return [];
+        return planBarbershopReview({
+          staffIds: await this.staffOf(shop.id),
+          barbershopId: shop.id,
+          barbershopName: shop.name,
+          outcome: message.type === 'barbershop.review_approved' ? 'APPROVED' : 'CHANGES_REQUESTED',
+          reason: shop.reviewNotes,
+        });
       }
       case 'barbershop.suspended': {
         const barbershopId = id('barbershopId');

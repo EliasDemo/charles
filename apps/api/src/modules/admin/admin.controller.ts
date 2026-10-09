@@ -66,6 +66,7 @@ import {
   FindUserQueryDto,
   ManualRefundDto,
   ModerationResultDto,
+  OwnerDocumentDto,
   ReasonDto,
   RefundRequestedDto,
   ResolveReportsDto,
@@ -247,6 +248,35 @@ export class AdminBarbershopsController {
     @Body() dto: ReasonDto,
   ): Promise<AdminBarbershopDetailDto> {
     return this.barbershops.approve(staff, id, dto.reason);
+  }
+
+  @Post(':id/reject')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Alta: pedir cambios (rechazar con motivo); el dueño corrige y reenvía',
+    description: 'PENDING_REVIEW → CHANGES_REQUESTED. El motivo lo ve el dueño.',
+  })
+  @ApiOkResponse({ type: AdminBarbershopDetailDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
+  reject(
+    @CurrentStaff() staff: StaffActor,
+    @Param('id', uuid) id: string,
+    @Body() dto: ReasonDto,
+  ): Promise<AdminBarbershopDetailDto> {
+    return this.barbershops.requestChanges(staff, id, dto.reason);
+  }
+
+  @Post(':id/owner-document')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Alta: ver el documento del responsable, con motivo; se audita' })
+  @ApiOkResponse({ type: OwnerDocumentDto })
+  ownerDocument(
+    @CurrentStaff() staff: StaffActor,
+    @Param('id', uuid) id: string,
+    @Body() dto: ReasonDto,
+  ): Promise<OwnerDocumentDto> {
+    return this.barbershops.ownerDocument(staff, id, dto.reason);
   }
 
   @Post(':id/suspend')

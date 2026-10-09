@@ -71,6 +71,8 @@ export const ErrorCode = {
   // Eliminación de cuenta
   ACCOUNT_PENDING_DELETION: 'ACCOUNT_PENDING_DELETION',
   DELETION_BLOCKED: 'DELETION_BLOCKED',
+  // Alta con revisión previa
+  REVIEW_REQUIREMENTS_MISSING: 'REVIEW_REQUIREMENTS_MISSING',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode] | (string & {});

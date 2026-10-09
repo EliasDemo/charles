@@ -1,7 +1,8 @@
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   IsDate,
+  IsEnum,
   IsIn,
   IsLatitude,
   IsLongitude,
@@ -14,16 +15,88 @@ import {
   MaxLength,
   Min,
   ValidateIf,
+  ValidateNested,
   registerDecorator,
 } from 'class-validator';
 import {
   BarbershopMemberRole,
   BarbershopStatus,
   BarbershopType,
+  OwnerDocumentType,
 } from '../../../generated/prisma/enums';
 import { PHONE_PATTERN } from '../../users/dto/profile.dto';
 
 /** Ámbito del MVP: solo Perú (CLAUDE.md §4.1). Rectángulo amplio que contiene al país. */
+
+// ───────────── Documento del responsable y revisión ─────────────
+
+export class OwnerDocumentInputDto {
+  @ApiProperty({ enum: OwnerDocumentType, enumName: 'OwnerDocumentType' })
+  @IsEnum(OwnerDocumentType)
+  type!: OwnerDocumentType;
+
+  @ApiProperty({
+    example: '20100047218',
+    description: 'RUC: 11 dígitos con dígito verificador válido. DNI: 8 dígitos.',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.replace(/[\s.-]/g, '') : value,
+  )
+  @IsString()
+  @Matches(/^\d{8}(\d{3})?$/)
+  number!: string;
+}
+
+export class OwnerDocumentViewDto {
+  @ApiProperty({ enum: OwnerDocumentType, enumName: 'OwnerDocumentType' })
+  type!: OwnerDocumentType;
+
+  @ApiProperty({ example: '********218', description: 'Solo los 3 últimos dígitos.' })
+  masked!: string;
+}
+
+export class ReviewSubmissionDto {
+  @ApiProperty({ format: 'date-time' })
+  submittedAt!: Date;
+
+  @ApiProperty({ enum: ['APPROVED', 'CHANGES_REQUESTED'], nullable: true, type: String })
+  decision!: 'APPROVED' | 'CHANGES_REQUESTED' | null;
+
+  @ApiProperty({ format: 'date-time', nullable: true, type: Date })
+  decidedAt!: Date | null;
+
+  @ApiProperty({ nullable: true, type: String, description: 'Motivo al pedir cambios.' })
+  reason!: string | null;
+}
+
+export class BarbershopReviewDto {
+  @ApiProperty({ enum: BarbershopStatus, enumName: 'BarbershopStatus' })
+  status!: BarbershopStatus;
+
+  @ApiProperty({
+    enum: ['OWNER_DOCUMENT', 'PHOTO'],
+    isArray: true,
+    description: 'Lo que falta para enviar a revisión (PHOTO solo si barbershops.require_photo).',
+  })
+  missingRequirements!: ('OWNER_DOCUMENT' | 'PHOTO')[];
+
+  @ApiProperty({ description: 'Se puede enviar ahora (DRAFT o CHANGES_REQUESTED, sin faltantes).' })
+  canSubmit!: boolean;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Motivo de la última solicitud de cambios.',
+  })
+  reviewNotes!: string | null;
+
+  @ApiProperty({ format: 'date-time', nullable: true, type: Date, description: 'Envío en espera.' })
+  submittedAt!: Date | null;
+
+  @ApiProperty({ type: [ReviewSubmissionDto], description: 'Historial, el más reciente primero.' })
+  submissions!: ReviewSubmissionDto[];
+}
+
 export const PERU_BOUNDS = { minLat: -18.5, maxLat: 0.1, minLng: -81.5, maxLng: -68.5 } as const;
 export const DEFAULT_TIMEZONE = 'America/Lima';
 export const RUC_PATTERN = /^\d{11}$/;
@@ -95,12 +168,16 @@ export class CreateBarbershopDto {
   @Matches(PHONE_PATTERN)
   phone!: string;
 
-  @ApiPropertyOptional({ example: '20123456789', nullable: true, type: String })
+  @ApiPropertyOptional({
+    type: () => OwnerDocumentInputDto,
+    description:
+      'Documento del responsable. Con revisión previa activa: si se envía (y se cumplen los ' +
+      'demás requisitos) la barbería va directo a PENDING_REVIEW; si no, queda en DRAFT.',
+  })
   @IsOptional()
-  @Transform(emptyToNull)
-  @ValidateIf((_o, v) => v !== null)
-  @Matches(RUC_PATTERN)
-  ruc?: string | null;
+  @ValidateNested()
+  @Type(() => OwnerDocumentInputDto)
+  ownerDocument?: OwnerDocumentInputDto;
 
   @ApiPropertyOptional({ nullable: true, type: String })
   @IsOptional()
@@ -154,7 +231,10 @@ export class CreateIndependentDto extends CreateBarbershopDto {
  * RF-BAR-003. Todos opcionales; los no enviados no cambian. Los campos obligatorios no se
  * pueden vaciar (`null` se rechaza en el servicio).
  */
-export class UpdateBarbershopDto extends PartialType(CreateBarbershopDto) {}
+/** El documento del responsable se cambia aparte (PUT /barbershops/{id}/owner-document). */
+export class UpdateBarbershopDto extends PartialType(
+  OmitType(CreateBarbershopDto, ['ownerDocument'] as const),
+) {}
 
 /** RF-BAR-004: el responsable solo alterna entre OPEN y TEMPORARILY_CLOSED. */
 export class UpdateBarbershopStatusDto {
@@ -272,8 +352,12 @@ export class BarbershopPublicDto {
 }
 
 export class BarbershopManageDto extends BarbershopPublicDto {
-  @ApiProperty({ nullable: true, type: String })
-  ruc!: string | null;
+  @ApiProperty({
+    type: () => OwnerDocumentViewDto,
+    nullable: true,
+    description: 'Solo para el OWNER (enmascarado); null para MANAGER o si aún no se registró.',
+  })
+  ownerDocument!: OwnerDocumentViewDto | null;
 
   @ApiProperty({ enum: BarbershopMemberRole, enumName: 'BarbershopMemberRole' })
   myRole!: BarbershopMemberRole;

@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseInterceptors,
@@ -36,11 +37,13 @@ import { BarbershopsService } from './barbershops.service';
 import {
   BarbershopManageDto,
   BarbershopPublicDto,
+  BarbershopReviewDto,
   CreateBarbershopDto,
   CreatedBarbershopDto,
   CreatedIndependentDto,
   CreateIndependentDto,
   MyBarbershopPageDto,
+  OwnerDocumentInputDto,
   UpdateBarbershopDto,
   UpdateBarbershopStatusDto,
 } from './dto/barbershop.dto';
@@ -113,6 +116,56 @@ export class BarbershopsController {
     @Req() req: Request,
   ): Promise<BarbershopManageDto> {
     return this.barbershops.update(user.id, id, dto, req.ip ?? null);
+  }
+
+  @ApiBearerAuth()
+  @Put('barbershops/:id/owner-document')
+  @ApiOperation({
+    summary: 'Alta: registrar o cambiar el documento del responsable (solo OWNER)',
+    description:
+      'RUC (11 dígitos, dígito verificador válido) o DNI (8). Se guarda cifrado; la respuesta lo ' +
+      'devuelve enmascarado. Si la barbería ya estaba aprobada, sigue visible y queda marcada ' +
+      'para que soporte revise el cambio.',
+  })
+  @ApiOkResponse({ type: BarbershopManageDto })
+  @ApiForbiddenResponse({ type: ErrorResponseDto })
+  setOwnerDocument(
+    @CurrentUser() user: AuthUser,
+    @Param('id', uuid) id: string,
+    @Body() dto: OwnerDocumentInputDto,
+    @Req() req: Request,
+  ): Promise<BarbershopManageDto> {
+    return this.barbershops.setOwnerDocument(user.id, id, dto, req.ip ?? null);
+  }
+
+  @ApiBearerAuth()
+  @Get('barbershops/:id/review')
+  @ApiOperation({
+    summary: 'Alta: estado de la revisión, requisitos que faltan e historial (OWNER o MANAGER)',
+  })
+  @ApiOkResponse({ type: BarbershopReviewDto })
+  review(
+    @CurrentUser() user: AuthUser,
+    @Param('id', uuid) id: string,
+  ): Promise<BarbershopReviewDto> {
+    return this.barbershops.review(user.id, id);
+  }
+
+  @ApiBearerAuth()
+  @Post('barbershops/:id/review/submit')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Alta: enviar o reenviar a revisión (solo OWNER, desde DRAFT o CHANGES_REQUESTED)',
+    description: '409 REVIEW_REQUIREMENTS_MISSING con lo que falta en details.',
+  })
+  @ApiOkResponse({ type: BarbershopReviewDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
+  submitReview(
+    @CurrentUser() user: AuthUser,
+    @Param('id', uuid) id: string,
+    @Req() req: Request,
+  ): Promise<BarbershopReviewDto> {
+    return this.barbershops.submitReview(user.id, id, req.ip ?? null);
   }
 
   @ApiBearerAuth()

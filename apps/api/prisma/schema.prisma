@@ -48,6 +48,22 @@ enum BarbershopStatus {
   TEMPORARILY_CLOSED
   SUSPENDED
   PENDING_REVIEW
+  /// Alta en preparación: falta enviarla a revisión (no visible).
+  DRAFT
+  /// Revisión rechazada con motivo: el dueño corrige y reenvía (no visible).
+  CHANGES_REQUESTED
+}
+
+/// Documento del responsable de una barbería.
+enum OwnerDocumentType {
+  RUC
+  DNI
+}
+
+/// Decisión sobre un envío a revisión.
+enum ReviewDecision {
+  APPROVED
+  CHANGES_REQUESTED
 }
 
 /// INDEPENDENT: barbero independiente, un solo barbero activo (trigger en SQL manual).
@@ -266,6 +282,8 @@ model User {
   anonymizedAt          DateTime?  @map("anonymized_at") @db.Timestamptz(3)
 
   roles                     UserRole[]
+  reviewSubmissions         BarbershopReviewSubmission[]   @relation("ReviewSubmitter")
+  reviewDecisions           BarbershopReviewSubmission[]   @relation("ReviewDecider")
   refreshTokens             RefreshToken[]
   passwordResetTokens       PasswordResetToken[]
   emailVerificationCodes    EmailVerificationCode[]
@@ -399,35 +417,41 @@ model EmailVerificationCode {
 // ─────────────────── Barberías, barberos y servicios ───────────────────
 
 model Barbershop {
-  id               String                                @id @default(uuid(7)) @db.Uuid
-  name             String
-  description      String?
-  address          String
-  latitude         Float
-  longitude        Float
+  id                   String                                @id @default(uuid(7)) @db.Uuid
+  name                 String
+  description          String?
+  address              String
+  latitude             Float
+  longitude            Float
   /// Columna generada en SQL: ST_MakePoint(longitude, latitude)::geography. Índice GiST.
-  location         Unsupported("geography(Point,4326)")? @default(dbgenerated("(st_setsrid(st_makepoint(longitude, latitude), 4326))::geography"))
-  timezone         String
-  phone            String?
-  /// RUC (11 dígitos), opcional. Podría ser obligatorio antes de recibir pagos (Fase 8).
-  ruc              String?
-  websiteUrl       String?                               @map("website_url")
-  instagramUrl     String?                               @map("instagram_url")
-  facebookUrl      String?                               @map("facebook_url")
-  type             BarbershopType                        @default(BARBERSHOP)
-  status           BarbershopStatus                      @default(OPEN)
+  location             Unsupported("geography(Point,4326)")? @default(dbgenerated("(st_setsrid(st_makepoint(longitude, latitude), 4326))::geography"))
+  timezone             String
+  phone                String?
+  /// Documento del responsable (RUC o DNI): cifrado, con índice ciego (no único). Lo ve solo el
+  /// OWNER (enmascarado) y soporte con motivo y auditoría.
+  ownerDocumentType    OwnerDocumentType?                    @map("owner_document_type")
+  ownerDocumentEnc     String?                               @map("owner_document_enc")
+  ownerDocumentHash    Bytes?                                @map("owner_document_hash")
+  /// Último envío a revisión pendiente, y motivo de la última solicitud de cambios.
+  submittedForReviewAt DateTime?                             @map("submitted_for_review_at") @db.Timestamptz(3)
+  reviewNotes          String?                               @map("review_notes")
+  websiteUrl           String?                               @map("website_url")
+  instagramUrl         String?                               @map("instagram_url")
+  facebookUrl          String?                               @map("facebook_url")
+  type                 BarbershopType                        @default(BARBERSHOP)
+  status               BarbershopStatus                      @default(OPEN)
   /// Solo con TEMPORARILY_CLOSED (CHECK en SQL manual).
-  closureReason    String?                               @map("closure_reason")
-  expectedReopenAt DateTime?                             @map("expected_reopen_at") @db.Timestamptz(3)
-  ratingAvg        Decimal                               @default(0) @map("rating_avg") @db.Decimal(3, 2)
-  ratingCount      Int                                   @default(0) @map("rating_count")
+  closureReason        String?                               @map("closure_reason")
+  expectedReopenAt     DateTime?                             @map("expected_reopen_at") @db.Timestamptz(3)
+  ratingAvg            Decimal                               @default(0) @map("rating_avg") @db.Decimal(3, 2)
+  ratingCount          Int                                   @default(0) @map("rating_count")
   /// Fase 12: marcada para revisión de soporte por el sistema (por ejemplo `owner_disabled`).
-  flaggedReason    String?                               @map("flagged_reason")
-  flaggedAt        DateTime?                             @map("flagged_at") @db.Timestamptz(3)
-  metadata         Json                                  @default("{}")
-  createdAt        DateTime                              @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime                              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt        DateTime?                             @map("deleted_at") @db.Timestamptz(3)
+  flaggedReason        String?                               @map("flagged_reason")
+  flaggedAt            DateTime?                             @map("flagged_at") @db.Timestamptz(3)
+  metadata             Json                                  @default("{}")
+  createdAt            DateTime                              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime                              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt            DateTime?                             @map("deleted_at") @db.Timestamptz(3)
 
   members             BarbershopMember[]
   barbers             Barber[]
@@ -441,9 +465,33 @@ model Barbershop {
   featuredListings    FeaturedListing[]
   invitations         BarbershopInvitation[]
   cancellationReviews BarbershopCancellationReview[]
+  reviewSubmissions   BarbershopReviewSubmission[]
 
   @@index([location], type: Gist)
   @@map("barbershops")
+}
+
+/// Historial de envíos a revisión del alta y sus decisiones.
+model BarbershopReviewSubmission {
+  id            String          @id @default(uuid(7)) @db.Uuid
+  barbershopId  String          @map("barbershop_id") @db.Uuid
+  submittedById String          @map("submitted_by") @db.Uuid
+  submittedAt   DateTime        @map("submitted_at") @db.Timestamptz(3)
+  decision      ReviewDecision?
+  decidedById   String?         @map("decided_by") @db.Uuid
+  decidedAt     DateTime?       @map("decided_at") @db.Timestamptz(3)
+  reason        String?
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop  Barbershop @relation(fields: [barbershopId], references: [id])
+  submittedBy User       @relation("ReviewSubmitter", fields: [submittedById], references: [id])
+  decidedBy   User?      @relation("ReviewDecider", fields: [decidedById], references: [id], onDelete: Restrict)
+
+  @@index([barbershopId, submittedAt])
+  @@index([submittedById])
+  @@index([decidedById])
+  @@map("barbershop_review_submissions")
 }
 
 model BarbershopMember {

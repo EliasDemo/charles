@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsIn, IsOptional, IsString, IsUUID, Length, Matches } from 'class-validator';
 import { BookingStatus, TimeBlockType } from '../../../generated/prisma/enums';
-import { NamedRefDto } from './booking.dto';
+import { BookingServiceDto, NamedRefDto } from './booking.dto';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -61,8 +61,8 @@ export class AgendaItemDto {
   @ApiProperty()
   endAt!: Date;
 
-  @ApiProperty({ type: NamedRefDto })
-  service!: NamedRefDto;
+  @ApiProperty({ type: BookingServiceDto })
+  service!: BookingServiceDto;
 
   @ApiProperty({ type: NamedRefDto })
   barber!: NamedRefDto;

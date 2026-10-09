@@ -301,6 +301,19 @@ export class ServicesService {
     return { before, after };
   }
 
+  /**
+   * Clave de categoría de varios servicios en **una consulta** (incluye servicios eliminados: una
+   * reserva antigua conserva su categoría).
+   */
+  async categoryKeysOf(serviceIds: string[]): Promise<Map<string, string>> {
+    if (serviceIds.length === 0) return new Map();
+    const rows = await this.prisma.service.findMany({
+      where: { id: { in: [...new Set(serviceIds)] } },
+      select: { id: true, category: { select: { key: true } } },
+    });
+    return new Map(rows.map((r) => [r.id, r.category.key]));
+  }
+
   /** Categorías activas, en orden (público). */
   async listCategories(): Promise<{ items: { key: string; name: string }[] }> {
     const items = await this.prisma.serviceCategory.findMany({

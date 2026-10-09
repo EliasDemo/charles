@@ -59,6 +59,7 @@ export const SETTING_RULES: Readonly<Record<string, SettingRule>> = {
   [SettingKey.LOCKOUT_ACCOUNT_MAX_FAILURES]: readOnly(SECURITY),
   [SettingKey.LOCKOUT_IP_MAX_FAILURES]: readOnly(SECURITY),
   [SettingKey.BARBERSHOPS_REQUIRE_REVIEW]: { schema: { type: 'boolean' } },
+  [SettingKey.BARBERSHOPS_REQUIRE_PHOTO]: { schema: { type: 'boolean' } },
   [SettingKey.INVITATION_TTL_MINUTES]: int(5, 10_080),
   [SettingKey.SLOT_INTERVAL_MINUTES]: int(5, 60, 5),
   [SettingKey.MIN_LEAD_TIME_MINUTES]: int(0, 1_440),

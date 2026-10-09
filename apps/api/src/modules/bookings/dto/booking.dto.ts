@@ -106,6 +106,12 @@ export class BookingBarbershopDto extends NamedRefDto {
   timezone!: string;
 }
 
+/** Servicio de una reserva: nombre tal como se reservó y su categoría (para íconos y filtros). */
+export class BookingServiceDto extends NamedRefDto {
+  @ApiProperty({ example: 'haircut', description: 'Clave de la categoría del servicio.' })
+  categoryKey!: string;
+}
+
 export class PriceLineDto {
   @ApiProperty({ enum: PriceLineType, enumName: 'PriceLineType' })
   type!: PriceLineType;
@@ -152,8 +158,11 @@ export class BookingDto {
   @ApiProperty({ type: BookingBarbershopDto })
   barbershop!: BookingBarbershopDto;
 
-  @ApiProperty({ type: NamedRefDto, description: 'Nombre del servicio al reservar (copia).' })
-  service!: NamedRefDto;
+  @ApiProperty({
+    type: BookingServiceDto,
+    description: 'Nombre del servicio al reservar (copia) y su categoría.',
+  })
+  service!: BookingServiceDto;
 
   @ApiProperty({ type: NamedRefDto })
   barber!: NamedRefDto;

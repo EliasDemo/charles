@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
@@ -59,7 +59,14 @@ export class ContactAccessDto extends ReasonDto {
   ticketId?: string;
 }
 
-export class AdminBarbershopQueryDto extends PaginationQueryDto {
+export class AdminBarbershopQueryDto extends OmitType(PaginationQueryDto, ['cursor'] as const) {
+  @ApiPropertyOptional({ description: 'Valor de nextCursor de la página anterior.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  @Matches(/^[A-Za-z0-9_-]+$/)
+  cursor?: string;
+
   @ApiPropertyOptional({
     enum: BarbershopStatus,
     description: 'Sin estado: las que necesitan atención (reportes, marcas, pendientes).',
@@ -283,6 +290,29 @@ export class AdminBarbershopDto {
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;
+
+  @ApiProperty({
+    format: 'date-time',
+    nullable: true,
+    type: String,
+    description: 'Envío a revisión en espera.',
+  })
+  submittedForReviewAt!: string | null;
+
+  @ApiProperty({
+    enum: ['RUC', 'DNI'],
+    nullable: true,
+    type: String,
+    description: 'Solo el tipo; el número se pide aparte con motivo.',
+  })
+  ownerDocumentType!: 'RUC' | 'DNI' | null;
+
+  @ApiProperty({
+    format: 'date-time',
+    description:
+      'Desde cuándo espera atención (envío, marca o reporte más antiguo). La cola se ordena por esto.',
+  })
+  waitingSince!: string;
 }
 
 export class AdminBarbershopPageDto {
@@ -307,7 +337,42 @@ export class BarbershopReportDto {
   createdAt!: string;
 }
 
+export class AdminReviewSubmissionDto {
+  @ApiProperty({ format: 'date-time' })
+  submittedAt!: string;
+
+  @ApiProperty({ enum: ['APPROVED', 'CHANGES_REQUESTED'], nullable: true, type: String })
+  decision!: 'APPROVED' | 'CHANGES_REQUESTED' | null;
+
+  @ApiProperty({ format: 'date-time', nullable: true, type: String })
+  decidedAt!: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  reason!: string | null;
+}
+
+export class OwnerDocumentDto {
+  @ApiProperty({ enum: ['RUC', 'DNI'] })
+  type!: string;
+
+  @ApiProperty()
+  number!: string;
+}
+
 export class AdminBarbershopDetailDto extends AdminBarbershopDto {
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Motivo de la última solicitud de cambios.',
+  })
+  reviewNotes!: string | null;
+
+  @ApiProperty({
+    type: [AdminReviewSubmissionDto],
+    description: 'Envíos a revisión, el más reciente primero.',
+  })
+  submissions!: AdminReviewSubmissionDto[];
+
   @ApiProperty({ type: [BarbershopReportDto], description: 'Reportes abiertos.' })
   reports!: BarbershopReportDto[];
 }
