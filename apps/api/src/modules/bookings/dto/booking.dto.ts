@@ -201,6 +201,33 @@ export class BookingDto {
 
   @ApiProperty()
   createdAt!: Date;
+
+  @ApiProperty({
+    description:
+      'Solo para el cliente: puede valorar ahora (ATTENDED, sin valoración y dentro de ' +
+      'reviews.window_days desde que quedó atendida). Para la barbería, siempre false.',
+  })
+  canReview!: boolean;
+
+  @ApiProperty({
+    type: () => BookingOwnReviewDto,
+    nullable: true,
+    description:
+      'Solo para el cliente: su valoración de esta reserva, si existe. Para la barbería, null.',
+  })
+  review!: BookingOwnReviewDto | null;
+}
+
+/** Valoración propia del cliente, resumida (detalle en `GET /me/reviews`). */
+export class BookingOwnReviewDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ minimum: 1, maximum: 5 })
+  rating!: number;
+
+  @ApiProperty({ description: 'Puede editarla (una sola vez, dentro del plazo).' })
+  canEdit!: boolean;
 }
 
 export class RefundQuoteDto {
@@ -253,6 +280,15 @@ export class CancelledBookingDto extends BookingDto {
 export class CreatedBookingDto extends BookingDto {
   @ApiProperty({ type: PaymentStartDto })
   payment!: PaymentStartDto;
+}
+
+export class PendingReviewsDto {
+  @ApiProperty({
+    type: [BookingDto],
+    description:
+      'Reservas que el cliente puede valorar ahora (canReview), las más recientes primero.',
+  })
+  items!: BookingDto[];
 }
 
 export class BookingPageDto {

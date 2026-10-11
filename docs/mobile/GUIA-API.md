@@ -262,6 +262,8 @@ Las rutas son relativas a `/api/v1`. "Sesión" significa la cabecera `Authorizat
     - Solo reservas propias `ATTENDED`, una vez, dentro de 14 días desde que quedaron atendidas. Si no: 409 `REVIEW_NOT_ALLOWED` o `REVIEW_ALREADY_EXISTS`.
     - Editar **una sola vez** dentro del plazo: `PATCH /reviews/{id}` (si no, 409 `REVIEW_EDIT_NOT_ALLOWED`). Retirar: `DELETE /reviews/{id}`.
     - `GET /me/reviews` trae `status` y `canEdit` (úsalo para mostrar u ocultar "Editar").
+    - **Cuándo mostrar "Valorar":** cada reserva trae `canReview` (no deducirlo) y `review` (`{ id, rating, canEdit }` o `null`) para mostrar "Editar" o "Ver". Para la barbería, siempre `false` y `null`.
+    - **Aviso "¿Cómo te fue?":** `GET /me/bookings/pending-reviews` → `{ items }`, las reservas con `canReview = true`, de la más reciente a la más antigua (hasta 20).
 11. **Opiniones de una barbería:** `GET /barbershops/{id}/reviews?barberId=&rating=` sin sesión. El autor llega como "Ana R."; `response` es la respuesta de la barbería o `null`. El promedio está en `rating` de la barbería y de cada barbero.
 12. **Reportar:** `POST /reviews/{id}/reports` con `{ target: "REVIEW" | "RESPONSE", reason, details? }` (motivos: `OFFENSIVE`, `PERSONAL_DATA`, `FAKE`, `SPAM`, `OTHER`). 204; una vez por contenido (409 `ALREADY_REPORTED`); el propio contenido no se reporta (403).
 
@@ -315,6 +317,7 @@ Las rutas son relativas a `/api/v1`. "Sesión" significa la cabecera `Authorizat
     - listar: `GET /barbershops/{id}/bookings?scope=`;
     - cancelar con motivo obligatorio: `POST /bookings/{id}/cancel` con `{ reason }`. Se devuelve todo y la cancelación queda registrada para revisión.
 11. **Responder valoraciones:** `PUT /reviews/{id}/response` con `{ text }` (hasta 500 caracteres). Una respuesta por valoración, editable con la misma llamada. El barbero no responde.
+    - **Lista de la barbería:** `GET /me/barbershops/{id}/reviews?status=&barberId=&rating=` (OWNER o MANAGER; otro recibe 404). Incluye las ocultas y en revisión, con `status`, `responseStatus` (la respuesta llega aunque soporte la haya ocultado) y `canRespond`.
 
 ### Notificaciones (todos)
 

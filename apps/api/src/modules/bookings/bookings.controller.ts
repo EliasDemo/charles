@@ -46,6 +46,7 @@ import {
   CancelledBookingDto,
   CreateBookingDto,
   CreatedBookingDto,
+  PendingReviewsDto,
 } from './dto/booking.dto';
 
 const uuid = new ParseUUIDPipe();
@@ -194,6 +195,17 @@ export class BookingsController {
     @Query() query: BookingListQueryDto,
   ): Promise<BookingPageDto> {
     return this.bookings.listMine(user.id, query);
+  }
+
+  @Get('me/bookings/pending-reviews')
+  @ApiOperation({
+    summary: 'M9: reservas que puedo valorar ahora (aviso "¿Cómo te fue con tu corte?")',
+    description:
+      'Las mismas que tienen canReview = true en BookingDto, las más recientes primero (hasta 20).',
+  })
+  @ApiOkResponse({ type: PendingReviewsDto })
+  pendingReviews(@CurrentUser() user: AuthUser): Promise<PendingReviewsDto> {
+    return this.bookings.pendingReviews(user.id);
   }
 
   @Get('me/barber/bookings')

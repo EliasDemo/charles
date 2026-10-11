@@ -35,6 +35,9 @@ import {
   BarbershopReviewsQueryDto,
   CreateReviewDto,
   CreateReviewReportDto,
+  type ManagedReviewDto,
+  ManagedReviewPageDto,
+  ManagedReviewsQueryDto,
   MyReviewDto,
   MyReviewPageDto,
   PublicReviewDto,
@@ -119,6 +122,23 @@ export class ReviewsController {
     @Query() query: BarbershopReviewsQueryDto,
   ): Promise<Page<PublicReviewDto>> {
     return this.reviews.listPublic(barbershopId, query);
+  }
+
+  @Get('me/barbershops/:id/reviews')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'M9: valoraciones de mi barbería (OWNER o MANAGER), también ocultas o en revisión',
+    description:
+      'Con el estado de cada una y de su respuesta, y canRespond. El barbero recibe 403.',
+  })
+  @ApiOkResponse({ type: ManagedReviewPageDto })
+  @ApiForbiddenResponse({ type: ErrorResponseDto })
+  listManaged(
+    @CurrentUser() user: AuthUser,
+    @Param('id', uuid) barbershopId: string,
+    @Query() query: ManagedReviewsQueryDto,
+  ): Promise<Page<ManagedReviewDto>> {
+    return this.reviews.listManaged(user.id, barbershopId, query);
   }
 
   @Put('reviews/:id/response')

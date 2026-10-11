@@ -3,6 +3,11 @@ import { CLOCK, type Clock } from '../../common/clock/clock';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { dbErrorInfo, isContention, isExclusionViolation } from '../../common/errors/db-error';
+import {
+  NOT_REVIEWABLE,
+  type ReviewEligibility,
+  ReviewEligibilityService,
+} from '../reviews/review-eligibility.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { AvailabilityService } from '../availability/availability.service';
@@ -20,6 +25,7 @@ import type { BookingStatus } from '../../generated/prisma/enums';
 import type {
   AccountDeletionBookingDto,
   BookingDto,
+  PendingReviewsDto,
   BookingListQueryDto,
   BookingPageDto,
   CancelBookingDto,
@@ -44,6 +50,8 @@ type BookingRow = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
 
 /** Cómo ve la reserva quien consulta: el cliente no recibe datos de sí mismo; el personal sí su nombre. */
 type Viewer = 'CLIENT' | 'STAFF';
+
+const PENDING_REVIEWS_LIMIT = 20;
 
 const slotNotAvailable = (): AppException =>
   new AppException(
@@ -129,6 +137,7 @@ export class BookingsService {
     private readonly reviews: CancellationReviewsService,
     private readonly reconciliation: ReconciliationService,
     @Inject(CLOCK) private readonly clock: Clock,
+    private readonly reviewEligibility: ReviewEligibilityService,
   ) {}
 
   // ───────────── Crear (RF-RES-001/002, RF-RES-007) ─────────────
@@ -856,15 +865,40 @@ export class BookingsService {
     return (await this.toDtos([booking], viewer))[0]!;
   }
 
+  /** Reservas que el cliente puede valorar ahora (aviso "¿Cómo te fue?"), hasta 20. */
+  async pendingReviews(userId: string): Promise<PendingReviewsDto> {
+    const ids = await this.reviewEligibility.pendingBookingIds(userId, PENDING_REVIEWS_LIMIT);
+    if (ids.length === 0) return { items: [] };
+    const rows = await this.prisma.booking.findMany({
+      where: { id: { in: ids }, clientId: userId },
+      include: bookingInclude,
+    });
+    const order = new Map(ids.map((id, i) => [id, i]));
+    rows.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
+    return { items: await this.toDtos(rows, 'CLIENT') };
+  }
+
   private async toDtos(bookings: BookingRow[], viewer: Viewer): Promise<BookingDto[]> {
     const unique = <T>(values: T[]) => [...new Set(values)];
-    const [shops, barbers, clients, categories] = await Promise.all([
+    // Valorar: solo el cliente ve sus propias reservas (la barbería, nunca).
+    const eligibilityOf = async (): Promise<Map<string, ReviewEligibility>> => {
+      if (viewer !== 'CLIENT') return new Map();
+      const merged = new Map<string, ReviewEligibility>();
+      for (const clientId of unique(bookings.map((b) => b.clientId))) {
+        for (const [id, e] of await this.reviewEligibility.forClient(clientId, bookings)) {
+          merged.set(id, e);
+        }
+      }
+      return merged;
+    };
+    const [shops, barbers, clients, categories, eligibility] = await Promise.all([
       this.access.basicsIncludingDeleted(unique(bookings.map((b) => b.barbershopId))),
       this.barbers.displayNames(unique(bookings.map((b) => b.barberId))),
       viewer === 'STAFF'
         ? this.users.fullNames(unique(bookings.map((b) => b.clientId)))
         : Promise.resolve(new Map<string, string>()),
       this.services.categoryKeysOf(unique(bookings.map((b) => b.serviceId))),
+      eligibilityOf(),
     ]);
     const money = (amount: number, currency: string) => ({ amount, currency });
     return bookings.map((b) => {
@@ -906,6 +940,7 @@ export class BookingsService {
             ? { byRole: b.cancelledByRole ?? 'SYSTEM', reason: b.cancelReason }
             : null,
         createdAt: b.createdAt,
+        ...(eligibility.get(b.id) ?? NOT_REVIEWABLE),
       };
     });
   }

@@ -656,6 +656,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/barbershops/{id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * M9: valoraciones de mi barbería (OWNER o MANAGER), también ocultas o en revisión
+         * @description Con el estado de cada una y de su respuesta, y canRespond. El barbero recibe 403.
+         */
+        get: operations["ReviewsController_listManaged_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reviews/{id}/response": {
         parameters: {
             query?: never;
@@ -1439,6 +1459,26 @@ export interface paths {
         };
         /** RF-RES-004/008: mis reservas (próximas o historial) */
         get: operations["BookingsController_listMine_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/bookings/pending-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * M9: reservas que puedo valorar ahora (aviso "¿Cómo te fue con tu corte?")
+         * @description Las mismas que tienen canReview = true en BookingDto, las más recientes primero (hasta 20).
+         */
+        get: operations["BookingsController_pendingReviews_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3045,6 +3085,38 @@ export interface components {
             items: components["schemas"]["PublicReviewDto"][];
             nextCursor: string | null;
         };
+        /** @enum {string} */
+        ReviewStatus: "VISIBLE" | "HIDDEN" | "UNDER_REVIEW";
+        ManagedReviewDto: {
+            /** Format: uuid */
+            id: string;
+            rating: number;
+            comment: string | null;
+            /**
+             * @description Nombre e inicial del apellido.
+             * @example Ana R.
+             */
+            authorName: string;
+            /** @description Servicio tal como se reservó. */
+            serviceName: string;
+            barber: components["schemas"]["ReviewBarberDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            editedAt: string | null;
+            /** @description Respuesta de la barbería (null si no hay o la ocultó soporte). */
+            response: components["schemas"]["ReviewResponseDto"] | null;
+            /** @description VISIBLE; UNDER_REVIEW (reportada, sigue visible); HIDDEN (oculta por soporte). */
+            status: components["schemas"]["ReviewStatus"];
+            /** @description Estado de la respuesta de la barbería; null si no respondió. */
+            responseStatus: components["schemas"]["ReviewStatus"] | null;
+            /** @description Puede responder o editar la respuesta (OWNER o MANAGER). */
+            canRespond: boolean;
+        };
+        ManagedReviewPageDto: {
+            items: components["schemas"]["ManagedReviewDto"][];
+            nextCursor: string | null;
+        };
         ReviewResponseInputDto: {
             /** @description Texto plano. */
             text: string;
@@ -3663,6 +3735,13 @@ export interface components {
             byRole: "CLIENT" | "BARBERSHOP" | "SYSTEM" | "SUPPORT";
             reason: string | null;
         };
+        BookingOwnReviewDto: {
+            /** Format: uuid */
+            id: string;
+            rating: number;
+            /** @description Puede editarla (una sola vez, dentro del plazo). */
+            canEdit: boolean;
+        };
         CreatedBookingDto: {
             /** Format: uuid */
             id: string;
@@ -3689,6 +3768,10 @@ export interface components {
             cancellation: components["schemas"]["CancellationDto"] | null;
             /** Format: date-time */
             createdAt: string;
+            /** @description Solo para el cliente: puede valorar ahora (ATTENDED, sin valoración y dentro de reviews.window_days desde que quedó atendida). Para la barbería, siempre false. */
+            canReview: boolean;
+            /** @description Solo para el cliente: su valoración de esta reserva, si existe. Para la barbería, null. */
+            review: components["schemas"]["BookingOwnReviewDto"] | null;
             payment: components["schemas"]["PaymentStartDto"];
         };
         BookingDto: {
@@ -3717,6 +3800,10 @@ export interface components {
             cancellation: components["schemas"]["CancellationDto"] | null;
             /** Format: date-time */
             createdAt: string;
+            /** @description Solo para el cliente: puede valorar ahora (ATTENDED, sin valoración y dentro de reviews.window_days desde que quedó atendida). Para la barbería, siempre false. */
+            canReview: boolean;
+            /** @description Solo para el cliente: su valoración de esta reserva, si existe. Para la barbería, null. */
+            review: components["schemas"]["BookingOwnReviewDto"] | null;
         };
         RefundQuoteDto: {
             /** @description Lo que se devolverá (redondeado hacia abajo). */
@@ -3829,12 +3916,20 @@ export interface components {
             cancellation: components["schemas"]["CancellationDto"] | null;
             /** Format: date-time */
             createdAt: string;
+            /** @description Solo para el cliente: puede valorar ahora (ATTENDED, sin valoración y dentro de reviews.window_days desde que quedó atendida). Para la barbería, siempre false. */
+            canReview: boolean;
+            /** @description Solo para el cliente: su valoración de esta reserva, si existe. Para la barbería, null. */
+            review: components["schemas"]["BookingOwnReviewDto"] | null;
             /** @description Devolución aplicada. */
             refund: components["schemas"]["RefundQuoteDto"];
         };
         BookingPageDto: {
             items: components["schemas"]["BookingDto"][];
             nextCursor: string | null;
+        };
+        PendingReviewsDto: {
+            /** @description Reservas que el cliente puede valorar ahora (canReview), las más recientes primero. */
+            items: components["schemas"]["BookingDto"][];
         };
         CreateTicketDto: {
             /** @enum {string} */
@@ -6070,6 +6165,53 @@ export interface operations {
             };
         };
     };
+    ReviewsController_listManaged_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+                /** @description Solo las de este barbero. */
+                barberId?: string;
+                /** @description Solo esta puntuación. */
+                rating?: number;
+                /** @description Solo las de este estado (VISIBLE, UNDER_REVIEW u HIDDEN). */
+                status?: components["schemas"]["ReviewStatus"];
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedReviewPageDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     ReviewsController_respond_v1: {
         parameters: {
             query?: never;
@@ -8252,6 +8394,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingPageDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BookingsController_pendingReviews_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingReviewsDto"];
                 };
             };
             404: {

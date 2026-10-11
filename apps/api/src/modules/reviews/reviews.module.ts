@@ -4,6 +4,7 @@ import { BarbershopAccessModule } from '../barbershops/barbershop-access.module'
 import { SettingsModule } from '../settings/settings.module';
 import { FavoritesService } from './favorites.service';
 import { REVIEWS_QUEUE, ReviewsProcessor, ReviewsScheduler } from './ratings-verification.job';
+import { ReviewEligibilityService } from './review-eligibility.service';
 import { ReviewModerationService } from './review-moderation.service';
 import { ReviewRateLimitRefresher, ReviewWriteRateLimitGuard } from './review-rate-limit';
 import { RatingsVerifier, ReviewRatings } from './review-ratings';
@@ -24,11 +25,12 @@ import { ReviewsService } from './reviews.service';
     ReviewRatings,
     RatingsVerifier,
     ReviewModerationService,
+    ReviewEligibilityService,
     ReviewWriteRateLimitGuard,
     ReviewRateLimitRefresher,
     ReviewsProcessor,
     ReviewsScheduler,
   ],
-  exports: [ReviewModerationService, RatingsVerifier, FavoritesService],
+  exports: [ReviewModerationService, RatingsVerifier, FavoritesService, ReviewEligibilityService],
 })
 export class ReviewsModule {}

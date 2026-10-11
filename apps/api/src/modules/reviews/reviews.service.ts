@@ -19,6 +19,8 @@ import type {
   BarbershopReviewsQueryDto,
   CreateReviewDto,
   CreateReviewReportDto,
+  ManagedReviewDto,
+  ManagedReviewsQueryDto,
   MyReviewDto,
   PublicReviewDto,
   UpdateReviewDto,
@@ -226,6 +228,39 @@ export class ReviewsService {
   }
 
   // ───────────── Barbería ─────────────
+
+  /** M9: todas las valoraciones de la barbería (también ocultas), para OWNER o MANAGER. */
+  async listManaged(
+    userId: string,
+    barbershopId: string,
+    query: ManagedReviewsQueryDto,
+  ): Promise<Page<ManagedReviewDto>> {
+    const membership = await this.access.requireMember(userId, barbershopId);
+    const rows = await this.prisma.review.findMany({
+      where: {
+        barbershopId,
+        deletedAt: null,
+        ...(query.status ? { status: query.status } : {}),
+        ...(query.barberId ? { barberId: query.barberId } : {}),
+        ...(query.rating ? { rating: query.rating } : {}),
+        ...(query.cursor ? { id: { lt: query.cursor } } : {}),
+      },
+      orderBy: { id: 'desc' },
+      take: (query.limit ?? DEFAULT_PAGE_SIZE) + 1,
+      include: reviewInclude,
+    });
+    const canRespond = membership.role === 'OWNER' || membership.role === 'MANAGER';
+    return pageDesc(rows, query, (row) => ({
+      ...this.toPublic(row),
+      response:
+        row.responseText !== null && row.responseAt !== null
+          ? { text: row.responseText, respondedAt: row.responseAt.toISOString() }
+          : null,
+      status: row.status,
+      responseStatus: row.responseStatus,
+      canRespond,
+    }));
+  }
 
   /** Una respuesta por valoración (crear o editar), del OWNER o MANAGER. Auditada. */
   async respond(userId: string, reviewId: string, text: string): Promise<PublicReviewDto> {

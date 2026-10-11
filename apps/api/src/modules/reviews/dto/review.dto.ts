@@ -120,6 +120,17 @@ export class BarbershopReviewsQueryDto extends PaginationQueryDto {
   rating?: number;
 }
 
+export class ManagedReviewsQueryDto extends BarbershopReviewsQueryDto {
+  @ApiPropertyOptional({
+    enum: ReviewStatus,
+    enumName: 'ReviewStatus',
+    description: 'Solo las de este estado (VISIBLE, UNDER_REVIEW u HIDDEN).',
+  })
+  @IsOptional()
+  @IsIn(Object.values(ReviewStatus))
+  status?: ReviewStatus;
+}
+
 // ───────────── Respuestas ─────────────
 
 export class ReviewBarberDto {
@@ -209,6 +220,38 @@ export class MyReviewDto extends PublicReviewDto {
 export class MyReviewPageDto {
   @ApiProperty({ type: [MyReviewDto] })
   items!: MyReviewDto[];
+
+  @ApiProperty({ nullable: true, type: String })
+  nextCursor!: string | null;
+}
+
+/**
+ * M9: valoración vista por la barbería (OWNER o MANAGER), con su estado y el de la respuesta.
+ * La respuesta se incluye aunque soporte la haya ocultado (ver `responseStatus`).
+ */
+export class ManagedReviewDto extends PublicReviewDto {
+  @ApiProperty({
+    enum: ReviewStatus,
+    enumName: 'ReviewStatus',
+    description: 'VISIBLE; UNDER_REVIEW (reportada, sigue visible); HIDDEN (oculta por soporte).',
+  })
+  status!: ReviewStatus;
+
+  @ApiProperty({
+    enum: ReviewStatus,
+    enumName: 'ReviewStatus',
+    nullable: true,
+    description: 'Estado de la respuesta de la barbería; null si no respondió.',
+  })
+  responseStatus!: ReviewStatus | null;
+
+  @ApiProperty({ description: 'Puede responder o editar la respuesta (OWNER o MANAGER).' })
+  canRespond!: boolean;
+}
+
+export class ManagedReviewPageDto {
+  @ApiProperty({ type: [ManagedReviewDto] })
+  items!: ManagedReviewDto[];
 
   @ApiProperty({ nullable: true, type: String })
   nextCursor!: string | null;

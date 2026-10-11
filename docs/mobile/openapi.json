@@ -2407,6 +2407,112 @@
         "tags": ["reviews"]
       }
     },
+    "/api/v1/me/barbershops/{id}/reviews": {
+      "get": {
+        "description": "Con el estado de cada una y de su respuesta, y canRespond. El barbero recibe 403.",
+        "operationId": "ReviewsController_listManaged_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Valor de nextCursor de la página anterior.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "barberId",
+            "required": false,
+            "in": "query",
+            "description": "Solo las de este barbero.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "rating",
+            "required": false,
+            "in": "query",
+            "description": "Solo esta puntuación.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 5,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Solo las de este estado (VISIBLE, UNDER_REVIEW u HIDDEN).",
+            "schema": {
+              "$ref": "#/components/schemas/ReviewStatus"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedReviewPageDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "M9: valoraciones de mi barbería (OWNER o MANAGER), también ocultas o en revisión",
+        "tags": ["reviews"]
+      }
+    },
     "/api/v1/reviews/{id}/response": {
       "put": {
         "operationId": "ReviewsController_respond_v1",
@@ -5962,6 +6068,42 @@
           }
         ],
         "summary": "RF-RES-004/008: mis reservas (próximas o historial)",
+        "tags": ["bookings"]
+      }
+    },
+    "/api/v1/me/bookings/pending-reviews": {
+      "get": {
+        "description": "Las mismas que tienen canReview = true en BookingDto, las más recientes primero (hasta 20).",
+        "operationId": "BookingsController_pendingReviews_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingReviewsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "M9: reservas que puedo valorar ahora (aviso \"¿Cómo te fue con tu corte?\")",
         "tags": ["bookings"]
       }
     },
@@ -11392,6 +11534,110 @@
         },
         "required": ["items", "nextCursor"]
       },
+      "ReviewStatus": {
+        "type": "string",
+        "enum": ["VISIBLE", "HIDDEN", "UNDER_REVIEW"]
+      },
+      "ManagedReviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          },
+          "authorName": {
+            "type": "string",
+            "example": "Ana R.",
+            "description": "Nombre e inicial del apellido."
+          },
+          "serviceName": {
+            "type": "string",
+            "description": "Servicio tal como se reservó."
+          },
+          "barber": {
+            "$ref": "#/components/schemas/ReviewBarberDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "editedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "response": {
+            "nullable": true,
+            "description": "Respuesta de la barbería (null si no hay o la ocultó soporte).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReviewResponseDto"
+              }
+            ]
+          },
+          "status": {
+            "description": "VISIBLE; UNDER_REVIEW (reportada, sigue visible); HIDDEN (oculta por soporte).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReviewStatus"
+              }
+            ]
+          },
+          "responseStatus": {
+            "nullable": true,
+            "description": "Estado de la respuesta de la barbería; null si no respondió.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReviewStatus"
+              }
+            ]
+          },
+          "canRespond": {
+            "type": "boolean",
+            "description": "Puede responder o editar la respuesta (OWNER o MANAGER)."
+          }
+        },
+        "required": [
+          "id",
+          "rating",
+          "comment",
+          "authorName",
+          "serviceName",
+          "barber",
+          "createdAt",
+          "editedAt",
+          "response",
+          "status",
+          "responseStatus",
+          "canRespond"
+        ]
+      },
+      "ManagedReviewPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManagedReviewDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": ["items", "nextCursor"]
+      },
       "ReviewResponseInputDto": {
         "type": "object",
         "properties": {
@@ -13083,6 +13329,25 @@
         },
         "required": ["byRole", "reason"]
       },
+      "BookingOwnReviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "canEdit": {
+            "type": "boolean",
+            "description": "Puede editarla (una sola vez, dentro del plazo)."
+          }
+        },
+        "required": ["id", "rating", "canEdit"]
+      },
       "CreatedBookingDto": {
         "type": "object",
         "properties": {
@@ -13158,6 +13423,20 @@
             "format": "date-time",
             "type": "string"
           },
+          "canReview": {
+            "type": "boolean",
+            "description": "Solo para el cliente: puede valorar ahora (ATTENDED, sin valoración y dentro de reviews.window_days desde que quedó atendida). Para la barbería, siempre false."
+          },
+          "review": {
+            "nullable": true,
+            "description": "Solo para el cliente: su valoración de esta reserva, si existe. Para la barbería, null.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BookingOwnReviewDto"
+              }
+            ]
+          },
           "payment": {
             "$ref": "#/components/schemas/PaymentStartDto"
           }
@@ -13177,6 +13456,8 @@
           "expiresAt",
           "cancellation",
           "createdAt",
+          "canReview",
+          "review",
           "payment"
         ]
       },
@@ -13254,6 +13535,20 @@
           "createdAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "canReview": {
+            "type": "boolean",
+            "description": "Solo para el cliente: puede valorar ahora (ATTENDED, sin valoración y dentro de reviews.window_days desde que quedó atendida). Para la barbería, siempre false."
+          },
+          "review": {
+            "nullable": true,
+            "description": "Solo para el cliente: su valoración de esta reserva, si existe. Para la barbería, null.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BookingOwnReviewDto"
+              }
+            ]
           }
         },
         "required": [
@@ -13270,7 +13565,9 @@
           "price",
           "expiresAt",
           "cancellation",
-          "createdAt"
+          "createdAt",
+          "canReview",
+          "review"
         ]
       },
       "RefundQuoteDto": {
@@ -13589,6 +13886,20 @@
             "format": "date-time",
             "type": "string"
           },
+          "canReview": {
+            "type": "boolean",
+            "description": "Solo para el cliente: puede valorar ahora (ATTENDED, sin valoración y dentro de reviews.window_days desde que quedó atendida). Para la barbería, siempre false."
+          },
+          "review": {
+            "nullable": true,
+            "description": "Solo para el cliente: su valoración de esta reserva, si existe. Para la barbería, null.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BookingOwnReviewDto"
+              }
+            ]
+          },
           "refund": {
             "description": "Devolución aplicada.",
             "allOf": [
@@ -13613,6 +13924,8 @@
           "expiresAt",
           "cancellation",
           "createdAt",
+          "canReview",
+          "review",
           "refund"
         ]
       },
@@ -13631,6 +13944,19 @@
           }
         },
         "required": ["items", "nextCursor"]
+      },
+      "PendingReviewsDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Reservas que el cliente puede valorar ahora (canReview), las más recientes primero.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingDto"
+            }
+          }
+        },
+        "required": ["items"]
       },
       "CreateTicketDto": {
         "type": "object",
