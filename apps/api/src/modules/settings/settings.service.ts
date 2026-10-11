@@ -44,6 +44,9 @@ export const SettingKey = {
   PAYMENTS_PENDING_CHECK_INTERVAL_MINUTES: 'payments.pending_check_interval_minutes',
   WEBHOOK_RATE_LIMIT_PER_MINUTE: 'payments.webhook_rate_limit_per_minute',
   PAYMENTS_PROVIDER: 'payments.provider',
+  FEES_PERCENT_BP: 'fees.percent_bp',
+  FEES_FIXED_AMOUNT: 'fees.fixed_amount',
+  FEES_PAYER: 'fees.payer',
   REVIEWS_WINDOW_DAYS: 'reviews.window_days',
   REVIEWS_REPORT_THRESHOLD: 'reviews.report_threshold',
   REVIEWS_RATE_LIMIT_PER_MINUTE: 'reviews.rate_limit_per_minute',
@@ -77,6 +80,24 @@ export class SettingsService {
   async positiveInt(key: string, fallback: number): Promise<number> {
     const value = await this.get(key);
     if (typeof value === 'number' && Number.isInteger(value) && value > 0) return value;
+    if (value !== null) this.logger.warn(`Valor inválido en ${key}; se usa ${fallback}`);
+    return fallback;
+  }
+
+  /** Entero >= 0 configurable (admite 0, a diferencia de `positiveInt`). */
+  async nonNegativeInt(key: string, fallback: number): Promise<number> {
+    const value = await this.get(key);
+    if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
+    if (value !== null) this.logger.warn(`Valor inválido en ${key}; se usa ${fallback}`);
+    return fallback;
+  }
+
+  /** Uno de los valores permitidos; `fallback` si la clave no existe o no es válida. */
+  async oneOf<T extends string>(key: string, allowed: readonly T[], fallback: T): Promise<T> {
+    const value = await this.get(key);
+    if (typeof value === 'string' && (allowed as readonly string[]).includes(value)) {
+      return value as T;
+    }
     if (value !== null) this.logger.warn(`Valor inválido en ${key}; se usa ${fallback}`);
     return fallback;
   }

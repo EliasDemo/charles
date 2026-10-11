@@ -66,7 +66,8 @@ export class WebhooksService {
     }
     await this.rateLimiter.consumeProvider(this.gateway.provider);
     this.assertFresh(event);
-    await this.assertCoherent(event);
+    const paymentId = await this.resolvePaymentId(event);
+    await this.assertCoherent(event, paymentId);
 
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -74,7 +75,7 @@ export class WebhooksService {
           data: {
             provider: this.gateway.provider,
             providerEventId: event.providerEventId,
-            paymentId: event.paymentId,
+            paymentId,
             type: `${event.kind.toLowerCase()}.${event.outcome.toLowerCase()}`,
             payload: { ...event.payload, refundId: event.refundId },
             processedAt: new Date(this.clock.now()),
@@ -82,7 +83,13 @@ export class WebhooksService {
         });
         if (event.kind === 'PAYMENT') {
           if (event.outcome === 'FAILED') return;
-          await this.payments.applyPaymentResult(tx, event.paymentId, event.outcome, 'WEBHOOK');
+          await this.payments.applyPaymentResult(
+            tx,
+            paymentId!,
+            event.outcome,
+            'WEBHOOK',
+            event.providerData,
+          );
         } else if (
           event.refundId &&
           (event.outcome === 'SUCCEEDED' || event.outcome === 'FAILED')
@@ -110,11 +117,27 @@ export class WebhooksService {
     }
   }
 
-  private async assertCoherent(event: PaymentWebhookEvent): Promise<void> {
-    const payment = await this.prisma.payment.findUnique({
-      where: { id: event.paymentId },
-      select: { amount: true, currency: true, provider: true },
+  /** Izipay no devuelve el ID de Charles: se busca por su número de pedido. */
+  private async resolvePaymentId(event: PaymentWebhookEvent): Promise<string | null> {
+    if (event.paymentId) return event.paymentId;
+    if (!event.providerPaymentId) return null;
+    const payment = await this.prisma.payment.findFirst({
+      where: { provider: this.gateway.provider, providerPaymentId: event.providerPaymentId },
+      select: { id: true },
     });
+    return payment?.id ?? null;
+  }
+
+  private async assertCoherent(
+    event: PaymentWebhookEvent,
+    paymentId: string | null,
+  ): Promise<void> {
+    const payment = paymentId
+      ? await this.prisma.payment.findUnique({
+          where: { id: paymentId },
+          select: { amount: true, currency: true, provider: true },
+        })
+      : null;
     const problems: string[] = [];
     if (!payment || payment.provider !== this.gateway.provider) problems.push('unknownPayment');
     if (payment && event.currency !== payment.currency) problems.push('currency');
@@ -128,14 +151,14 @@ export class WebhooksService {
             select: { paymentId: true, amount: true },
           })
         : null;
-      if (!refund || refund.paymentId !== event.paymentId) problems.push('unknownRefund');
+      if (!refund || refund.paymentId !== paymentId) problems.push('unknownRefund');
       else if (refund.amount !== event.amount) problems.push('amount');
     }
     if (problems.length === 0) return;
     await this.audit.record({
       action: 'payment.webhook_rejected',
       entityType: 'payment',
-      entityId: payment ? event.paymentId : null,
+      entityId: payment ? paymentId : null,
       changes: { providerEventId: event.providerEventId, problems },
     });
     throw reject(

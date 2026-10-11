@@ -3609,8 +3609,12 @@ export interface components {
         /** @enum {string} */
         PaymentStatus: "PENDING" | "SUCCEEDED" | "REJECTED" | "CANCELLED" | "REFUNDED" | "PARTIALLY_REFUNDED";
         ClientPaymentActionDto: {
-            /** @enum {string} */
-            type: "FAKE" | "IZIPAY_SDK";
+            /**
+             * @description FAKE: pasarela simulada (desarrollo; pagar con dev:pay). IZIPAY_WEB: abrir data.paymentUrl (formulario de Izipay con tarjeta y Yape) en un WebView; el pago termina cuando la página navega a una URL que contiene /payments/izipay/done.
+             * @enum {string}
+             */
+            type: "FAKE" | "IZIPAY_WEB";
+            /** @description FAKE: { paymentId }. IZIPAY_WEB: { paymentUrl, doneUrlPrefix }. */
             data: {
                 [key: string]: string;
             };
@@ -3735,6 +3739,14 @@ export interface components {
             byRole: "CLIENT" | "BARBERSHOP" | "SYSTEM" | "SUPPORT";
             reason: string | null;
         };
+        BookingCommissionDto: {
+            amount: components["schemas"]["MoneyDto"];
+            /**
+             * @description BARBERSHOP: se descuenta de lo que recibe la barbería. CLIENT: la pagó el cliente.
+             * @enum {string}
+             */
+            payer: "CLIENT" | "BARBERSHOP";
+        };
         BookingOwnReviewDto: {
             /** Format: uuid */
             id: string;
@@ -3768,6 +3780,8 @@ export interface components {
             cancellation: components["schemas"]["CancellationDto"] | null;
             /** Format: date-time */
             createdAt: string;
+            /** @description Solo para la barbería: comisión de Charles de esta reserva y quién la paga. Para el cliente, null. */
+            commission: components["schemas"]["BookingCommissionDto"] | null;
             /** @description Solo para el cliente: puede valorar ahora (ATTENDED, sin valoración y dentro de reviews.window_days desde que quedó atendida). Para la barbería, siempre false. */
             canReview: boolean;
             /** @description Solo para el cliente: su valoración de esta reserva, si existe. Para la barbería, null. */
@@ -3800,6 +3814,8 @@ export interface components {
             cancellation: components["schemas"]["CancellationDto"] | null;
             /** Format: date-time */
             createdAt: string;
+            /** @description Solo para la barbería: comisión de Charles de esta reserva y quién la paga. Para el cliente, null. */
+            commission: components["schemas"]["BookingCommissionDto"] | null;
             /** @description Solo para el cliente: puede valorar ahora (ATTENDED, sin valoración y dentro de reviews.window_days desde que quedó atendida). Para la barbería, siempre false. */
             canReview: boolean;
             /** @description Solo para el cliente: su valoración de esta reserva, si existe. Para la barbería, null. */
@@ -3916,6 +3932,8 @@ export interface components {
             cancellation: components["schemas"]["CancellationDto"] | null;
             /** Format: date-time */
             createdAt: string;
+            /** @description Solo para la barbería: comisión de Charles de esta reserva y quién la paga. Para el cliente, null. */
+            commission: components["schemas"]["BookingCommissionDto"] | null;
             /** @description Solo para el cliente: puede valorar ahora (ATTENDED, sin valoración y dentro de reviews.window_days desde que quedó atendida). Para la barbería, siempre false. */
             canReview: boolean;
             /** @description Solo para el cliente: su valoración de esta reserva, si existe. Para la barbería, null. */

@@ -107,6 +107,12 @@ enum CancelledByRole {
   SUPPORT
 }
 
+/// Fase 8B: quién paga la comisión de Charles en una reserva.
+enum CommissionPayer {
+  CLIENT
+  BARBERSHOP
+}
+
 enum PriceLineType {
   SERVICE
   DISCOUNT
@@ -843,6 +849,9 @@ model Booking {
   discountTotalAmount     Int              @default(0) @map("discount_total_amount")
   feeTotalAmount          Int              @default(0) @map("fee_total_amount")
   totalAmount             Int              @map("total_amount")
+  /// Fase 8B: comisión de Charles (céntimos) y quién la paga, congeladas al reservar.
+  commissionAmount        Int              @default(0) @map("commission_amount")
+  commissionPayer         CommissionPayer? @map("commission_payer")
   currency                String           @db.Char(3)
   expiresAt               DateTime?        @map("expires_at") @db.Timestamptz(3)
   cancelledById           String?          @map("cancelled_by") @db.Uuid

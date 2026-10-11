@@ -439,9 +439,21 @@ export const SEED_SETTINGS: {
       'Cada cuántos minutos se consultan a la pasarela los pagos iniciados aún pendientes.',
   },
   {
-    key: 'payments.commission_policy',
-    value: null,
-    description: 'PENDIENTE (§4.2): quién asume la comisión.',
+    key: 'fees.percent_bp',
+    value: 0,
+    description:
+      'Comisión de Charles: porcentaje del servicio en puntos básicos (500 = 5 %). 0 = sin porcentaje.',
+  },
+  {
+    key: 'fees.fixed_amount',
+    value: 0,
+    description: 'Comisión de Charles: monto fijo por reserva, en céntimos (50 = S/ 0,50).',
+  },
+  {
+    key: 'fees.payer',
+    value: 'BARBERSHOP',
+    description:
+      'Quién paga la comisión: BARBERSHOP (se descuenta a la barbería) o CLIENT (se suma al precio).',
   },
   {
     key: 'payments.payout_policy',

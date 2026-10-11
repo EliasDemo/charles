@@ -3,10 +3,20 @@ import { PaymentStatus, RefundReason, RefundStatus } from '../../../generated/pr
 import { MoneyDto } from '../../barbershops/dto/barbershop.dto';
 
 export class ClientPaymentActionDto {
-  @ApiProperty({ enum: ['FAKE', 'IZIPAY_SDK'] })
-  type!: 'FAKE' | 'IZIPAY_SDK';
+  @ApiProperty({
+    enum: ['FAKE', 'IZIPAY_WEB'],
+    description:
+      'FAKE: pasarela simulada (desarrollo; pagar con dev:pay). IZIPAY_WEB: abrir data.paymentUrl ' +
+      '(formulario de Izipay con tarjeta y Yape) en un WebView; el pago termina cuando la página ' +
+      'navega a una URL que contiene /payments/izipay/done.',
+  })
+  type!: 'FAKE' | 'IZIPAY_WEB';
 
-  @ApiProperty({ type: 'object', additionalProperties: { type: 'string' } })
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+    description: 'FAKE: { paymentId }. IZIPAY_WEB: { paymentUrl, doneUrlPrefix }.',
+  })
   data!: Record<string, string>;
 }
 

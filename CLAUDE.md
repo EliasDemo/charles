@@ -528,6 +528,17 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
   - con `barbershops.unjustified_cancellations_limit` (3) injustificadas en `barbershops.unjustified_cancellations_window_days` (30), contadas por fecha de cancelación, la barbería pasa a `SUSPENDED` en la misma transacción, con auditoría y evento;
   - las reservas futuras de una barbería suspendida se dejan como están (Fase 12).
 
+#### Pagos con Izipay (Fase 8B)
+
+- **Plataforma:** botón de pagos de developers.izipay.pe (no micuentaweb). Referencia: `docs/izipay/referencia.md`. `PAYMENTS_GATEWAY` elige `FakeGateway` (desarrollo y pruebas) o `IzipayGateway`; en producción la app no arranca con `fake`, con `IZIPAY_MODE=TEST`, con URLs de sandbox ni sin `PUBLIC_API_URL` https. Con `izipay`, todas las `IZIPAY_*` son obligatorias.
+- **App:** `clientAction = IZIPAY_WEB` con `paymentUrl` (enlace firmado de 30 min a `/payments/izipay/checkout/{paymentId}`) y `doneUrlPrefix`. La página pide el token de sesión (15 min, un uso) **al cargarse** y abre el formulario web en modo `redirect` con `CARD,YAPE_CODE`, con su propia CSP (nonce + dominios de Izipay). El regreso (`POST …/return/{paymentId}`) solo dispara la consulta a Izipay y redirige a `…/done`.
+- **Pedido:** `providerPaymentId` = número de 15 caracteres derivado de la clave de idempotencia; Izipay devuelve ese número y `WebhooksService` busca el pago con él.
+- **Firma:** `base64(HMAC-SHA256(payloadHttp, IZIPAY_HASH_KEY))`; solo se leen datos de `payloadHttp`. La IPN no trae marca de tiempo (`webhookMaxAgeSeconds = null`).
+- **Rechazo ≠ cancelación:** un pago no aprobado de Izipay es `FAILED` (se registra, la reserva sigue pendiente y el cliente puede reintentar hasta que venza).
+- **Devoluciones:** token `REFUND`, RUC de Charles (`IZIPAY_RUC`) y `payments.metadata.provider` (`uniqueId`, `codeAuth`, `referenceNumber`, guardados al aprobarse; nunca datos de tarjeta). Quedan `PENDING` y la conciliación consulta su estado. Solo funcionan en producción.
+- **Comisión de Charles** (`bookings/commission-policy.ts`, pura): `fees.percent_bp` (0–3000), `fees.fixed_amount` (céntimos, 0–10 000) y `fees.payer` (`BARBERSHOP` por defecto, o `CLIENT`), editables solo por ADMIN. Se congela en `bookings.commission_amount` y `commission_payer`; si paga el cliente también es la línea `FEE` y suma al total (CHECK en SQL). La barbería la ve en `BookingDto.commission`.
+- **Pruebas:** `test/support/izipay-simulator.ts` (servidor HTTP local que firma como Izipay, credenciales aleatorias) y `izipay.e2e-spec.ts`.
+
 #### Atención e inasistencias (Fase 9, RF-ATE-001…003)
 
 - **Marcar atendida (`POST /bookings/{id}/attended`):** el barbero asignado o la barbería (OWNER o MANAGER), sobre una reserva `CONFIRMED`, desde la hora de inicio y hasta `booking.attendance_auto_close_hours` (24) después, con límites inclusivos. No hay devolución.

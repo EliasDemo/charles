@@ -73,6 +73,7 @@ export class ReconciliationService {
           paymentId,
           'SUCCEEDED',
           'RECONCILIATION',
+          state.providerData,
         );
         if (applied.applied) {
           await this.audit.record(

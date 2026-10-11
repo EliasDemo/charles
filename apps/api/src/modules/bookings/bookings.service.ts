@@ -8,6 +8,13 @@ import {
   type ReviewEligibility,
   ReviewEligibilityService,
 } from '../reviews/review-eligibility.service';
+import {
+  type CommissionBreakdown,
+  type CommissionSettings,
+  COMMISSION_DEFAULTS,
+  COMMISSION_PAYERS,
+  computeCommission,
+} from './commission-policy';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { AvailabilityService } from '../availability/availability.service';
@@ -40,7 +47,6 @@ export const BOOKING_DEFAULTS = { pendingTtlMinutes: 10, maxPendingPerClient: 2 
 /** "Cualquier barbero": candidatos que se intentan si otro se adelanta (CLAUDE.md §4.1). */
 export const MAX_BARBER_ATTEMPTS = 3;
 /** Comisión de Charles por reserva: sin definir, 0 hasta que se decida (CLAUDE.md §4.2). */
-export const CHARLES_FEE_AMOUNT = 0;
 const IDEMPOTENCY_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const bookingInclude = {
@@ -171,7 +177,7 @@ export class BookingsService {
     const service = (await this.services.bookableSummaries([dto.serviceId])).get(dto.serviceId);
     if (!service) throw slotNotAvailable();
 
-    const [ttlMinutes, maxPending] = await Promise.all([
+    const [ttlMinutes, maxPending, commissionSettings] = await Promise.all([
       this.settings.positiveInt(
         SettingKey.PENDING_PAYMENT_TTL_MINUTES,
         BOOKING_DEFAULTS.pendingTtlMinutes,
@@ -180,7 +186,9 @@ export class BookingsService {
         SettingKey.BOOKING_MAX_PENDING_PER_CLIENT,
         BOOKING_DEFAULTS.maxPendingPerClient,
       ),
+      this.commissionSettings(),
     ]);
+    const commission = computeCommission(service.priceAmount, commissionSettings);
     const endAt = startAt + service.durationMinutes * 60_000;
     // Ajuste C: antes de vencer una PENDING_PAYMENT con pago iniciado, se consulta la pasarela
     // (fuera de la transacción). Si estaba pagada, se confirma en lugar de vencer.
@@ -227,6 +235,7 @@ export class BookingsService {
             startAt,
             endAt,
             service,
+            commission,
             expiresAt: now + ttlMinutes * 60_000,
           });
           await this.stateMachine.recordCreation(
@@ -241,7 +250,7 @@ export class BookingsService {
           );
           const paymentId = await this.payments.createPendingInTx(tx, {
             id: bookingId.id,
-            totalAmount: service.priceAmount,
+            totalAmount: commission.total,
             currency: service.currency,
           });
           return { bookingId: bookingId.id, paymentId };
@@ -407,6 +416,7 @@ export class BookingsService {
       startAt: number;
       endAt: number;
       service: { name: string; durationMinutes: number; priceAmount: number; currency: string };
+      commission: CommissionBreakdown;
       expiresAt: number;
     },
   ): Promise<{ id: string; barberId: string }> {
@@ -426,7 +436,10 @@ export class BookingsService {
             serviceNameSnapshot: input.service.name,
             durationMinutesSnapshot: input.service.durationMinutes,
             subtotalAmount: input.service.priceAmount,
-            totalAmount: input.service.priceAmount,
+            feeTotalAmount: input.commission.clientFee,
+            totalAmount: input.commission.total,
+            commissionAmount: input.commission.commissionAmount,
+            commissionPayer: input.commission.payer,
             currency: input.service.currency,
             expiresAt: new Date(input.expiresAt),
             idempotencyKey: input.idempotencyKey,
@@ -441,12 +454,12 @@ export class BookingsService {
                   sourceType: 'service',
                   sourceId: input.dto.serviceId,
                 },
-                // Comisión de Charles: sin definir (CLAUDE.md §4.2). El cálculo queda preparado
-                // como línea FEE en 0; fee_total_amount y total no cambian.
+                // Comisión de Charles (Fase 8B): lo que paga el cliente; 0 si la asume la barbería
+                // (entonces queda en commission_amount).
                 {
                   type: 'FEE',
                   description: 'Comisión de Charles',
-                  amount: CHARLES_FEE_AMOUNT,
+                  amount: input.commission.clientFee,
                   sourceType: 'commission',
                 },
               ],
@@ -462,6 +475,16 @@ export class BookingsService {
       }
     }
     throw slotNotAvailable();
+  }
+
+  /** Ajustes `fees.*` (ADMIN). Si faltan, sin comisión. */
+  private async commissionSettings(): Promise<CommissionSettings> {
+    const [percentBp, fixedAmount, payer] = await Promise.all([
+      this.settings.nonNegativeInt(SettingKey.FEES_PERCENT_BP, COMMISSION_DEFAULTS.percentBp),
+      this.settings.nonNegativeInt(SettingKey.FEES_FIXED_AMOUNT, COMMISSION_DEFAULTS.fixedAmount),
+      this.settings.oneOf(SettingKey.FEES_PAYER, COMMISSION_PAYERS, COMMISSION_DEFAULTS.payer),
+    ]);
+    return { percentBp, fixedAmount, payer };
   }
 
   /** Reserva previa con la misma clave: la misma petición la devuelve; otra distinta es 409. */
@@ -940,6 +963,10 @@ export class BookingsService {
             ? { byRole: b.cancelledByRole ?? 'SYSTEM', reason: b.cancelReason }
             : null,
         createdAt: b.createdAt,
+        commission:
+          viewer === 'STAFF' && b.commissionPayer
+            ? { amount: money(b.commissionAmount, b.currency), payer: b.commissionPayer }
+            : null,
         ...(eligibility.get(b.id) ?? NOT_REVIEWABLE),
       };
     });

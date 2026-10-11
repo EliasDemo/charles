@@ -7,7 +7,7 @@ import { PAYMENT_GATEWAY, type PaymentGateway, type RawWebhook } from './payment
 import { type ReconcileOutcome, ReconciliationService } from './reconciliation';
 
 /**
- * Resultado que la app reenvía tras pagar (Izipay: `kr-answer` firmado con la clave HMAC).
+ * Resultado que la app reenvía tras pagar (Izipay: `payloadHttp` y `signature`, clave hash).
  * Se verifica la firma, pero **nunca confirma por sí solo**: solo dispara la consulta del pago a
  * la pasarela, igual que la conciliación.
  */
@@ -24,17 +24,23 @@ export class PaymentVerificationService {
     bookingId: string,
     raw: RawWebhook,
   ): Promise<{ outcome: ReconcileOutcome; paymentStatus: PaymentStatus }> {
-    const { paymentId } = this.gateway.verifyClientResult(raw);
+    const ref = this.gateway.verifyClientResult(raw);
     const payment = await this.prisma.payment.findFirst({
-      where: { id: paymentId, bookingId, booking: { clientId } },
+      where: {
+        ...(ref.paymentId
+          ? { id: ref.paymentId }
+          : { provider: this.gateway.provider, providerPaymentId: ref.providerPaymentId ?? '' }),
+        bookingId,
+        booking: { clientId },
+      },
       select: { id: true },
     });
     if (!payment) {
       throw new AppException(ErrorCode.NOT_FOUND, 'El pago no existe.', HttpStatus.NOT_FOUND);
     }
-    const outcome = await this.reconciliation.checkPayment(paymentId);
+    const outcome = await this.reconciliation.checkPayment(payment.id);
     const { status } = await this.prisma.payment.findUniqueOrThrow({
-      where: { id: paymentId },
+      where: { id: payment.id },
       select: { status: true },
     });
     return { outcome, paymentStatus: status };

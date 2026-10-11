@@ -2,48 +2,51 @@
 
 Punto de partida para retomar el trabajo en una conversación nueva. **Léelo antes de hacer nada**, junto con `CLAUDE.md` y `docs/pendientes-produccion.md`. Se actualiza al cerrar cada fase (CLAUDE.md §1).
 
-Última actualización: cierre de la Fase 14 (galería y perfiles).
+Última actualización: cierre de la Fase 8B (pagos con Izipay).
 
 ## Resumen
 
-|                           |                                                                                                                    |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Fase cerrada más reciente | **14** (galería y perfiles)                                                                                        |
-| En espera                 | **8B** (adaptador de Izipay): falta documentación de Izipay que enviará el usuario                                 |
-| Siguiente a implementar   | a definir por el usuario (13, 15 y 16 esperan decisiones de negocio; 8B, la documentación de Izipay)               |
-| Pruebas al cierre         | 468 unitarias y 559 e2e, todas en verde; `pnpm verify` pasa (cobertura de images: 96,8 % sentencias, 82,9 % ramas) |
-| Repositorio               | solo commits locales: **sin remoto y sin push** hasta que el usuario lo indique                                    |
+|                           |                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------- |
+| Fase cerrada más reciente | **8B** (pagos con Izipay, probado con simulador)                                |
+| En espera                 | cuenta real de Izipay (proyecto universitario: sin negocio aún)                 |
+| Siguiente a implementar   | a definir por el usuario (13, 15 y 16 esperan decisiones de negocio)            |
+| Pruebas al cierre         | 488 unitarias y 569 e2e, todas en verde; `pnpm verify` pasa                     |
+| Repositorio               | solo commits locales: **sin remoto y sin push** hasta que el usuario lo indique |
 
 ## Fases cerradas y sus commits
 
-| Fase | Contenido                                                                                               | Commits                                                                                        |
-| ---- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| 1    | Base del monorepo y API NestJS, CI, seguridad base                                                      | `c67c951`, `6371135`                                                                           |
-| 2    | Esquema completo, `EncryptionService`, datos de prueba                                                  | `97ecf93`                                                                                      |
-| 3    | Autenticación, sesiones, recuperación, perfil                                                           | `f7f52f4`, `21a3e95`                                                                           |
-| 4    | Barberías, responsables, barberos, servicios; barbero independiente                                     | `4918a4a`, `121ad72`, `1e7d43a`                                                                |
-| 5    | Horarios, bloqueos y motor de disponibilidad                                                            | `009c79c`                                                                                      |
-| 6    | Búsqueda, cercanía, filtros, alternativas; categorías de servicio                                       | `55d90a9`; `255c732` (cobertura propia de availability y `pnpm verify`)                        |
-| 7    | Reservas, máquina de estados, outbox, expiración                                                        | `329c5eb`, `aa2a171` (columna `cancelled_by_role`, arranque sin `NODE_ENV=test`)               |
-| 8A   | Pagos con `FakeGateway`: webhooks, reembolsos, conciliación, no-show, sanción a barberías               | `29182fc`, `044e34b`, `eeda3dd` (contención y bloqueo ordenado), `9d19023` (regla 10 ampliada) |
-| 9    | Atención, inasistencias, corrección y agenda del día                                                    | `e546048`                                                                                      |
-| —    | Ajustes para la app: `dev:pay`, `dev:mail`, `GET /me/barber`, gracia de rotación (10 s)                 | (ver `git log`)                                                                                |
-| 11   | Favoritos y valoraciones: respuesta, reportes, moderación, promedios por barbero                        | (ver `git log`)                                                                                |
-| 12   | Soporte y operación: tickets, `/admin`, ADMIN, suspensión, reembolso manual, ajustes                    | (ver `git log`)                                                                                |
-| 10   | Notificaciones: push (Expo), correo y bandeja; recordatorios; dispositivos                              | (ver `git log`)                                                                                |
-| —    | Eliminación de cuenta (Apple y Google): gracia de 30 días, anonimización, lista de bloqueo              | (ver `git log`)                                                                                |
-| —    | Alta con revisión previa: documento del responsable, cambios pedidos y reenvío; categoryKey en reservas | (ver `git log`)                                                                                |
-| 14   | Galería y perfiles: imágenes en S3 (R2), sharp sin EXIF, estilos, especialidades, reportes              | (ver `git log`)                                                                                |
+| Fase | Contenido                                                                                                     | Commits                                                                                        |
+| ---- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 1    | Base del monorepo y API NestJS, CI, seguridad base                                                            | `c67c951`, `6371135`                                                                           |
+| 2    | Esquema completo, `EncryptionService`, datos de prueba                                                        | `97ecf93`                                                                                      |
+| 3    | Autenticación, sesiones, recuperación, perfil                                                                 | `f7f52f4`, `21a3e95`                                                                           |
+| 4    | Barberías, responsables, barberos, servicios; barbero independiente                                           | `4918a4a`, `121ad72`, `1e7d43a`                                                                |
+| 5    | Horarios, bloqueos y motor de disponibilidad                                                                  | `009c79c`                                                                                      |
+| 6    | Búsqueda, cercanía, filtros, alternativas; categorías de servicio                                             | `55d90a9`; `255c732` (cobertura propia de availability y `pnpm verify`)                        |
+| 7    | Reservas, máquina de estados, outbox, expiración                                                              | `329c5eb`, `aa2a171` (columna `cancelled_by_role`, arranque sin `NODE_ENV=test`)               |
+| 8A   | Pagos con `FakeGateway`: webhooks, reembolsos, conciliación, no-show, sanción a barberías                     | `29182fc`, `044e34b`, `eeda3dd` (contención y bloqueo ordenado), `9d19023` (regla 10 ampliada) |
+| 9    | Atención, inasistencias, corrección y agenda del día                                                          | `e546048`                                                                                      |
+| —    | Ajustes para la app: `dev:pay`, `dev:mail`, `GET /me/barber`, gracia de rotación (10 s)                       | (ver `git log`)                                                                                |
+| 11   | Favoritos y valoraciones: respuesta, reportes, moderación, promedios por barbero                              | (ver `git log`)                                                                                |
+| 12   | Soporte y operación: tickets, `/admin`, ADMIN, suspensión, reembolso manual, ajustes                          | (ver `git log`)                                                                                |
+| 10   | Notificaciones: push (Expo), correo y bandeja; recordatorios; dispositivos                                    | (ver `git log`)                                                                                |
+| —    | Eliminación de cuenta (Apple y Google): gracia de 30 días, anonimización, lista de bloqueo                    | (ver `git log`)                                                                                |
+| —    | Alta con revisión previa: documento del responsable, cambios pedidos y reenvío; categoryKey en reservas       | (ver `git log`)                                                                                |
+| 14   | Galería y perfiles: imágenes en S3 (R2), sharp sin EXIF, estilos, especialidades, reportes                    | (ver `git log`)                                                                                |
+| 8B   | Pagos con Izipay: formulario web (tarjeta y Yape), IPN firmada, consulta, devoluciones; comisión configurable | (ver `git log`)                                                                                |
 
 ## Fase en curso
 
-### 8B — Adaptador de Izipay (en espera)
+### 8B — Pagos con Izipay: cerrada (sin cuenta real)
 
-- **Bloqueada** hasta que el usuario pase las páginas de documentación que faltan: claves, IPN, reembolso y consulta.
-- **Ya preparado:** la interfaz `PaymentGateway` es compatible con Izipay; la referencia técnica está en `docs/izipay/referencia.md` y el resumen en `docs/pagos-izipay.md`.
-- **Al recibir la documentación:** presentar el plan de la 8B y esperar aprobación.
-- **Credenciales:** las pone el usuario en `apps/api/.env`. Nunca se escriben en el repositorio.
-- **Variables previstas:** `IZIPAY_MODE`, `IZIPAY_SHOP_ID`, `IZIPAY_PASSWORD`, `IZIPAY_PUBLIC_KEY`, `IZIPAY_HMAC_SHA256_KEY` y `IZIPAY_API_SERVER_NAME`. La app no arranca en producción con credenciales de test.
+Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Pagos con Izipay (Fase 8B)"). Migración `20261018000000_commission` y ajustes `fees.*` aplicados en `charles`.
+
+- **Cambio de plataforma:** se usó el botón de pagos de developers.izipay.pe (la que ofrece hoy la afiliación "izipay online"). La referencia anterior era de micuentaweb y quedó descartada.
+- **Sin cuenta de Izipay:** es un proyecto universitario y aún no hay negocio. Todo está probado con un simulador que firma como Izipay; en desarrollo sigue `FakeGateway` (`dev:pay`). Pasos para activarlo en `docs/pendientes-produccion.md` ("Guía: activar Izipay").
+- **Decisiones del usuario:** tarjeta y Yape; formulario web en la app; comisión configurable por ADMIN (por defecto la barbería, en 0); la comisión de Izipay en devoluciones la asume la barbería; la barbería usa DNI o RUC (el RUC de Izipay es el de Charles).
+- **Hallazgo:** un rechazo de la pasarela cancelaba la reserva. Con Izipay se registra como intento fallido y el cliente puede reintentar hasta que venza.
+- **Por validar con cuenta real:** ver `docs/izipay/referencia.md` §8.
 
 ### 9 — Atención e inasistencias: cerrada
 
@@ -94,7 +97,7 @@ Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Galería y perf
 - **Hasta 3 estilos por foto** (ADR 0004); especialidades del barbero, hasta 5.
 - **Pendiente sin decidir:** la ADR 0004 menciona "categoría obligatoria" por foto; hoy la categoría se deduce de los estilos y no se exige.
 
-### Siguiente: a definir por el usuario (8B en espera de la documentación de Izipay)
+### Siguiente: a definir por el usuario
 
 ### Fases futuras registradas (no implementadas)
 
@@ -174,23 +177,13 @@ pnpm verify
 
 **En espera:**
 
-- **Documentación de Izipay para la 8B**, que pasará el usuario:
-  - claves;
-  - URL de la IPN (si `CreatePayment` puede indicarla por petición, y cómo recibirla con la tienda de demostración);
-  - reembolso total y parcial;
-  - consulta del estado de un pedido;
-  - si la IPN trae marca de tiempo;
-  - Yape, Plin y QR en el SDK.
+- **Cuenta de Izipay** (afiliación con RUC y credenciales): no hay negocio todavía. Con ella, seguir la guía de `docs/pendientes-produccion.md`.
 
 **Preguntas abiertas** (detalle en `docs/pendientes-produccion.md`):
 
-- comisión de Charles (hoy una línea `FEE` en 0);
-- quién asume la comisión de la pasarela, también en las devoluciones;
-- liquidación a la barbería;
+- valor real de la comisión de Charles (hoy 0) y liquidación a la barbería (descontar comisiones);
 - sanción económica a la barbería;
 - qué hacer con las reservas futuras de una barbería suspendida (Fase 12);
-- medios de pago;
-- si el RUC será obligatorio antes de recibir pagos;
 - desglose del IGV (línea `TAX`);
 - validación legal de la edad mínima y términos y condiciones definitivos;
 - cookies y CSRF de la web;

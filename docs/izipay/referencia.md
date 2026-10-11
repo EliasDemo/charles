@@ -1,157 +1,79 @@
-# Izipay (micuentaweb) — Referencia técnica para la Fase 8B
+# Izipay — Referencia técnica (Fase 8B)
 
-Resumen de dos páginas de la documentación oficial, leídas el 2026-10-06:
+Plataforma: **botón de pagos de Izipay** (`developers.izipay.pe`), la que Izipay ofrece hoy al afiliarse a "izipay online". Leída el 2026-10-11 de:
 
-- Especificaciones de intercambios REST: `https://secure.micuentaweb.pe/doc/es-PE/rest/V4.0/api/kb/webservice_usage.html`
-- Guía de integración para React Native: `https://secure.micuentaweb.pe/doc/es-PE/mobp/integration_guide/react_native/`
+- especificación OpenAPI oficial: `https://developers.izipay.pe/yaml/api-v1-esp.yaml` (la que usa la página `/api/`);
+- SDK web: `https://developers.izipay.pe/web-core/` (inicio rápido, modo redirect, firma, notificaciones, Yape);
+- SDK de React Native: `https://developers.izipay.pe/react-native-core/`;
+- credenciales: `https://developers.izipay.pe/credentials/`.
 
-Este archivo **no contiene credenciales**. Las claves van solo en `apps/api/.env`.
+> **Descartada:** la referencia anterior se basaba en **micuentaweb** (`api.micuentaweb.pe`, `formToken`, `kr-hash`), otra plataforma de Izipay. El repositorio de ejemplo `izipay-pe/Webview-Redirect-ReactNative` (2024) también es de micuentaweb.
 
----
+Este archivo **no contiene credenciales**. Van solo en `apps/api/.env` (desarrollo) o en el gestor de secretos (producción).
 
-## 1. API REST
+## 1. Credenciales (panel → Desarrolladores → Claves)
 
-- Servidor: `https://api.micuentaweb.pe`
-- Ruta base: `/api-payment/V4/`
-- **Siempre POST**, con cuerpo JSON. No se envían parámetros en la URL.
-- **Autenticación Basic**: `usuario:contraseña` de la API REST, en Base64, en la cabecera `Authorization`.
-- **La API responde siempre HTTP 200.** El éxito o el error se lee dentro del JSON, en el campo `status` (`SUCCESS` o `ERROR`). No se puede confiar en el código HTTP.
-- Fechas en ISO 8601; el servidor responde siempre en UTC.
-- Las propiedades nulas no obligatorias se omiten de la respuesta.
+| Panel                                 | Variable               | Uso                                                      |
+| ------------------------------------- | ---------------------- | -------------------------------------------------------- |
+| Código de comercio                    | `IZIPAY_MERCHANT_CODE` | En todas las llamadas                                    |
+| Clave de API del nuevo botón de pagos | `IZIPAY_API_KEY`       | Solo para generar el token de sesión (campo `publicKey`) |
+| Clave hash                            | `IZIPAY_HASH_KEY`      | Firma HMAC-SHA256 de respuestas y notificaciones         |
+| Clave pública (RSA)                   | `IZIPAY_PUBLIC_KEY`    | `keyRSA` del formulario web (admite `\n` escapados)      |
+| RUC del comercio (Charles)            | `IZIPAY_RUC`           | Lo exige la API de devoluciones                          |
 
-### Servicios vistos
+Paneles: pruebas `https://sandbox-panel.izipay.pe/`, producción `https://panel.izipay.pe/`. Las credenciales de pruebas las envía el soporte de Izipay por correo tras la afiliación.
 
-| Servicio               | Uso                                                                  |
-| ---------------------- | -------------------------------------------------------------------- |
-| `Charge/SDKTest`       | Prueba de conexión y credenciales: devuelve el mismo `value` enviado |
-| `Charge/CreatePayment` | Crea el pago y devuelve el `formToken`                               |
+Otras variables: `PAYMENTS_GATEWAY=izipay`, `IZIPAY_MODE` (`TEST` | `PRODUCTION`), `PUBLIC_API_URL` (URL pública de la API), y opcionales `IZIPAY_API_URL` e `IZIPAY_CHECKOUT_SCRIPT_URL`.
 
-### Sobre de respuesta
+## 2. Servidores
 
-| Campo                 | Significado                                |
-| --------------------- | ------------------------------------------ |
-| `webService`          | Servicio llamado                           |
-| `version`             | Versión de la API                          |
-| `status`              | `SUCCESS` o `ERROR`                        |
-| `answer`              | Respuesta de negocio, o el objeto de error |
-| `serverDate`          | Fecha del servidor en UTC                  |
-| `applicationProvider` | Plataforma (en Perú: `MCW`)                |
+| Qué                | Pruebas                                                      | Producción                                            |
+| ------------------ | ------------------------------------------------------------ | ----------------------------------------------------- |
+| API                | `https://sandbox-api-pw.izipay.pe`                           | `https://api-pw.izipay.pe` (citado una vez en la doc) |
+| Script del SDK web | `https://sandbox-checkout.izipay.pe/payments/v1/js/index.js` | `https://checkout.izipay.pe/payments/v1/js/index.js`  |
 
-### Errores
+## 3. API REST usada por Charles
 
-Con `status = ERROR`, `answer` es un `WebService/WebServiceError`:
+Todas con cabecera `transactionId` (5–40, único por operación; debe coincidir con el del token) y `Authorization: Bearer <token>` (salvo el token). Montos en **texto con 2 decimales** sin separador de miles (`"25.00"`). Respuesta `{ code, message, response }`; `code = "00"` es éxito.
 
-| Campo                  | Significado                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------------------- |
-| `errorCode`            | Código con formato `PREFIJO_CÓDIGO` (ejemplo: `INT_902`, error de validación de entrada) |
-| `errorMessage`         | Mensaje                                                                                  |
-| `detailedErrorCode`    | Código detallado o nulo                                                                  |
-| `detailedErrorMessage` | Mensaje detallado o nulo                                                                 |
+| Operación             | Ruta                                    | Notas                                                                                                                                                                                                                                                                                                   |
+| --------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Token de sesión       | `POST /security/v1/Token/Generate`      | Cuerpo: `requestSource` (`ECOMMERCE` o `REFUND`), `merchantCode`, `orderNumber` (5–15), `publicKey` (la clave API), `amount` (`"0.00"` si no es un pago). Dura **15 min** y es de **un solo uso**.                                                                                                      |
+| Consulta del pedido   | `POST /orderinfo/v1/Transaction/Search` | `merchantCode`, `numberOrden`, `language`. Responde firmado (`payloadHttp` + `signature`) con `response.order[]`.                                                                                                                                                                                       |
+| Devolución            | `POST /refund/v1/Transaction/Refund`    | Token con `requestSource: REFUND`. Cuerpo: `merchantCode`, **`ruc`**, `idUnique` (uniqueId del pago), `order.authorizationCode`, `order.referenceNumber`, `order.currency`, `order.refundAmount` (parcial o total). Devuelve `refundTransactionId`. **Solo en producción** (no hay pruebas en sandbox). |
+| Estado de devolución  | `GET /refund/v1/refunds/status`         | `refundId`, `merchantCode`, `language`. Responde `statusName` (p. ej. `AUTORIZADO`) y `rejectionReason`. `404 N01` = no existe; `429` con `Retry-After`.                                                                                                                                                |
+| Anulación (no se usa) | `POST /cancel/api/Transaction/Cancel`   | Extorno de preautorizaciones; Charles cobra en un paso (`processType: AT`) y devuelve con la API de devoluciones.                                                                                                                                                                                       |
 
----
+## 4. Firma
 
-## 2. Datos de tarjeta (PCI-DSS)
+`signature = base64( HMAC-SHA256( payloadHttp, claveHash ) )`, sobre el **texto exacto** de `payloadHttp`. Solo se leen datos de `payloadHttp` (lo firmado), nunca del resto del cuerpo. No se valida cuando `code` es `021` o `COMMUNICATION_ERROR`.
 
-- Con el formulario incrustado o el SDK móvil, los datos de tarjeta los captura la plataforma de pago y **nunca pasan por los sistemas del comercio**. La obligación del comercio se limita al cuestionario SAQ A.
-- Existe una "API REST PCI-DSS" que recibe datos de tarjeta en bruto. **Charles no debe usarla nunca**: está reservada a comercios certificados (SAQ D).
-- La API REST estándar (reembolsos, anulaciones, consulta y gestión de transacciones) no maneja datos de tarjeta y no añade exigencias. Es la que usa el backend.
+## 5. Formulario web (lo que abre la app)
 
----
+1. La app recibe `clientAction = { type: "IZIPAY_WEB", data: { paymentUrl, doneUrlPrefix } }` y abre `paymentUrl` en un WebView.
+2. `GET /api/v1/payments/izipay/checkout/{paymentId}?e=&s=` (enlace firmado, 30 min): el backend pide un token de sesión y responde una página que carga el script y llama a `new Izipay({ config })` y `LoadForm({ authorization, keyRSA })`.
+   - `config`: `transactionId`, `action: "pay"`, `merchantCode`, `order` (`orderNumber`, `currency`, `amount`, `payMethod: "CARD,YAPE_CODE"`, `processType: "AT"`, `merchantBuyerId`, `dateTimeTransaction`), `billing` (obligatorio: nombre, apellido, teléfono, dirección, ciudad, departamento, país, código postal), `urlIPN` y `render: { typeForm: "redirect", redirectUrls: { onSuccess, onError, onCancel } }`.
+3. Al terminar, Izipay hace **POST** (`x-www-form-urlencoded`) a `…/payments/izipay/return/{paymentId}?r=success|error|cancel`. Si trae un resultado firmado, el backend **consulta el pedido** a Izipay (nunca confirma por el formulario) y redirige (303) a `…/payments/izipay/done?status=&paymentId=&bookingId=`.
+4. La app detecta que el WebView navegó a una URL que empieza con `doneUrlPrefix`, lo cierra y consulta la reserva.
 
-## 3. SDK móvil para React Native
+**Yape:** `payMethod: "YAPE_CODE"`; el cliente ingresa su número y el código de aprobación de la app de Yape. Máximo **S/ 2000** por operación. Plin y QR existen en el SDK web pero no se activan todavía.
 
-- Paquete: `@lyracom/react-native-sdk-payment-module`.
-- Desde la versión 2.0.0 es un TurboModule: exige la **nueva arquitectura** y **React Native 0.77 o superior**.
-- **Expo:**
-  - Requiere un _config plugin_ propio que modifica el Podfile de iOS para tratar como frameworks dinámicos: `LyraPaymentSDK`, `LyraMotion`, `LyraMaterial`, `SnapKit`.
-  - **No funciona con Expo Go.** Hay que generar una compilación de desarrollo con `expo-dev-client` (EAS Build) e instalarla en el dispositivo.
-- El SDK no admite procesos simultáneos: mientras hay una llamada en curso, las demás se ignoran sin error ni callback.
+## 6. Notificación (IPN)
 
-### Flujo
+- `POST` JSON a `urlIPN` (se envía en cada pago: `{PUBLIC_API_URL}/api/v1/payments/webhooks/izipay`), con cabecera `transactionId`.
+- Cuerpo: `code`, `message`, `messageUser`, `messageUserEng`, `response`, **`payloadHttp`**, **`signature`**, `transactionId`.
+- **No trae marca de tiempo**: la protección es la firma más la idempotencia (`payment_events` por `transactionId:orderNumber:code`).
+- `code = "00"` → pago aprobado → la reserva se confirma. Otro código → intento fallido: se registra y la reserva **sigue pendiente** (el cliente puede reintentar con otra tarjeta o Yape hasta que venza).
 
-1. El backend llama a `Charge/CreatePayment` y obtiene el `formToken`.
-2. La app llama a `initialize(publicKey, { apiServerName })`.
-3. La app llama a `process(formToken, options)`.
-4. El resultado llega por dos vías: a la app (objeto `LyraResponse`) y al servidor (IPN).
+## 7. Lo que guarda Charles
 
-### Opciones de `initialize`
+- `payments.provider_payment_id` = número de pedido de Izipay (15 caracteres, derivado de la clave de idempotencia).
+- Al aprobarse, `payments.metadata.provider` = `uniqueId`, `codeAuth`, `referenceNumber` y `payMethod` (necesarios para devolver). **Nunca** datos de tarjeta.
 
-| Opción                 | Uso                                       | Android | iOS |
-| ---------------------- | ----------------------------------------- | ------- | --- |
-| `apiServerName`        | Obligatoria: `https://api.micuentaweb.pe` | Sí      | Sí  |
-| `applePayMerchantId`   | Contrato de Apple Pay                     | No      | Sí  |
-| `applePayMerchantName` | Nombre mostrado en Apple Pay              | No      | Sí  |
-| `nfcEnabled`           | Lectura de tarjeta por NFC                | Sí      | No  |
-| `cardScanningEnabled`  | Escaneo de tarjeta con cámara             | Sí      | Sí  |
+## 8. Por validar con una cuenta real
 
-### Opciones de `process`
-
-| Opción                 | Uso                                                        |
-| ---------------------- | ---------------------------------------------------------- |
-| `customPayButtonLabel` | Texto del botón de pagar                                   |
-| `customHeaderLabel`    | Texto del encabezado                                       |
-| `customPopupLabel`     | Texto mientras se procesa                                  |
-| `paymentMethodType`    | `PaymentMethods.ALL` (por defecto) o `PaymentMethods.CARD` |
-
----
-
-## 4. Resultado del pago y verificación de firma
-
-La respuesta a la app y la IPN traen la misma estructura:
-
-| Campo               | Significado                                                                   |
-| ------------------- | ----------------------------------------------------------------------------- |
-| `kr-answer`         | Resultado del pago, como texto JSON                                           |
-| `kr-answer-type`    | Tipo del objeto (ejemplo: `V4/Payment`)                                       |
-| `kr-hash`           | Firma de `kr-answer`                                                          |
-| `kr-hash-algorithm` | `sha256_hmac`                                                                 |
-| `kr-hash-key`       | Qué clave firmó: `password` en la IPN, `sha256_hmac` en la respuesta a la app |
-
-### Cómo verificar
-
-- Calcular HMAC-SHA-256 de `kr-answer`, en hexadecimal, y compararlo con `kr-hash`.
-- **IPN:** la clave es la **contraseña** de la API REST.
-- **Respuesta que reenvía la app:** la clave es la **clave HMAC-SHA-256** (la tercera de la tabla de claves de API REST).
-- La firma se calcula sobre el texto de `kr-answer` exactamente como llegó, sin volver a serializarlo.
-- La comparación debe ser en tiempo constante.
-
-### Campos útiles dentro de `kr-answer`
-
-| Campo                                      | Uso en Charles                               |
-| ------------------------------------------ | -------------------------------------------- |
-| `shopId`                                   | Debe coincidir con la tienda configurada     |
-| `orderStatus`                              | `PAID` o `UNPAID`                            |
-| `orderCycle`                               | Ejemplo: `CLOSED`                            |
-| `orderDetails.orderId`                     | Referencia propia: el ID del pago en Charles |
-| `orderDetails.orderTotalAmount`            | Importe en céntimos                          |
-| `orderDetails.orderCurrency`               | Moneda                                       |
-| `orderDetails.mode`                        | `TEST` o producción                          |
-| `transactions[].uuid`                      | ID de la transacción en la pasarela          |
-| `transactions[].status` / `detailedStatus` | Ejemplo: `PAID` / `AUTHORISED`               |
-| `transactions[].operationType`             | Ejemplo: `DEBIT`                             |
-| `transactions[].paymentMethodType`         | Ejemplo: `CARD`                              |
-
-### Validaciones obligatorias antes de confirmar una reserva
-
-1. Firma válida.
-2. `shopId` igual al configurado.
-3. `orderId` corresponde a un pago existente en Charles.
-4. Importe y moneda iguales a los del pago en Charles.
-5. `mode` coherente con el entorno: en producción se rechaza cualquier respuesta con `mode = TEST`.
-6. Idempotencia por `transactions[].uuid`.
-
-La respuesta que reenvía la app nunca confirma por sí sola: solo dispara la consulta al proveedor.
-
----
-
-## 5. Sin confirmar todavía
-
-Estas páginas no lo explican. Hay que buscarlo en el resto de la documentación (páginas "Prerrequisitos", IPN y referencia de la API):
-
-- Cómo configurar la URL de la IPN, y si `CreatePayment` permite indicarla por petición. La guía solo dice que la IPN requiere configurar las reglas de notificación.
-- Cómo recibir la IPN usando la tienda de demostración.
-- El servicio y los parámetros para reembolsos totales y parciales.
-- El servicio para consultar el estado de un pedido o transacción.
-- La clave HMAC-SHA-256 de la tienda de demostración (está en la "tabla de claves de API REST" de la página Prerrequisitos).
-- Si la IPN incluye alguna marca de tiempo utilizable contra repeticiones.
-- Disponibilidad de Yape, Plin y QR a través del SDK móvil.
+- Que el formulario acepte la dirección genérica de Lima en `billing` (Charles no guarda la dirección del cliente) y si `email` y `document` son obligatorios.
+- El formato exacto de los campos que Izipay envía en el POST de regreso (`redirectUrls`).
+- El `orderNumber` del token para consultar el estado de una devolución (la doc no lo precisa; se envía uno fijo).
+- Los valores de `statusName` de una devolución, aparte de `AUTORIZADO`.
+- La primera devolución real (la API no tiene pruebas en sandbox).

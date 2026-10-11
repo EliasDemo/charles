@@ -2,21 +2,21 @@
 
 Lista de todo lo que **bloquea** el lanzamiento de Charles. Se revisa al cerrar cada fase (CLAUDE.md §1, regla 13): se agrega lo nuevo y se marca lo resuelto, indicando la fase o decisión que lo cerró.
 
-Última revisión: cierre de la Fase 14 (galería y perfiles).
+Última revisión: cierre de la Fase 8B (pagos con Izipay).
 
 ## Decisiones de negocio pendientes (CLAUDE.md §4.2)
 
 Resueltas en la Fase 8A: devoluciones al cancelar, plazo para cancelar, no-show y sanción por cancelaciones de la barbería.
 
-| Pendiente                                       | Situación actual                                                                                                                                | Dónde                          |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| **Comisión de Charles**                         | Sin definir. Cada reserva lleva una línea `FEE` en 0 (`CHARLES_FEE_AMOUNT`).                                                                    | Fase 8A, `bookings.service.ts` |
-| **Comisión de la pasarela en las devoluciones** | Sin definir quién la asume (Charles, la barbería o el cliente). Hoy se devuelve el importe calculado por la política, sin descontar comisiones. | Fase 8B o antes de producción  |
-| **Liquidación a la barbería**                   | Fuera de alcance: cuándo y cómo recibe el dinero la barbería (y el de un no-show).                                                              | Por definir                    |
-| **Sanción económica a la barbería**             | Solo existe la suspensión por 3 cancelaciones injustificadas en 30 días. La multa o el descuento quedan pendientes.                             | Por definir                    |
-| **Corrección de asistencia fuera de plazo**     | Pasadas 48 h del inicio, solo soporte puede corregir `ATTENDED` ↔ `NO_SHOW`; falta la herramienta.                                              | Fase 12                        |
-| **Reservas de una barbería suspendida**         | Las reservas futuras se dejan como están. Falta decidir si se cancelan y se devuelven, y cómo se avisa al cliente.                              | Fase 12                        |
-| **Medios de pago**                              | `payments.methods = null` (Yape, Plin y QR por confirmar en el SDK).                                                                            | Fase 8B                        |
+| Pendiente                                       | Situación actual                                                                                                                                                         | Dónde       |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| **Comisión de Charles**                         | **Resuelto (Fase 8B):** configurable por ADMIN (`fees.percent_bp`, `fees.fixed_amount`, `fees.payer`), congelada en cada reserva. Hoy en 0. Falta decidir el valor real. |
+| **Comisión de la pasarela en las devoluciones** | **Decidido:** la asume la barbería. Se aplica en la liquidación (pendiente).                                                                                             |
+| **Liquidación a la barbería**                   | Fuera de alcance: cuándo y cómo recibe el dinero la barbería (y el de un no-show).                                                                                       | Por definir |
+| **Sanción económica a la barbería**             | Solo existe la suspensión por 3 cancelaciones injustificadas en 30 días. La multa o el descuento quedan pendientes.                                                      | Por definir |
+| **Corrección de asistencia fuera de plazo**     | Pasadas 48 h del inicio, solo soporte puede corregir `ATTENDED` ↔ `NO_SHOW`; falta la herramienta.                                                                       | Fase 12     |
+| **Reservas de una barbería suspendida**         | Las reservas futuras se dejan como están. Falta decidir si se cancelan y se devuelven, y cómo se avisa al cliente.                                                       | Fase 12     |
+| **Medios de pago**                              | **Decidido (Fase 8B):** tarjeta y Yape (formulario web de Izipay). Plin y QR existen en el SDK web: evaluar con la cuenta real.                                          |
 
 ## Fases de crecimiento (13 a 16, ADR 0004)
 
@@ -32,15 +32,15 @@ Resueltas en la Fase 8A: devoluciones al cancelar, plazo para cancelar, no-show 
 
 ## Integraciones reales
 
-| Pendiente                                            | Situación actual                                                                                                                                                                                                                                                                                                            |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Proveedor de correo real**                         | Solo existe `FakeMailer`, que guarda los correos en Redis. La app no arranca en producción con `MAILER_DRIVER=fake`. Previsto para la Fase 10.                                                                                                                                                                              |
-| **Pasarela de pagos real (Izipay, micuentaweb)**     | Solo existe `FakeGateway`. La app no arranca en producción con `payments.provider = FAKE` ni, desde la 8B, con credenciales de test. Sistema de pagos completo en la 8A; el adaptador llega en la 8B (`docs/pagos-izipay.md`, `docs/izipay/referencia.md`).                                                                 |
-| **IPN de Izipay en producción**                      | Hay que configurar la URL pública de notificación en el Back Office y confirmar la recepción.                                                                                                                                                                                                                               |
-| **Impuestos**                                        | Los precios incluyen impuestos (ADR 0002) y hoy solo se guarda una línea `SERVICE`. Hay que revisar si hace falta desglosar el IGV (línea `TAX`) antes de la Fase 8.                                                                                                                                                        |
-| **RUC**                                              | Es opcional. Podría ser obligatorio antes de recibir pagos (Fase 8).                                                                                                                                                                                                                                                        |
-| **Dominio propio verificado para el correo**         | El correo real se decide antes de producción (hoy `FakeMailer`, interfaz `Mailer` lista). Para enviar hace falta un dominio propio verificado en el proveedor (SPF, DKIM y DMARC), y luego implementar el `Mailer` real.                                                                                                    |
-| **Push real (Expo): credenciales que configuras tú** | En el proyecto de Expo (EAS): credenciales de **Firebase Cloud Messaging** para Android (cuenta de servicio FCM v1) y la **clave de APNs** de Apple (Apple Developer) para iOS. En el backend, `PUSH_DRIVER=expo` y, si activas "enhanced push security", `EXPO_ACCESS_TOKEN` en `apps/api/.env` (nunca en el repositorio). |
+| Pendiente                                            | Situación actual                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Proveedor de correo real**                         | Solo existe `FakeMailer`, que guarda los correos en Redis. La app no arranca en producción con `MAILER_DRIVER=fake`. Previsto para la Fase 10.                                                                                                                                                                                                                    |
+| **Pasarela de pagos real (Izipay)**                  | **Implementada (Fase 8B)** y probada con un simulador. Falta: afiliación a "izipay online" (con RUC: la API de devoluciones lo exige), credenciales de pruebas y producción en `.env`, `PAYMENTS_GATEWAY=izipay`, `payments.provider = IZIPAY`, `PUBLIC_API_URL` https, y un pago real de punta a punta. Ver `docs/izipay/referencia.md` §8 (puntos por validar). |
+| **IPN de Izipay en producción**                      | La URL se envía en cada pago (`urlIPN` = `PUBLIC_API_URL/api/v1/payments/webhooks/izipay`); no hay que configurarla en el panel. Verificar que llegue con la cuenta real.                                                                                                                                                                                         |
+| **Impuestos**                                        | Los precios incluyen impuestos (ADR 0002) y hoy solo se guarda una línea `SERVICE`. Hay que revisar si hace falta desglosar el IGV (línea `TAX`) antes de la Fase 8.                                                                                                                                                                                              |
+| **RUC**                                              | **Decidido:** la barbería registra DNI o RUC. El RUC que exige Izipay para devolver es el de Charles (`IZIPAY_RUC`).                                                                                                                                                                                                                                              |
+| **Dominio propio verificado para el correo**         | El correo real se decide antes de producción (hoy `FakeMailer`, interfaz `Mailer` lista). Para enviar hace falta un dominio propio verificado en el proveedor (SPF, DKIM y DMARC), y luego implementar el `Mailer` real.                                                                                                                                          |
+| **Push real (Expo): credenciales que configuras tú** | En el proyecto de Expo (EAS): credenciales de **Firebase Cloud Messaging** para Android (cuenta de servicio FCM v1) y la **clave de APNs** de Apple (Apple Developer) para iOS. En el backend, `PUSH_DRIVER=expo` y, si activas "enhanced push security", `EXPO_ACCESS_TOKEN` en `apps/api/.env` (nunca en el repositorio).                                       |
 
 ## Aspectos legales
 
@@ -86,3 +86,12 @@ Las credenciales van **solo** en el `.env` del servidor; nunca en el repositorio
 5. En producción la API no crea el bucket ni sirve `/api/v1/media/...`: las imágenes se leen del dominio público, con caché larga (las claves nunca cambian).
 6. **Capa gratuita:** 10 GB guardados, 1 millón de escrituras y 10 millones de lecturas al mes, sin costo de salida. Cada foto de galería ocupa unos 150–400 KB (dos variantes WebP). Vigilar el uso desde el panel de R2.
 7. **Pendiente:** CORS no hace falta para la app móvil; para la web, permitir el origen de la web en el bucket si se leen imágenes con `fetch`.
+
+## Guía: activar Izipay (Fase 8B)
+
+1. **Afiliación:** en izipay.pe → "izipay online" (S/ 0), **con RUC** (persona natural con negocio o empresa). Pedir a Izipay: acceso de pruebas (`sandbox-panel.izipay.pe`), botón de pagos/SDK con **Yape** y la **API de devoluciones** habilitada.
+2. **Credenciales** (panel → Desarrolladores → Claves) en `apps/api/.env`: `IZIPAY_MERCHANT_CODE`, `IZIPAY_API_KEY`, `IZIPAY_HASH_KEY`, `IZIPAY_PUBLIC_KEY`, `IZIPAY_RUC`, `IZIPAY_MODE=TEST`, `PAYMENTS_GATEWAY=izipay` y `PUBLIC_API_URL` (en local, un túnel https, por ejemplo Cloudflare Tunnel, para que Izipay alcance la IPN).
+3. **Ajuste:** `payments.provider = IZIPAY` (en producción la app no arranca con `FAKE`).
+4. **Prueba de punta a punta** con tarjetas de prueba y Yape: reserva, pago, IPN, conciliación y cancelación.
+5. **Producción:** credenciales de producción, `IZIPAY_MODE=PRODUCTION` (la app no arranca en producción con TEST, con URLs de sandbox ni sin `PUBLIC_API_URL` https) y **vigilar la primera devolución** (no se puede probar en sandbox).
+6. **Pendiente de la liquidación a la barbería:** descontar la comisión de Charles (`commission_amount` cuando `payer = BARBERSHOP`) y la comisión de Izipay en las devoluciones.

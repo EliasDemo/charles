@@ -90,7 +90,15 @@ export const SETTING_RULES: Readonly<Record<string, SettingRule>> = {
   [SettingKey.PAYMENTS_PENDING_CHECK_INTERVAL_MINUTES]: int(1, 60),
   [SettingKey.WEBHOOK_RATE_LIMIT_PER_MINUTE]: readOnly(PAYMENTS),
   [SettingKey.PAYMENTS_PROVIDER]: readOnly(PAYMENTS),
-  'payments.commission_policy': readOnly(PENDING),
+  // Fase 8B: comisión de Charles (ver bookings/commission-policy.ts).
+  [SettingKey.FEES_PERCENT_BP]: int(0, 3000),
+  [SettingKey.FEES_FIXED_AMOUNT]: int(0, 10_000),
+  [SettingKey.FEES_PAYER]: {
+    schema: { type: 'string', minLength: 6, maxLength: 10, pattern: /^(CLIENT|BARBERSHOP)$/ },
+  },
+  'payments.commission_policy': readOnly(
+    'Reemplazado por fees.percent_bp, fees.fixed_amount y fees.payer.',
+  ),
   'payments.payout_policy': readOnly(PENDING),
   'payments.methods': readOnly(PENDING),
   'payments.no_show_policy': readOnly(PENDING),

@@ -195,6 +195,7 @@ export class FakeGateway implements PaymentGateway {
       providerEventId: body.eventId,
       kind: body.kind,
       paymentId: body.paymentId,
+      providerPaymentId: null,
       refundId: body.refundId ?? null,
       outcome: body.outcome,
       amount: body.amount,
@@ -210,8 +211,8 @@ export class FakeGateway implements PaymentGateway {
     };
   }
 
-  verifyClientResult(raw: RawWebhook): { paymentId: string } {
-    return { paymentId: this.verified(raw).paymentId };
+  verifyClientResult(raw: RawWebhook): { paymentId: string; providerPaymentId: null } {
+    return { paymentId: this.verified(raw).paymentId, providerPaymentId: null };
   }
 
   private verified(raw: RawWebhook): FakeWebhookBody {

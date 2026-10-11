@@ -203,6 +203,14 @@ export class BookingDto {
   createdAt!: Date;
 
   @ApiProperty({
+    type: () => BookingCommissionDto,
+    nullable: true,
+    description:
+      'Solo para la barbería: comisión de Charles de esta reserva y quién la paga. Para el cliente, null.',
+  })
+  commission!: BookingCommissionDto | null;
+
+  @ApiProperty({
     description:
       'Solo para el cliente: puede valorar ahora (ATTENDED, sin valoración y dentro de ' +
       'reviews.window_days desde que quedó atendida). Para la barbería, siempre false.',
@@ -216,6 +224,19 @@ export class BookingDto {
       'Solo para el cliente: su valoración de esta reserva, si existe. Para la barbería, null.',
   })
   review!: BookingOwnReviewDto | null;
+}
+
+/** Fase 8B: comisión de Charles congelada en la reserva. */
+export class BookingCommissionDto {
+  @ApiProperty({ type: MoneyDto })
+  amount!: MoneyDto;
+
+  @ApiProperty({
+    enum: ['CLIENT', 'BARBERSHOP'],
+    description:
+      'BARBERSHOP: se descuenta de lo que recibe la barbería. CLIENT: la pagó el cliente.',
+  })
+  payer!: 'CLIENT' | 'BARBERSHOP';
 }
 
 /** Valoración propia del cliente, resumida (detalle en `GET /me/reviews`). */

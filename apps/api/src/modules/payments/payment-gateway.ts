@@ -1,10 +1,9 @@
 /**
  * Pasarela de pagos (CLAUDE.md §4.2, ADR 0002): la aplicación solo conoce esta interfaz.
- * Hoy existe `FakeGateway`; el adaptador de Izipay (micuentaweb) llega en la Fase 8B.
+ * Implementaciones: `FakeGateway` (desarrollo y pruebas) e `IzipayGateway` (Fase 8B, botón de
+ * pagos de developers.izipay.pe; ver docs/izipay/referencia.md).
  *
- * Diseñada para ser compatible con Izipay (docs/izipay/referencia.md):
- * - Los errores del proveedor no llegan como código HTTP (Izipay responde siempre 200 y el
- *   resultado va en `status`): el adaptador los traduce a `PaymentGatewayError`.
+ * - Los errores del proveedor se traducen a `PaymentGatewayError`.
  * - `parseWebhook` y `verifyClientResult` reciben el cuerpo **sin procesar**: la firma se calcula
  *   sobre el texto exacto.
  * - Los eventos normalizados traen importe, moneda, modo y el ID de transacción del proveedor,
@@ -48,7 +47,8 @@ export interface CreatePaymentInput {
 
 /** Lo que la app necesita para que el cliente pague (Izipay: formToken, clave pública y servidor). */
 export interface ClientPaymentAction {
-  type: 'FAKE' | 'IZIPAY_SDK';
+  /** IZIPAY_WEB: la app abre `data.paymentUrl` (formulario web de Izipay) en un WebView. */
+  type: 'FAKE' | 'IZIPAY_WEB';
   data: Record<string, string>;
 }
 
@@ -64,12 +64,16 @@ export interface ProviderPaymentState {
   currency: string | null;
   mode: ProviderMode | null;
   providerTransactionId: string | null;
+  /** Datos del proveedor que hacen falta después (Izipay: para devolver). Nunca de tarjeta. */
+  providerData?: Record<string, string>;
 }
 
 export interface RefundInput {
   refundId: string;
   paymentId: string;
   providerPaymentId: string | null;
+  /** `providerData` guardado al confirmar el pago (Izipay: uniqueId, autorización, referencia). */
+  providerData: Record<string, unknown> | null;
   amount: number;
   currency: string;
   idempotencyKey: string;
@@ -90,8 +94,12 @@ export interface PaymentWebhookEvent {
   /** Único por proveedor: base de la idempotencia (`payment_events`). */
   providerEventId: string;
   kind: 'PAYMENT' | 'REFUND';
-  /** ID del pago en Charles (la referencia que se envió al crearlo). */
-  paymentId: string;
+  /**
+   * ID del pago en Charles, si el aviso lo trae. Si no (Izipay solo devuelve su número de
+   * pedido), `providerPaymentId` y el servicio lo busca.
+   */
+  paymentId: string | null;
+  providerPaymentId: string | null;
   /** Solo en reembolsos: ID del reembolso en Charles. */
   refundId: string | null;
   outcome: 'SUCCEEDED' | 'REJECTED' | 'CANCELLED' | 'FAILED';
@@ -103,6 +111,8 @@ export interface PaymentWebhookEvent {
   occurredAt: Date | null;
   /** Datos del aviso para `payment_events.payload` (nunca datos de tarjeta). */
   payload: Record<string, unknown>;
+  /** Ver `ProviderPaymentState.providerData`. */
+  providerData?: Record<string, string>;
 }
 
 export interface RawWebhook {
@@ -134,7 +144,10 @@ export interface PaymentGateway {
    * Verifica la respuesta que la app reenvía tras pagar (Izipay: firmada con la clave HMAC) y
    * devuelve el ID del pago. Nunca confirma por sí sola: solo dispara la consulta al proveedor.
    */
-  verifyClientResult(raw: RawWebhook): { paymentId: string };
+  verifyClientResult(raw: RawWebhook): {
+    paymentId: string | null;
+    providerPaymentId: string | null;
+  };
 }
 
 export const PAYMENT_GATEWAY = Symbol('PAYMENT_GATEWAY');

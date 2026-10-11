@@ -160,6 +160,7 @@ export class PaymentsService {
     paymentId: string,
     outcome: PaymentOutcome,
     source: ResultSource,
+    providerData?: Record<string, string>,
   ): Promise<ApplyResult<PaymentStatus>> {
     const [payment] = await tx.$queryRaw<
       { status: PaymentStatus; booking_id: string; amount: number; metadata: Prisma.JsonObject }[]
@@ -184,6 +185,8 @@ export class PaymentsService {
           ...payment.metadata,
           resultSource: source,
           ...(orphaned ? { refundDecision: 'ORPHANED' } : {}),
+          // Lo que el proveedor necesita para devolver (Izipay: uniqueId, autorización…).
+          ...(providerData ? { provider: providerData } : {}),
         },
       },
     });
@@ -391,6 +394,7 @@ export class PaymentsService {
       refundId,
       paymentId: refund.paymentId,
       providerPaymentId: refund.payment.providerPaymentId,
+      providerData: providerDataOf(refund.payment.metadata),
       amount: refund.amount,
       currency: refund.payment.currency,
       idempotencyKey: refund.idempotencyKey,
@@ -530,4 +534,11 @@ export class PaymentsService {
       return { ...base, clientAction: null };
     }
   }
+}
+
+/** `metadata.provider` de un pago (datos del proveedor guardados al confirmarlo). */
+export function providerDataOf(metadata: Prisma.JsonValue): Record<string, unknown> | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+  const provider = metadata.provider;
+  return provider && typeof provider === 'object' && !Array.isArray(provider) ? provider : null;
 }

@@ -76,7 +76,7 @@ describe('validateEnv', () => {
   });
 
   describe('producción', () => {
-    it('con TLS, sin Swagger y CORS https, solo bloquean el correo y el push simulados', () => {
+    it('con TLS, sin Swagger y CORS https, solo bloquean el correo, el push y el pago simulados', () => {
       let message = '';
       try {
         validateEnv(production);
@@ -87,7 +87,65 @@ describe('validateEnv', () => {
       expect(problems).toEqual([
         ' - MAILER_DRIVER: el correo simulado no se permite en producción',
         ' - PUSH_DRIVER: el push simulado no se permite en producción',
+        ' - PAYMENTS_GATEWAY: la pasarela simulada no se permite en producción',
       ]);
+    });
+
+    describe('Fase 8B: Izipay', () => {
+      const izipay = {
+        PAYMENTS_GATEWAY: 'izipay',
+        IZIPAY_MODE: 'PRODUCTION',
+        IZIPAY_MERCHANT_CODE: '4007701',
+        IZIPAY_API_KEY: 'clave-api-real',
+        IZIPAY_HASH_KEY: 'clave-hash-real',
+        IZIPAY_PUBLIC_KEY: 'clave-publica-real',
+        IZIPAY_RUC: '20100047218',
+        PUBLIC_API_URL: 'https://api.charles.pe',
+      };
+      const problemsWith = (overrides: Record<string, string>): string => {
+        try {
+          validateEnv({ ...production, ...izipay, ...overrides });
+        } catch (error) {
+          return (error as Error).message;
+        }
+        return '';
+      };
+
+      it('con credenciales de producción no hay problemas de pagos', () => {
+        expect(problemsWith({})).not.toMatch(/IZIPAY|PAYMENTS_GATEWAY|PUBLIC_API_URL/);
+      });
+
+      it('rechaza el modo de pruebas, URLs de sandbox y una URL pública sin https', () => {
+        expect(problemsWith({ IZIPAY_MODE: 'TEST' })).toMatch(/IZIPAY_MODE/);
+        expect(problemsWith({ IZIPAY_API_URL: 'https://sandbox-api-pw.izipay.pe' })).toMatch(
+          /IZIPAY_API_URL/,
+        );
+        expect(problemsWith({ PUBLIC_API_URL: 'http://api.charles.pe' })).toMatch(/PUBLIC_API_URL/);
+      });
+
+      it('con PAYMENTS_GATEWAY=izipay exige todas las credenciales (en cualquier entorno)', () => {
+        expect(() => validateEnv({ ...base, PAYMENTS_GATEWAY: 'izipay' })).toThrow(
+          /IZIPAY_MERCHANT_CODE[\s\S]*IZIPAY_RUC[\s\S]*PUBLIC_API_URL/,
+        );
+        const config = validateEnv({
+          ...base,
+          ...izipay,
+          IZIPAY_MODE: 'TEST',
+          // En .env el salto de línea llega escrito como \n.
+          IZIPAY_PUBLIC_KEY: String.raw`linea1\nlinea2`,
+          PUBLIC_API_URL: 'http://localhost:3000/',
+        });
+        expect(config.payments).toMatchObject({
+          gateway: 'izipay',
+          publicApiUrl: 'http://localhost:3000',
+          izipay: {
+            apiUrl: 'https://sandbox-api-pw.izipay.pe',
+            checkoutScriptUrl: 'https://sandbox-checkout.izipay.pe/payments/v1/js/index.js',
+            publicKey: 'linea1\nlinea2',
+          },
+        });
+        expect(validateEnv(base).payments.gateway).toBe('fake');
+      });
     });
 
     it('Fase 10: con PUSH_DRIVER=expo el push ya no bloquea; el token de Expo es opcional', () => {

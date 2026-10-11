@@ -34,6 +34,17 @@ export enum PushDriver {
   Expo = 'expo',
 }
 
+/** Fase 8B: pasarela de pagos. `fake` solo fuera de producción. */
+export enum PaymentsGateway {
+  Fake = 'fake',
+  Izipay = 'izipay',
+}
+
+export enum IzipayMode {
+  Test = 'TEST',
+  Production = 'PRODUCTION',
+}
+
 export enum LogLevel {
   Fatal = 'fatal',
   Error = 'error',
@@ -211,6 +222,59 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsUrl({ require_tld: false, protocols: ['http', 'https'], require_protocol: true })
   MEDIA_PUBLIC_BASE_URL?: string;
+
+  // ───────────── Fase 8B: pagos con Izipay (botón de pagos, developers.izipay.pe) ─────────────
+
+  @IsEnum(PaymentsGateway)
+  PAYMENTS_GATEWAY: PaymentsGateway = PaymentsGateway.Fake;
+
+  /**
+   * URL pública de esta API (sin `/api/v1`): con ella se arman la página de pago, el regreso del
+   * formulario y la URL de notificación (IPN) que se envía a Izipay en cada pago.
+   */
+  @IsOptional()
+  @IsUrl({ require_tld: false, protocols: ['http', 'https'], require_protocol: true })
+  PUBLIC_API_URL?: string;
+
+  @IsEnum(IzipayMode)
+  IZIPAY_MODE: IzipayMode = IzipayMode.Test;
+
+  /** Credenciales de Izipay (panel → Desarrolladores → Claves): solo en `.env`. */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{1,15}$/)
+  IZIPAY_MERCHANT_CODE?: string;
+
+  /** "Clave de API del nuevo botón de pagos": solo para generar el token de sesión. */
+  @IsOptional()
+  @IsString()
+  IZIPAY_API_KEY?: string;
+
+  /** "Clave hash": firma HMAC-SHA256 de las respuestas y notificaciones. */
+  @IsOptional()
+  @IsString()
+  IZIPAY_HASH_KEY?: string;
+
+  /** "Clave pública" RSA que usa el formulario (`keyRSA`). Se admite con `\n` escapados. */
+  @IsOptional()
+  @IsString()
+  IZIPAY_PUBLIC_KEY?: string;
+
+  /** RUC del comercio (Charles): lo exige la API de devoluciones. */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{11}$/)
+  IZIPAY_RUC?: string;
+
+  /** Por defecto, el de pruebas o el de producción según IZIPAY_MODE. */
+  @IsOptional()
+  @IsUrl({ require_tld: false, protocols: ['http', 'https'], require_protocol: true })
+  IZIPAY_API_URL?: string;
+
+  /** Script del formulario web. Por defecto, el de pruebas o el de producción según el modo. */
+  @IsOptional()
+  @IsUrl({ require_tld: false, protocols: ['http', 'https'], require_protocol: true })
+  IZIPAY_CHECKOUT_SCRIPT_URL?: string;
 }
 
 /** Configuración ya validada e interpretada que consume la aplicación. */
@@ -241,6 +305,21 @@ export interface AppConfig {
   mail: { driver: MailerDriver };
   push: { driver: PushDriver; expoAccessToken: string | null };
   scheduledJobsEnabled: boolean;
+  /** Nunca registrar este objeto en logs (lleva credenciales). */
+  payments: {
+    gateway: PaymentsGateway;
+    publicApiUrl: string | null;
+    izipay: {
+      mode: IzipayMode;
+      merchantCode: string | null;
+      apiKey: string | null;
+      hashKey: string | null;
+      publicKey: string | null;
+      ruc: string | null;
+      apiUrl: string;
+      checkoutScriptUrl: string;
+    };
+  };
   /** Nunca registrar este objeto en logs (lleva credenciales). */
   storage: {
     bucket: string | null;
@@ -359,7 +438,49 @@ function productionErrors(env: EnvironmentVariables, corsOrigins: string[]): str
   if (corsOrigins.some((o) => !o.startsWith('https://'))) {
     errors.push('CORS_ORIGINS: en producción todos los orígenes deben usar https');
   }
+  if (env.PAYMENTS_GATEWAY === PaymentsGateway.Fake) {
+    errors.push('PAYMENTS_GATEWAY: la pasarela simulada no se permite en producción');
+  }
+  if (env.PAYMENTS_GATEWAY === PaymentsGateway.Izipay) {
+    if (env.IZIPAY_MODE !== IzipayMode.Production) {
+      errors.push('IZIPAY_MODE: en producción debe ser PRODUCTION (nunca credenciales de prueba)');
+    }
+    const urls = [env.IZIPAY_API_URL, env.IZIPAY_CHECKOUT_SCRIPT_URL].filter(Boolean) as string[];
+    if (urls.some((u) => /sandbox|localhost|127\./.test(u) || !u.startsWith('https://'))) {
+      errors.push('IZIPAY_API_URL: en producción no puede apuntar al entorno de pruebas');
+    }
+    if (!env.PUBLIC_API_URL?.startsWith('https://')) {
+      errors.push('PUBLIC_API_URL: en producción es obligatoria y con https');
+    }
+  }
   return errors;
+}
+
+const IZIPAY_URLS = {
+  [IzipayMode.Test]: {
+    api: 'https://sandbox-api-pw.izipay.pe',
+    script: 'https://sandbox-checkout.izipay.pe/payments/v1/js/index.js',
+  },
+  [IzipayMode.Production]: {
+    api: 'https://api-pw.izipay.pe',
+    script: 'https://checkout.izipay.pe/payments/v1/js/index.js',
+  },
+} as const;
+
+/** Con la pasarela de Izipay, todas sus credenciales son obligatorias (en cualquier entorno). */
+function izipayErrors(env: EnvironmentVariables): string[] {
+  if (env.PAYMENTS_GATEWAY !== PaymentsGateway.Izipay) return [];
+  const required = {
+    IZIPAY_MERCHANT_CODE: env.IZIPAY_MERCHANT_CODE,
+    IZIPAY_API_KEY: env.IZIPAY_API_KEY,
+    IZIPAY_HASH_KEY: env.IZIPAY_HASH_KEY,
+    IZIPAY_PUBLIC_KEY: env.IZIPAY_PUBLIC_KEY,
+    IZIPAY_RUC: env.IZIPAY_RUC,
+    PUBLIC_API_URL: env.PUBLIC_API_URL,
+  };
+  return Object.entries(required)
+    .filter(([, value]) => !value)
+    .map(([name]) => `${name}: obligatoria con PAYMENTS_GATEWAY=izipay`);
 }
 
 /**
@@ -383,6 +504,7 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
   const crypto = parseCryptoKeys(raw);
   const jwtKeys = parseJwtPrivateKey(raw.JWT_PRIVATE_KEY);
   errors.push(...cors.errors, ...trustProxy.errors, ...crypto.errors, ...jwtKeys.errors);
+  errors.push(...izipayErrors(env));
 
   // Las reglas de producción solo se evalúan si los campos básicos son válidos.
   if (errors.length === 0 && env.NODE_ENV === NodeEnv.Production) {
@@ -417,6 +539,20 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
     },
     mail: { driver: env.MAILER_DRIVER },
     push: { driver: env.PUSH_DRIVER, expoAccessToken: env.EXPO_ACCESS_TOKEN || null },
+    payments: {
+      gateway: env.PAYMENTS_GATEWAY,
+      publicApiUrl: env.PUBLIC_API_URL?.replace(/\/+$/, '') || null,
+      izipay: {
+        mode: env.IZIPAY_MODE,
+        merchantCode: env.IZIPAY_MERCHANT_CODE || null,
+        apiKey: env.IZIPAY_API_KEY || null,
+        hashKey: env.IZIPAY_HASH_KEY || null,
+        publicKey: env.IZIPAY_PUBLIC_KEY?.replace(/\\n/g, '\n') || null,
+        ruc: env.IZIPAY_RUC || null,
+        apiUrl: (env.IZIPAY_API_URL || IZIPAY_URLS[env.IZIPAY_MODE].api).replace(/\/+$/, ''),
+        checkoutScriptUrl: env.IZIPAY_CHECKOUT_SCRIPT_URL || IZIPAY_URLS[env.IZIPAY_MODE].script,
+      },
+    },
     storage: {
       bucket: env.S3_BUCKET || null,
       endpoint: env.S3_ENDPOINT || null,
