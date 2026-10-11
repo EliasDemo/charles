@@ -2,7 +2,7 @@
 
 Lista de todo lo que **bloquea** el lanzamiento de Charles. Se revisa al cerrar cada fase (CLAUDE.md §1, regla 13): se agrega lo nuevo y se marca lo resuelto, indicando la fase o decisión que lo cerró.
 
-Última revisión: cierre de la Fase 9.
+Última revisión: cierre de la Fase 14 (galería y perfiles).
 
 ## Decisiones de negocio pendientes (CLAUDE.md §4.2)
 
@@ -20,15 +20,15 @@ Resueltas en la Fase 8A: devoluciones al cancelar, plazo para cancelar, no-show 
 
 ## Fases de crecimiento (13 a 16, ADR 0004)
 
-| Pendiente                                   | Situación actual                                                                                                                                                                             |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Proveedor de almacenamiento de imágenes** | Sin decidir. La Fase 14 usará la interfaz `ImageStorage`, con una implementación local para desarrollo.                                                                                      |
-| **Planes y precios**                        | Sin definir qué planes habrá ni sus precios mensual y anual.                                                                                                                                 |
-| **Beneficios por plan**                     | Sin definir qué derechos y límites tiene cada plan (barberos, sedes, fotos, días destacados, mensajes, membresías, promociones, estadísticas, insignia, soporte prioritario).                |
-| **Comisión por plan**                       | Sin definir la comisión de Charles por reserva en cada plan (hoy línea `FEE` en 0).                                                                                                          |
-| **Periodo de prueba**                       | Sin definir si habrá prueba gratuita, de cuántos días y en qué planes.                                                                                                                       |
-| **Cobro recurrente en Izipay**              | Por confirmar si Izipay ofrece cobros recurrentes programados. Si no, Charles programaría el cobro con un token guardado.                                                                    |
-| **Apple y Google**                          | Revisar sus políticas sobre suscripciones dentro de la app: si la suscripción de la barbería y las membresías de clientes pueden cobrarse fuera de las tiendas o exigen su sistema de pagos. |
+| Pendiente                                         | Situación actual                                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Almacenamiento de imágenes en producción (R2)** | Decidido: Cloudflare R2 (capa gratuita de 10 GB, sin costo de salida). Implementado en la Fase 14 con S3 (en local, SeaweedFS). Falta crear el bucket y las credenciales: ver «Guía: Cloudflare R2» abajo. La app no arranca en producción con credenciales locales, endpoint local ni sin `MEDIA_PUBLIC_BASE_URL` https. |
+| **Planes y precios**                              | Sin definir qué planes habrá ni sus precios mensual y anual.                                                                                                                                                                                                                                                              |
+| **Beneficios por plan**                           | Sin definir qué derechos y límites tiene cada plan (barberos, sedes, fotos, días destacados, mensajes, membresías, promociones, estadísticas, insignia, soporte prioritario).                                                                                                                                             |
+| **Comisión por plan**                             | Sin definir la comisión de Charles por reserva en cada plan (hoy línea `FEE` en 0).                                                                                                                                                                                                                                       |
+| **Periodo de prueba**                             | Sin definir si habrá prueba gratuita, de cuántos días y en qué planes.                                                                                                                                                                                                                                                    |
+| **Cobro recurrente en Izipay**                    | Por confirmar si Izipay ofrece cobros recurrentes programados. Si no, Charles programaría el cobro con un token guardado.                                                                                                                                                                                                 |
+| **Apple y Google**                                | Revisar sus políticas sobre suscripciones dentro de la app: si la suscripción de la barbería y las membresías de clientes pueden cobrarse fuera de las tiendas o exigen su sistema de pagos.                                                                                                                              |
 
 ## Integraciones reales
 
@@ -72,5 +72,17 @@ Resueltas en la Fase 8A: devoluciones al cancelar, plazo para cancelar, no-show 
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Ejecución real del CI**                | `.github/workflows/ci.yml` existe pero nunca se ejecutó: el proyecto todavía no tiene remoto. Hasta entonces, `pnpm verify` (hook de pre-commit) es la única verificación.                                                                                           |
 | **Privilegios de la base en producción** | `postgis` no es una extensión "trusted": el usuario de migraciones necesita privilegios para crearla (la app no).                                                                                                                                                    |
-| **Datos de referencia en producción**    | Las categorías de servicio se cargan con `pnpm --filter api seed:reference`; hay que incluirlo en el despliegue. El seed de datos de prueba nunca se ejecuta en producción.                                                                                          |
+| **Datos de referencia en producción**    | Las categorías y los estilos de servicio se cargan con `pnpm --filter api seed:reference`; hay que incluirlo en el despliegue. El seed de datos de prueba nunca se ejecuta en producción.                                                                            |
 | **Dueño de `audit_log_redact_ip`**       | La función `SECURITY DEFINER` que borra la IP de la auditoría de una cuenta eliminada debe pertenecer al usuario de migraciones (con UPDATE sobre `audit_log`), aunque a la app se le revoque UPDATE/DELETE en producción. Es la única excepción a "solo inserción". |
+
+## Guía: Cloudflare R2 para las imágenes (Fase 14)
+
+Las credenciales van **solo** en el `.env` del servidor; nunca en el repositorio ni en la documentación.
+
+1. En Cloudflare, **R2 → Crear bucket** (por ejemplo `charles-media`), región automática.
+2. **Acceso público de lectura:** conectar un dominio propio al bucket (por ejemplo `img.tudominio.pe`); el subdominio `r2.dev` es solo para pruebas. Ese dominio es `MEDIA_PUBLIC_BASE_URL` (https).
+3. **R2 → Administrar tokens de API → Crear token** con permiso _Lectura y escritura de objetos_ limitado a ese bucket. Copiar el _Access Key ID_ y el _Secret Access Key_ (se muestran una sola vez).
+4. Variables en el `.env` de producción: `S3_ENDPOINT=https://<id-de-cuenta>.r2.cloudflarestorage.com`, `S3_REGION=auto`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE=false` y `MEDIA_PUBLIC_BASE_URL`.
+5. En producción la API no crea el bucket ni sirve `/api/v1/media/...`: las imágenes se leen del dominio público, con caché larga (las claves nunca cambian).
+6. **Capa gratuita:** 10 GB guardados, 1 millón de escrituras y 10 millones de lecturas al mes, sin costo de salida. Cada foto de galería ocupa unos 150–400 KB (dos variantes WebP). Vigilar el uso desde el panel de R2.
+7. **Pendiente:** CORS no hace falta para la app móvil; para la web, permitir el origen de la web en el bucket si se leen imágenes con `fetch`.

@@ -2,7 +2,7 @@ import { BlindIndexKind, EncryptedField } from '../../src/common/crypto/encrypti
 import type { EncryptionService } from '../../src/common/crypto/encryption.service';
 import { PasswordHasher } from '../../src/common/crypto/password-hasher';
 import type { Prisma, PrismaClient } from '../../src/generated/prisma/client';
-import { type ServiceCategoryKey, seedServiceCategories } from './categories';
+import { type ServiceCategoryKey, seedServiceCategories, seedServiceStyles } from './categories';
 
 /**
  * Datos de prueba ficticios (CLAUDE.md §1.5): correos @example.com, teléfonos y documentos
@@ -219,8 +219,28 @@ export const SEED_SETTINGS: {
   {
     key: 'barbershops.require_photo',
     value: false,
+    description: 'true: para enviar una barbería a revisión se exige la portada (foto del local).',
+  },
+  {
+    key: 'images.gallery_max_per_barber',
+    value: 60,
+    description: 'Máximo de fotos en la galería de cada barbero.',
+  },
+  {
+    key: 'images.pinned_max_per_barber',
+    value: 6,
+    description: 'Máximo de fotos destacadas (fijadas) por barbero.',
+  },
+  {
+    key: 'images.report_hide_threshold',
+    value: 3,
     description:
-      'true: para enviar una barbería a revisión se exige la foto del local (llega con la Fase 14).',
+      'Reportes abiertos con los que una foto se oculta sola hasta que soporte la revise.',
+  },
+  {
+    key: 'images.upload_rate_limit_per_minute',
+    value: 20,
+    description: 'Subidas de imágenes por cuenta y minuto (además del límite global por IP).',
   },
   {
     key: 'barbershops.require_review',
@@ -450,6 +470,7 @@ export async function seed({ prisma, encryption, password, jsonNull }: SeedDeps)
   }
   const passwordHash = await PasswordHasher.hash(password);
   await seedServiceCategories(prisma);
+  await seedServiceStyles(prisma);
   const categoryIds = new Map(
     (await prisma.serviceCategory.findMany({ select: { id: true, key: true } })).map((c) => [
       c.key,

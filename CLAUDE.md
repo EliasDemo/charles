@@ -633,11 +633,24 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
 
 - **Estados:** `DRAFT` → (enviar) `PENDING_REVIEW` → (aprobar) `OPEN`; o (pedir cambios con motivo) `CHANGES_REQUESTED` → (reenviar) `PENDING_REVIEW`. Ninguno salvo `OPEN` y `TEMPORARILY_CLOSED` es público. El rechazo definitivo es la suspensión.
 - Con `barbershops.require_review` (activo en `charles`): `POST /barbershops` y `/independent` aceptan `ownerDocument` opcional; si se cumplen los requisitos nace en `PENDING_REVIEW`, si no en `DRAFT`. Sin revisión previa, `OPEN` al instante.
-- **Requisitos** (`review-policy.ts`): documento del responsable siempre; foto del local si `barbershops.require_photo` (falso hasta la Fase 14).
+- **Requisitos** (`review-policy.ts`): documento del responsable siempre; foto del local (la **portada**) si `barbershops.require_photo` (activo en `charles` desde la Fase 14).
 - **Documento:** `RUC` (11 dígitos, prefijo 10/15/17/20 y dígito verificador módulo 11) o `DNI` (8). Cifrado (`BARBERSHOP_OWNER_DOCUMENT`) con índice ciego no único, por barbería. Lo ve el OWNER enmascarado (3 últimos dígitos); el MANAGER no; soporte completo con `POST /admin/barbershops/{id}/owner-document` (motivo, auditado, sin caché). Reemplazó a la columna `ruc` en claro (script `migrate:ruc`).
 - **Dueño:** `PUT /barbershops/{id}/owner-document`, `GET /barbershops/{id}/review` y `POST /barbershops/{id}/review/submit`. Cambiar el documento de una barbería ya aprobada no la oculta: la marca `owner_document_changed` para soporte. Otros cambios no vuelven a revisión.
 - **Soporte:** `approve` y `reject` (motivo) cierran el envío en `barbershop_review_submissions` (historial) y publican `barbershop.review_approved` o `barbershop.review_changes_requested` (aviso a OWNER y MANAGER). La cola `/admin/barbershops` se ordena por `waitingSince` (envío, marca o reporte más antiguo).
 - `service.categoryKey` viene en todas las respuestas de reservas y en la agenda.
+
+### Galería y perfiles (Fase 14)
+
+- **Almacenamiento:** interfaz `ImageStorage` (`IMAGE_STORAGE`) con `S3ImageStorage` (`@aws-sdk/client-s3`): SeaweedFS en Docker en local (puerto 9000; MinIO ya no publica imágenes gratuitas), Cloudflare R2 en producción. Sin `S3_BUCKET` las subidas responden 503. Sin `MEDIA_PUBLIC_BASE_URL`, la API sirve `/api/v1/media/img/...` (solo fuera de producción). En producción no arranca con credenciales locales (`minioadmin`, `charles_local_only`), endpoint local ni URL pública sin https.
+- **Procesamiento** (`image-processing.ts`, sharp, en memoria): tipo real por contenido (JPEG, PNG, WebP; HEIC lo convierte la app), máximo 10 MB y 50 Mpx; `rotate()` aplica la orientación y **no** se copian metadatos (EXIF, GPS, ICC). Variantes WebP: galería y portada 400 y 1600 px de ancho (sin agrandar); logo y foto del barbero, cuadrado de 512. Claves aleatorias de 128 bits (`img/<id>/<variante>.webp`), caché inmutable.
+- **Regla 12:** se procesa y sube **antes** de la transacción; si el registro falla, se borra lo subido. Al reemplazar o borrar, los archivos viejos se borran **después** de confirmar (`deleteFiles`, tolerante a fallos).
+- **Tabla `images`:** `kind` (`BARBERSHOP_LOGO`, `BARBERSHOP_COVER`, `BARBER_PHOTO`, `GALLERY`), `variants` (JSON), consentimiento (`consent_given`, `consent_by_user_id`, `consent_timestamp`; obligatorio en la galería, CHECK), `caption`, `service_id` ("reservar este estilo"), `pinned_at`, `removed_at` (retirada por soporte) y borrado lógico. Un logo, una portada y una foto de barbero vigentes (índices únicos parciales).
+- **Quién sube:** logo y portada, OWNER o MANAGER; foto, galería y especialidades del barbero, además el propio barbero (cuenta vinculada). Sin moderación previa. Límite propio por cuenta `images.upload_rate_limit_per_minute` (20).
+- **Galería:** hasta `images.gallery_max_per_barber` (60) por barbero y `images.pinned_max_per_barber` (6) destacadas; hasta 3 estilos por foto. Pública en `GET /barbershops/{id}/gallery` (filtros `barberId` y `style`; destacadas aparte en la primera página).
+- **Estilos** (`service_styles`, por categoría, iniciales en el seed de referencia para todas las categorías): `GET /service-styles`; ADMIN los crea y desactiva (`/admin/service-styles`). **Especialidades** del barbero: hasta 5 estilos (`PUT …/barbers/{id}/specialties`) y `yearsExperience` (0–60).
+- **Reportes** (`image_reports`, uno por persona y foto; la barbería no reporta lo suyo): con `images.report_hide_threshold` (3) reportes **abiertos** la foto se oculta sola (se calcula, no se guarda). Soporte: `GET /admin/images/reported` y `POST /admin/images/{id}/moderation` (`KEEP`, `REMOVE`, `RESTORE`, con motivo y auditoría).
+- **Búsqueda:** filtro `style` (fotos visibles de ese estilo o barbero activo con esa especialidad); los resultados traen `logoUrl` y `coverThumbUrl`.
+- **Borrado:** eliminar una barbería borra sus imágenes y archivos; eliminar una cuenta borra la foto de sus perfiles de barbero (la galería es de la barbería) y los detalles de sus reportes.
 
 ---
 

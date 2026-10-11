@@ -10,7 +10,7 @@ export default function globalSetup(): void {
     env: process.env,
     stdio: 'inherit',
   });
-  // Categorías de servicio (datos de referencia, idempotente).
+  // Categorías y estilos de servicio (datos de referencia, idempotente).
   execSync('pnpm exec tsx prisma/seed-reference.ts', {
     cwd: resolve(__dirname, '../..'),
     env: process.env,

@@ -35,6 +35,20 @@ services:
       timeout: 5s
       retries: 20
 
+  # Fase 14: almacenamiento de imágenes compatible con S3 (en producción, Cloudflare R2).
+  # SeaweedFS (Apache 2.0): MinIO dejó de publicar imágenes libres. El backend habla S3 y no
+  # depende del proveedor. Credenciales solo locales (docker/seaweedfs/s3.json).
+  storage:
+    image: chrislusf/seaweedfs:3.97
+    restart: unless-stopped
+    command: ['server', '-dir=/data', '-s3', '-s3.port=8333', '-s3.config=/etc/seaweedfs/s3.json']
+    ports:
+      - '127.0.0.1:${STORAGE_PORT:-9000}:8333'
+    volumes:
+      - storage_data:/data
+      - ./docker/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+
 volumes:
   postgres_data:
   redis_data:
+  storage_data:

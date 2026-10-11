@@ -121,6 +121,66 @@ describe('validateEnv', () => {
       expect(() => validateEnv({ ...production, SWAGGER_ENABLED: 'true' })).toThrow(/SWAGGER/);
     });
 
+    describe('Fase 14: almacenamiento de imágenes', () => {
+      const s3 = {
+        S3_BUCKET: 'charles-prod',
+        S3_ENDPOINT: 'https://cuenta.r2.cloudflarestorage.com',
+        S3_ACCESS_KEY_ID: 'clave-real-de-r2',
+        S3_SECRET_ACCESS_KEY: 'secreto-real-de-r2',
+        MEDIA_PUBLIC_BASE_URL: 'https://img.example.com',
+      };
+      const problemsWith = (overrides: Record<string, string>): string => {
+        try {
+          validateEnv({ ...production, ...s3, ...overrides });
+        } catch (error) {
+          return (error as Error).message;
+        }
+        return '';
+      };
+
+      it('con R2 y URL pública https no hay problemas de S3', () => {
+        expect(problemsWith({})).not.toMatch(/S3_|MEDIA_PUBLIC/);
+      });
+
+      it('rechaza credenciales de desarrollo (minioadmin, charles_local_only)', () => {
+        expect(problemsWith({ S3_ACCESS_KEY_ID: 'minioadmin' })).toMatch(/S3_ACCESS_KEY_ID/);
+        expect(problemsWith({ S3_SECRET_ACCESS_KEY: 'minioadmin' })).toMatch(/S3_SECRET/);
+        expect(problemsWith({ S3_ACCESS_KEY_ID: 'charles_local_only' })).toMatch(/S3_ACCESS/);
+        expect(problemsWith({ S3_SECRET_ACCESS_KEY: 'charles_local_only_secret' })).toMatch(
+          /S3_SECRET/,
+        );
+      });
+
+      it('rechaza un endpoint local', () => {
+        expect(problemsWith({ S3_ENDPOINT: 'http://localhost:9000' })).toMatch(/S3_ENDPOINT/);
+        expect(problemsWith({ S3_ENDPOINT: 'http://127.0.0.1:9000' })).toMatch(/S3_ENDPOINT/);
+      });
+
+      it('exige MEDIA_PUBLIC_BASE_URL con https', () => {
+        expect(problemsWith({ MEDIA_PUBLIC_BASE_URL: '' })).toMatch(/MEDIA_PUBLIC_BASE_URL/);
+        expect(problemsWith({ MEDIA_PUBLIC_BASE_URL: 'http://img.example.com' })).toMatch(
+          /MEDIA_PUBLIC_BASE_URL/,
+        );
+      });
+
+      it('fuera de producción admite el almacenamiento local', () => {
+        const config = validateEnv({
+          ...base,
+          S3_BUCKET: 'charles-dev',
+          S3_ENDPOINT: 'http://127.0.0.1:9000',
+          S3_ACCESS_KEY_ID: 'charles_local_only',
+          S3_SECRET_ACCESS_KEY: 'charles_local_only_secret',
+          S3_FORCE_PATH_STYLE: 'true',
+          MEDIA_PUBLIC_BASE_URL: 'https://img.example.com/',
+        });
+        expect(config.storage).toMatchObject({
+          bucket: 'charles-dev',
+          forcePathStyle: true,
+          publicBaseUrl: 'https://img.example.com',
+        });
+      });
+    });
+
     it('exige orígenes CORS https', () => {
       expect(() => validateEnv({ ...production, CORS_ORIGINS: 'http://app.example.com' })).toThrow(
         /https/,

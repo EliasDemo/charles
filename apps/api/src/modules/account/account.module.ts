@@ -1,3 +1,4 @@
+import { ImagesModule } from '../images/images.module';
 import { BullModule, InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Injectable, Module, type OnApplicationBootstrap } from '@nestjs/common';
 import type { Job, Queue } from 'bullmq';
@@ -56,6 +57,7 @@ export class AccountScheduler implements OnApplicationBootstrap {
     UsersModule,
     SettingsModule,
     BookingsManagementModule,
+    ImagesModule,
     BullModule.registerQueue({ name: ACCOUNT_QUEUE }),
   ],
   controllers: [AccountController],

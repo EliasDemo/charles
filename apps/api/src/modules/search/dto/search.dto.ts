@@ -80,6 +80,16 @@ export class SearchQueryDto extends LocationQueryDto {
   @Matches(CATEGORY_KEY_PATTERN)
   category?: string;
 
+  @ApiPropertyOptional({
+    example: 'fade_low',
+    description:
+      'Fase 14: clave de estilo. Barberías con fotos de ese estilo o un barbero con esa especialidad.',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(CATEGORY_KEY_PATTERN)
+  style?: string;
+
   @ApiPropertyOptional({ description: 'Precio mínimo en céntimos (algún servicio en el rango).' })
   @IsOptional()
   @Type(() => Number)
@@ -242,6 +252,16 @@ export class SearchResultDto {
     description: 'Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false.',
   })
   isFavorite!: boolean;
+
+  @ApiProperty({ nullable: true, type: String, description: 'Fase 14: logo (512 px, WebP).' })
+  logoUrl!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Fase 14: portada en miniatura (400 px).',
+  })
+  coverThumbUrl!: string | null;
 }
 
 export class SearchPageDto {

@@ -728,6 +728,270 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/barbershops/{id}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Fase 14: subir o reemplazar el logo (cuadrado de 512 px)
+         * @description multipart/form-data, campo `file`: JPEG, PNG o WebP hasta 10 MB (HEIC: convertir en la app). Se eliminan los metadatos (EXIF y GPS) y se guarda en WebP.
+         */
+        put: operations["ImagesController_setLogo_v1"];
+        post?: never;
+        /** Fase 14: quitar el logo */
+        delete: operations["ImagesController_deleteLogo_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Fase 14: subir o reemplazar la portada (foto del local; 400 y 1600 px)
+         * @description multipart/form-data, campo `file`: JPEG, PNG o WebP hasta 10 MB (HEIC: convertir en la app). Se eliminan los metadatos (EXIF y GPS) y se guarda en WebP. Cumple el requisito PHOTO del envío a revisión.
+         */
+        put: operations["ImagesController_setCover_v1"];
+        post?: never;
+        /** Fase 14: quitar la portada */
+        delete: operations["ImagesController_deleteCover_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/barbers/{barberId}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Fase 14: subir o reemplazar la foto del barbero (512 px)
+         * @description multipart/form-data, campo `file`: JPEG, PNG o WebP hasta 10 MB (HEIC: convertir en la app). Se eliminan los metadatos (EXIF y GPS) y se guarda en WebP.
+         */
+        put: operations["ImagesController_setBarberPhoto_v1"];
+        post?: never;
+        /** Fase 14: quitar la foto del barbero */
+        delete: operations["ImagesController_deleteBarberPhoto_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/barbers/{barberId}/gallery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fase 14: subir una foto a la galería del barbero
+         * @description multipart/form-data, campo `file`: JPEG, PNG o WebP hasta 10 MB (HEIC: convertir en la app). Se eliminan los metadatos (EXIF y GPS) y se guarda en WebP. Exige consent=true (consentimiento de la persona fotografiada). Máximo images.gallery_max_per_barber (60) por barbero.
+         */
+        post: operations["ImagesController_uploadGallery_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/gallery/{imageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Fase 14: borrar una foto de la galería (también el archivo) */
+        delete: operations["ImagesController_deleteGallery_v1"];
+        options?: never;
+        head?: never;
+        /** Fase 14: editar una foto (texto, estilos, servicio, destacar) */
+        patch: operations["ImagesController_updateGallery_v1"];
+        trace?: never;
+    };
+    "/api/v1/me/barbershops/{id}/gallery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fase 14: galería de gestión (incluye ocultas y reportes abiertos)
+         * @description OWNER y MANAGER ven todas; el barbero, solo la suya.
+         */
+        get: operations["ImagesController_manageGallery_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/barbers/{barberId}/specialties": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Fase 14: especialidades del barbero (hasta 5 estilos) */
+        put: operations["ImagesController_setSpecialties_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/gallery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fase 14: galería pública de la barbería (filtros: barbero y estilo)
+         * @description Destacadas aparte en la primera página. Sin fotos retiradas ni ocultas por reportes. Cada foto trae, si aplica, el servicio para "reservar este estilo".
+         */
+        get: operations["ImagesController_publicGallery_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/service-styles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fase 14: estilos activos (para etiquetar fotos y filtrar la búsqueda) */
+        get: operations["ImagesController_listStyles_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gallery/{imageId}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fase 14: reportar una foto (no es mía, sin consentimiento, inapropiada…)
+         * @description Una vez por persona y foto. Con images.report_hide_threshold (3) reportes abiertos se oculta hasta que soporte la revise.
+         */
+        post: operations["ImagesController_report_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/images/reported": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fase 14: fotos reportadas (por defecto, con reportes abiertos) */
+        get: operations["ImagesAdminController_reported_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/images/{id}/moderation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fase 14: mantener, retirar o restaurar una foto reportada */
+        post: operations["ImagesAdminController_moderate_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/service-styles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Solo ADMIN: estilos, incluidos los inactivos */
+        get: operations["ImagesAdminController_listStyles_v1"];
+        put?: never;
+        /** Solo ADMIN: crear un estilo */
+        post: operations["ImagesAdminController_createStyle_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/service-styles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Solo ADMIN: editar o desactivar (nunca borrar) un estilo */
+        patch: operations["ImagesAdminController_updateStyle_v1"];
+        trace?: never;
+    };
     "/api/v1/barbershops/{id}/members/invitations": {
         parameters: {
             query?: never;
@@ -2262,6 +2526,12 @@ export interface components {
             closure: components["schemas"]["ClosureDto"] | null;
             links: components["schemas"]["LinksDto"];
             rating: components["schemas"]["RatingDto"];
+            /** @description Fase 14: logo (cuadrado de 512 px, WebP). */
+            logoUrl: string | null;
+            /** @description Fase 14: portada (1600 px de ancho, WebP). */
+            coverUrl: string | null;
+            /** @description Fase 14: portada en miniatura (400 px). */
+            coverThumbUrl: string | null;
             /** @description Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false. */
             isFavorite: boolean;
             /** @description Solo para el OWNER (enmascarado); null para MANAGER o si aún no se registró. */
@@ -2322,6 +2592,12 @@ export interface components {
             closure: components["schemas"]["ClosureDto"] | null;
             links: components["schemas"]["LinksDto"];
             rating: components["schemas"]["RatingDto"];
+            /** @description Fase 14: logo (cuadrado de 512 px, WebP). */
+            logoUrl: string | null;
+            /** @description Fase 14: portada (1600 px de ancho, WebP). */
+            coverUrl: string | null;
+            /** @description Fase 14: portada en miniatura (400 px). */
+            coverThumbUrl: string | null;
             /** @description Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false. */
             isFavorite: boolean;
             /** @description Solo para el OWNER (enmascarado); null para MANAGER o si aún no se registró. */
@@ -2357,6 +2633,12 @@ export interface components {
             closure: components["schemas"]["ClosureDto"] | null;
             links: components["schemas"]["LinksDto"];
             rating: components["schemas"]["RatingDto"];
+            /** @description Fase 14: logo (cuadrado de 512 px, WebP). */
+            logoUrl: string | null;
+            /** @description Fase 14: portada (1600 px de ancho, WebP). */
+            coverUrl: string | null;
+            /** @description Fase 14: portada en miniatura (400 px). */
+            coverThumbUrl: string | null;
             /** @description Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false. */
             isFavorite: boolean;
         };
@@ -2405,6 +2687,12 @@ export interface components {
             closure: components["schemas"]["ClosureDto"] | null;
             links: components["schemas"]["LinksDto"];
             rating: components["schemas"]["RatingDto"];
+            /** @description Fase 14: logo (cuadrado de 512 px, WebP). */
+            logoUrl: string | null;
+            /** @description Fase 14: portada (1600 px de ancho, WebP). */
+            coverUrl: string | null;
+            /** @description Fase 14: portada en miniatura (400 px). */
+            coverThumbUrl: string | null;
             /** @description Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false. */
             isFavorite: boolean;
             /** @description Solo para el OWNER (enmascarado); null para MANAGER o si aún no se registró. */
@@ -2499,6 +2787,14 @@ export interface components {
             /** @description Vacío si la cuenta no está vinculada a ningún perfil de barbero. */
             items: components["schemas"]["MyBarberProfileDto"][];
         };
+        StyleRefDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example fade_low */
+            key: string;
+            /** @example Degradado bajo */
+            name: string;
+        };
         BarberPublicDto: {
             /** Format: uuid */
             id: string;
@@ -2506,6 +2802,10 @@ export interface components {
             bio: string | null;
             photoUrl: string | null;
             serviceIds: string[];
+            /** @description Años de experiencia (Fase 14). */
+            yearsExperience: number | null;
+            /** @description Especialidades (hasta 5 estilos), en el orden del catálogo. */
+            specialties: components["schemas"]["StyleRefDto"][];
             /** @description Valoraciones visibles del barbero (Fase 11). */
             rating: components["schemas"]["RatingDto"];
         };
@@ -2525,6 +2825,10 @@ export interface components {
             bio: string | null;
             photoUrl: string | null;
             serviceIds: string[];
+            /** @description Años de experiencia (Fase 14). */
+            yearsExperience: number | null;
+            /** @description Especialidades (hasta 5 estilos), en el orden del catálogo. */
+            specialties: components["schemas"]["StyleRefDto"][];
             /** @description Valoraciones visibles del barbero (Fase 11). */
             rating: components["schemas"]["RatingDto"];
             phone: string | null;
@@ -2557,6 +2861,8 @@ export interface components {
             displayName?: string;
             bio?: string | null;
             phone?: string | null;
+            /** @description Años de experiencia (Fase 14). null lo quita. */
+            yearsExperience?: number | null;
             /** @description false lo desactiva (rechazado si tiene reservas futuras). */
             isActive?: boolean;
         };
@@ -2771,6 +3077,223 @@ export interface components {
             items: components["schemas"]["FavoriteDto"][];
             nextCursor: string | null;
         };
+        ImageUploadDto: {
+            /**
+             * Format: binary
+             * @description JPEG, PNG o WebP (HEIC: convertir en la app), hasta 10 MB.
+             */
+            file: string;
+        };
+        BarbershopMediaDto: {
+            logoUrl: string | null;
+            coverUrl: string | null;
+            coverThumbUrl: string | null;
+        };
+        BarberPhotoDto: {
+            photoUrl: string | null;
+        };
+        GalleryUploadDto: {
+            /**
+             * Format: binary
+             * @description JPEG, PNG o WebP (HEIC: convertir en la app), hasta 10 MB.
+             */
+            file: string;
+            /** @description Obligatorio y true: quien sube declara que la persona fotografiada dio su consentimiento. */
+            consent: boolean;
+            caption?: string | null;
+            /** @description Estilos (hasta 3). En multipart: separados por comas o campo repetido. */
+            styleIds?: string[];
+            /**
+             * Format: uuid
+             * @description Servicio para "reservar este estilo" desde la foto (de la misma barbería).
+             */
+            serviceId?: string | null;
+        };
+        GalleryServiceDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            price: components["schemas"]["MoneyDto"];
+            durationMinutes: number;
+        };
+        GalleryImageManageDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            barbershopId: string;
+            /** Format: uuid */
+            barberId: string | null;
+            barberName: string | null;
+            /** @description Miniatura (400 px de ancho, WebP). */
+            thumbUrl: string;
+            /** @description Grande (hasta 1600 px de ancho, WebP). */
+            largeUrl: string;
+            width: number;
+            height: number;
+            caption: string | null;
+            styles: components["schemas"]["StyleRefDto"][];
+            /** @description Solo si el servicio existe y está disponible: la app ofrece "reservar este estilo". */
+            service: components["schemas"]["GalleryServiceDto"] | null;
+            /** @description Destacada (fijada arriba). */
+            pinned: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Reportes abiertos. */
+            openReports: number;
+            /** @description Oculta al público: por reportes (images.report_hide_threshold) o retirada por soporte. */
+            hidden: boolean;
+            /** @description Retirada por soporte. */
+            removed: boolean;
+        };
+        UpdateGalleryImageDto: {
+            caption?: string | null;
+            /** @description Reemplaza los estilos (hasta 3). */
+            styleIds?: string[];
+            /** Format: uuid */
+            serviceId?: string | null;
+            /** @description true la destaca (hasta 6 por barbero, images.pinned_max_per_barber). */
+            pinned?: boolean;
+        };
+        GalleryManagePageDto: {
+            items: components["schemas"]["GalleryImageManageDto"][];
+            nextCursor: string | null;
+        };
+        SetSpecialtiesDto: {
+            /** @description Estilos (hasta 5). */
+            styleIds: string[];
+        };
+        GalleryImageDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            barbershopId: string;
+            /** Format: uuid */
+            barberId: string | null;
+            barberName: string | null;
+            /** @description Miniatura (400 px de ancho, WebP). */
+            thumbUrl: string;
+            /** @description Grande (hasta 1600 px de ancho, WebP). */
+            largeUrl: string;
+            width: number;
+            height: number;
+            caption: string | null;
+            styles: components["schemas"]["StyleRefDto"][];
+            /** @description Solo si el servicio existe y está disponible: la app ofrece "reservar este estilo". */
+            service: components["schemas"]["GalleryServiceDto"] | null;
+            /** @description Destacada (fijada arriba). */
+            pinned: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        GalleryPageDto: {
+            /** @description Destacadas: solo en la primera página (sin cursor). No se repiten en items. */
+            pinned: components["schemas"]["GalleryImageDto"][];
+            /** @description Resto, las más recientes primero. */
+            items: components["schemas"]["GalleryImageDto"][];
+            nextCursor: string | null;
+        };
+        ServiceStyleDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example fade_low */
+            key: string;
+            /** @example Degradado bajo */
+            name: string;
+            /** Format: uuid */
+            categoryId: string;
+            /** @example haircut */
+            categoryKey: string;
+            sortOrder: number;
+        };
+        /** @enum {string} */
+        ImageReportReason: "NOT_MY_PHOTO" | "NO_CONSENT" | "INAPPROPRIATE" | "MISLEADING" | "OTHER";
+        CreateImageReportDto: {
+            reason: components["schemas"]["ImageReportReason"];
+            details?: string;
+        };
+        /** @enum {string} */
+        ReportStatus: "OPEN" | "IN_REVIEW" | "RESOLVED";
+        ImageReportViewDto: {
+            /** Format: uuid */
+            id: string;
+            reason: components["schemas"]["ImageReportReason"];
+            details: string | null;
+            status: components["schemas"]["ReportStatus"];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminReportedImageDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            barbershopId: string;
+            /** Format: uuid */
+            barberId: string | null;
+            barberName: string | null;
+            /** @description Miniatura (400 px de ancho, WebP). */
+            thumbUrl: string;
+            /** @description Grande (hasta 1600 px de ancho, WebP). */
+            largeUrl: string;
+            width: number;
+            height: number;
+            caption: string | null;
+            styles: components["schemas"]["StyleRefDto"][];
+            /** @description Solo si el servicio existe y está disponible: la app ofrece "reservar este estilo". */
+            service: components["schemas"]["GalleryServiceDto"] | null;
+            /** @description Destacada (fijada arriba). */
+            pinned: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Reportes abiertos. */
+            openReports: number;
+            /** @description Oculta al público: por reportes (images.report_hide_threshold) o retirada por soporte. */
+            hidden: boolean;
+            /** @description Retirada por soporte. */
+            removed: boolean;
+            reports: components["schemas"]["ImageReportViewDto"][];
+        };
+        AdminReportedImagePageDto: {
+            items: components["schemas"]["AdminReportedImageDto"][];
+            nextCursor: string | null;
+        };
+        ImageModerationDto: {
+            /**
+             * @description KEEP: se mantiene y se cierran los reportes. REMOVE: se retira (no se muestra). RESTORE: vuelve a mostrarse.
+             * @enum {string}
+             */
+            decision: "KEEP" | "REMOVE" | "RESTORE";
+            /** @description Motivo (queda en la auditoría). */
+            reason: string;
+        };
+        AdminServiceStyleDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example fade_low */
+            key: string;
+            /** @example Degradado bajo */
+            name: string;
+            /** Format: uuid */
+            categoryId: string;
+            /** @example haircut */
+            categoryKey: string;
+            sortOrder: number;
+            isActive: boolean;
+        };
+        CreateStyleDto: {
+            /** @example fade_low */
+            key: string;
+            /** @example Degradado bajo */
+            name: string;
+            /** Format: uuid */
+            categoryId: string;
+            sortOrder?: number;
+        };
+        UpdateStyleDto: {
+            name?: string;
+            sortOrder?: number;
+            /** @description false lo oculta de la app y de la búsqueda (no se borra). */
+            isActive?: boolean;
+        };
         InviteMemberDto: {
             /**
              * @description Correo de una cuenta existente.
@@ -2972,6 +3495,10 @@ export interface components {
             timezone: string;
             /** @description Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false. */
             isFavorite: boolean;
+            /** @description Fase 14: logo (512 px, WebP). */
+            logoUrl: string | null;
+            /** @description Fase 14: portada en miniatura (400 px). */
+            coverThumbUrl: string | null;
         };
         SearchPageDto: {
             items: components["schemas"]["SearchResultDto"][];
@@ -5724,6 +6251,877 @@ export interface operations {
             };
         };
     };
+    ImagesController_setLogo_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImageUploadDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarbershopMediaDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_deleteLogo_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarbershopMediaDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_setCover_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImageUploadDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarbershopMediaDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_deleteCover_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarbershopMediaDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_setBarberPhoto_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                barberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImageUploadDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarberPhotoDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_deleteBarberPhoto_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                barberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarberPhotoDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_uploadGallery_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                barberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["GalleryUploadDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GalleryImageManageDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_deleteGallery_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_updateGallery_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateGalleryImageDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GalleryImageManageDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_manageGallery_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+                /** @description Solo las fotos de este barbero. */
+                barberId?: string;
+                /** @description Solo las fotos de este estilo. */
+                style?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GalleryManagePageDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_setSpecialties_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                barberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSpecialtiesDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_publicGallery_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+                /** @description Solo las fotos de este barbero. */
+                barberId?: string;
+                /** @description Solo las fotos de este estilo. */
+                style?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GalleryPageDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_listStyles_v1: {
+        parameters: {
+            query?: {
+                /** @description Solo los estilos de esta categoría. */
+                category?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceStyleDto"][];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_report_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateImageReportDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesAdminController_reported_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Valor de nextCursor de la página anterior. */
+                cursor?: string;
+                status?: components["schemas"]["ReportStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReportedImagePageDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesAdminController_moderate_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageModerationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReportedImageDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesAdminController_listStyles_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminServiceStyleDto"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesAdminController_createStyle_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStyleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminServiceStyleDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesAdminController_updateStyle_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStyleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminServiceStyleDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     InvitationsController_inviteMember_v1: {
         parameters: {
             query?: never;
@@ -6197,6 +7595,8 @@ export interface operations {
                 q?: string;
                 /** @description Clave de categoría de servicio. */
                 category?: string;
+                /** @description Fase 14: clave de estilo. Barberías con fotos de ese estilo o un barbero con esa especialidad. */
+                style?: string;
                 /** @description Precio mínimo en céntimos (algún servicio en el rango). */
                 minPrice?: number;
                 /** @description Precio máximo en céntimos. */

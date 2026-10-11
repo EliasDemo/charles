@@ -13,6 +13,10 @@ import { BarbershopAccessService } from '../barbershops/barbershop-access.servic
 import { SERVICE_CURRENCY } from '../services/dto/service.dto';
 import { ServicesService } from '../services/services.service';
 import { SettingKey, SettingsService } from '../settings/settings.service';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { barbershopMedia } from '../images/barbershop-media';
+import { IMAGE_STORAGE, type ImageStorage } from '../images/image-storage';
+import { IMAGE_DEFAULTS } from '../images/image-policy';
 import type {
   AlternativeDto,
   AlternativesDto,
@@ -83,6 +87,8 @@ export class SearchService {
     private readonly cursor: SearchCursor,
     @Inject(RANKING_STRATEGY) private readonly ranking: RankingStrategy,
     private readonly favorites: FavoritesService,
+    private readonly prisma: PrismaService,
+    @Inject(IMAGE_STORAGE) private readonly storage: ImageStorage,
   ) {}
 
   async search(query: SearchQueryDto, viewerId: string | null = null): Promise<SearchPageDto> {
@@ -91,6 +97,7 @@ export class SearchService {
     if (query.category && !(await this.services.findActiveCategoryId(query.category))) {
       throw invalid('category', 'activeCategory');
     }
+    const style = query.style ? await this.styleFilter(query.style) : undefined;
 
     const sort: SearchSort = query.sort ?? (hasLocation ? 'distance' : 'rating');
     const order = this.ranking.orderKeys(sort);
@@ -108,6 +115,7 @@ export class SearchService {
           : undefined,
       text: query.q,
       categoryKey: query.category,
+      style,
       minPrice: query.minPrice,
       maxPrice: query.maxPrice,
       minRating: query.minRating,
@@ -312,6 +320,11 @@ export class SearchService {
       viewerId,
       candidates.map((c) => c.id),
     );
+    const media = await barbershopMedia(
+      this.prisma,
+      this.storage,
+      candidates.map((c) => c.id),
+    );
     const missingOpen = candidates.filter((c) => evaluations.get(c.id)?.isOpenNow === undefined);
     const missingNow = candidates.filter((c) => evaluations.get(c.id)?.availableNow === undefined);
     const [openNow, now] = await Promise.all([
@@ -335,6 +348,8 @@ export class SearchService {
         longitude: c.longitude,
         rating: { average: c.ratingAverage, count: c.ratingCount },
         isFavorite: favorites.has(c.id),
+        logoUrl: media.get(c.id)?.logoUrl ?? null,
+        coverThumbUrl: media.get(c.id)?.coverThumbUrl ?? null,
         timezone: c.timezone,
         distanceMeters: c.distanceMeters,
         priceFrom: c.minPrice === null ? null : { amount: c.minPrice, currency: SERVICE_CURRENCY },
@@ -367,6 +382,20 @@ export class SearchService {
     }
     if (query.date !== undefined && !isRealDate(query.date)) throw invalid('date', 'isDate');
     return hasLat;
+  }
+
+  /** Fase 14: el estilo debe existir y estar activo. */
+  private async styleFilter(key: string): Promise<{ key: string; hideThreshold: number }> {
+    const style = await this.prisma.serviceStyle.findFirst({
+      where: { key, isActive: true },
+      select: { id: true },
+    });
+    if (!style) throw invalid('style', 'activeStyle');
+    const hideThreshold = await this.settings.positiveInt(
+      SettingKey.IMAGES_REPORT_HIDE_THRESHOLD,
+      IMAGE_DEFAULTS.reportHideThreshold,
+    );
+    return { key, hideThreshold };
   }
 
   private async loadSettings(): Promise<SearchSettings> {

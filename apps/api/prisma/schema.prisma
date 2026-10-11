@@ -215,6 +215,22 @@ enum ReportStatus {
   RESOLVED
 }
 
+/// Fase 14: tipo de imagen. Logo, portada y foto de barbero: una vigente por dueño.
+enum ImageKind {
+  BARBERSHOP_LOGO
+  BARBERSHOP_COVER
+  BARBER_PHOTO
+  GALLERY
+}
+
+enum ImageReportReason {
+  NOT_MY_PHOTO
+  NO_CONSENT
+  INAPPROPRIATE
+  MISLEADING
+  OTHER
+}
+
 enum PromotionScope {
   PLATFORM
   BARBERSHOP
@@ -307,6 +323,10 @@ model User {
   ticketMessages            TicketMessage[]
   barbershopReports         BarbershopReport[]             @relation("BarbershopReportReporter")
   barbershopReportsResolved BarbershopReport[]             @relation("BarbershopReportResolver")
+  imagesUploaded            Image[]                        @relation("ImageUploader")
+  imagesConsented           Image[]                        @relation("ImageConsent")
+  imageReports              ImageReport[]                  @relation("ImageReportReporter")
+  imageReportsResolved      ImageReport[]                  @relation("ImageReportResolver")
   couponRedemptions         CouponRedemption[]
   sponsorEvents             SponsorEvent[]
 
@@ -466,6 +486,7 @@ model Barbershop {
   invitations         BarbershopInvitation[]
   cancellationReviews BarbershopCancellationReview[]
   reviewSubmissions   BarbershopReviewSubmission[]
+  images              Image[]
 
   @@index([location], type: Gist)
   @@map("barbershops")
@@ -544,21 +565,23 @@ model BarbershopInvitation {
 /// Un barbero pertenece a una sola barbería en el MVP: índice único parcial
 /// `barbers_user_id_active_key` en SQL manual (se elimina para permitir varias barberías).
 model Barber {
-  id           String    @id @default(uuid(7)) @db.Uuid
-  barbershopId String    @map("barbershop_id") @db.Uuid
-  userId       String?   @map("user_id") @db.Uuid
-  displayName  String    @map("display_name")
-  phoneEnc     String?   @map("phone_enc")
-  bio          String?
-  photoUrl     String?   @map("photo_url")
-  isActive     Boolean   @default(true) @map("is_active")
+  id              String    @id @default(uuid(7)) @db.Uuid
+  barbershopId    String    @map("barbershop_id") @db.Uuid
+  userId          String?   @map("user_id") @db.Uuid
+  displayName     String    @map("display_name")
+  phoneEnc        String?   @map("phone_enc")
+  bio             String?
+  photoUrl        String?   @map("photo_url")
+  isActive        Boolean   @default(true) @map("is_active")
   /// Fase 11: promedio y cantidad de valoraciones visibles; se recalculan en la misma transacción.
-  ratingAvg    Decimal   @default(0) @map("rating_avg") @db.Decimal(3, 2)
-  ratingCount  Int       @default(0) @map("rating_count")
-  metadata     Json      @default("{}")
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  ratingAvg       Decimal   @default(0) @map("rating_avg") @db.Decimal(3, 2)
+  ratingCount     Int       @default(0) @map("rating_count")
+  /// Fase 14: años de experiencia (0–60), opcional.
+  yearsExperience Int?      @map("years_experience") @db.SmallInt
+  metadata        Json      @default("{}")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   barbershop  Barbershop             @relation(fields: [barbershopId], references: [id])
   user        User?                  @relation(fields: [userId], references: [id])
@@ -568,6 +591,8 @@ model Barber {
   bookings    Booking[]
   reviews     Review[]
   invitations BarbershopInvitation[]
+  images      Image[]
+  specialties BarberSpecialty[]
 
   @@index([barbershopId])
   @@index([userId])
@@ -593,6 +618,7 @@ model Service {
   category   ServiceCategory @relation(fields: [categoryId], references: [id])
   barbers    BarberService[]
   bookings   Booking[]
+  images     Image[]
 
   @@index([barbershopId])
   @@index([categoryId])
@@ -611,8 +637,122 @@ model ServiceCategory {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   services Service[]
+  styles   ServiceStyle[]
 
   @@map("service_categories")
+}
+
+/// Fase 14: estilos (degradado, barba candado…) por categoría; etiquetan fotos y especialidades.
+model ServiceStyle {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  categoryId String   @map("category_id") @db.Uuid
+  key        String   @unique
+  name       String
+  sortOrder  Int      @default(0) @map("sort_order")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  category    ServiceCategory   @relation(fields: [categoryId], references: [id])
+  images      ImageStyle[]
+  specialties BarberSpecialty[]
+
+  @@index([categoryId])
+  @@map("service_styles")
+}
+
+/// Fase 14: hasta 5 por barbero.
+model BarberSpecialty {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  barberId  String   @map("barber_id") @db.Uuid
+  styleId   String   @map("style_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barber Barber       @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  style  ServiceStyle @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@unique([barberId, styleId])
+  @@index([styleId])
+  @@map("barber_specialties")
+}
+
+/// Fase 14: imágenes. `variants`: { thumb|large|square: { key, width, height } } (claves aleatorias
+/// en el almacenamiento). La galería exige el consentimiento de la persona fotografiada, declarado
+/// por quien sube. Se oculta sola con N reportes abiertos (se calcula, no se guarda).
+model Image {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  barbershopId     String    @map("barbershop_id") @db.Uuid
+  barberId         String?   @map("barber_id") @db.Uuid
+  kind             ImageKind
+  variants         Json
+  uploadedById     String    @map("uploaded_by") @db.Uuid
+  consentGiven     Boolean   @default(false) @map("consent_given")
+  consentByUserId  String?   @map("consent_by_user_id") @db.Uuid
+  consentTimestamp DateTime? @map("consent_timestamp") @db.Timestamptz(3)
+  caption          String?
+  /// Servicio para "reservar este estilo" desde la foto.
+  serviceId        String?   @map("service_id") @db.Uuid
+  pinnedAt         DateTime? @map("pinned_at") @db.Timestamptz(3)
+  /// Retirada por soporte (moderación): no se muestra aunque no tenga reportes.
+  removedAt        DateTime? @map("removed_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  barbershop Barbershop    @relation(fields: [barbershopId], references: [id])
+  barber     Barber?       @relation(fields: [barberId], references: [id])
+  uploadedBy User          @relation("ImageUploader", fields: [uploadedById], references: [id])
+  consentBy  User?         @relation("ImageConsent", fields: [consentByUserId], references: [id])
+  service    Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  styles     ImageStyle[]
+  reports    ImageReport[]
+
+  @@index([barbershopId, kind])
+  @@index([barberId, kind])
+  @@index([uploadedById])
+  @@index([consentByUserId])
+  @@index([serviceId])
+  @@map("images")
+}
+
+model ImageStyle {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  imageId   String   @map("image_id") @db.Uuid
+  styleId   String   @map("style_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  image Image        @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  style ServiceStyle @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@unique([imageId, styleId])
+  @@index([styleId])
+  @@map("image_styles")
+}
+
+model ImageReport {
+  id           String            @id @default(uuid(7)) @db.Uuid
+  imageId      String            @map("image_id") @db.Uuid
+  reportedById String            @map("reported_by") @db.Uuid
+  reason       ImageReportReason
+  details      String?
+  status       ReportStatus      @default(OPEN)
+  resolution   String?
+  resolvedById String?           @map("resolved_by") @db.Uuid
+  resolvedAt   DateTime?         @map("resolved_at") @db.Timestamptz(3)
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  image      Image @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  reportedBy User  @relation("ImageReportReporter", fields: [reportedById], references: [id])
+  resolvedBy User? @relation("ImageReportResolver", fields: [resolvedById], references: [id], onDelete: Restrict)
+
+  @@unique([imageId, reportedById])
+  @@index([reportedById])
+  @@index([resolvedById])
+  @@index([status, createdAt])
+  @@map("image_reports")
 }
 
 model BarberService {

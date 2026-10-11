@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { auditChanges } from '../../common/audit/audit-diff';
 import { AuditService } from '../../common/audit/audit.service';
 import { EncryptedField } from '../../common/crypto/encryption-contexts';
@@ -16,6 +16,8 @@ import { Prisma } from '../../generated/prisma/client';
 import { BarbershopAccessService } from '../barbershops/barbershop-access.service';
 import { BookingsReadService } from '../bookings/bookings-read.service';
 import { ServicesService } from '../services/services.service';
+import { IMAGE_STORAGE, type ImageStorage } from '../images/image-storage';
+import { variantUrl } from '../images/image-variants';
 import { UsersService } from '../users/users.service';
 import type {
   BarberManageDto,
@@ -51,6 +53,16 @@ const barberWithServices = {
     where: { service: { deletedAt: null } },
     select: { serviceId: true, service: { select: { isAvailable: true } } },
   },
+  // Fase 14: foto vigente y especialidades.
+  images: {
+    where: { kind: 'BARBER_PHOTO', deletedAt: null },
+    select: { variants: true },
+    take: 1,
+  },
+  specialties: {
+    where: { style: { isActive: true } },
+    select: { style: { select: { id: true, key: true, name: true, sortOrder: true } } },
+  },
 } as const;
 
 type BarberRow = Prisma.BarberGetPayload<{ include: typeof barberWithServices }>;
@@ -69,6 +81,7 @@ export class BarbersService {
     private readonly users: UsersService,
     private readonly encryption: EncryptionService,
     private readonly audit: AuditService,
+    @Inject(IMAGE_STORAGE) private readonly storage: ImageStorage,
   ) {}
 
   /** Barberos activos de una barbería visible, solo con datos públicos. */
@@ -154,6 +167,7 @@ export class BarbersService {
     const data = {
       displayName: dto.displayName,
       bio: dto.bio,
+      yearsExperience: dto.yearsExperience,
       phoneEnc:
         dto.phone === undefined
           ? undefined
@@ -561,7 +575,14 @@ export class BarbersService {
       id: barber.id,
       displayName: barber.displayName,
       bio: barber.bio,
-      photoUrl: barber.photoUrl,
+      photoUrl: barber.images[0]
+        ? variantUrl(this.storage, barber.images[0].variants, 'square')
+        : barber.photoUrl,
+      yearsExperience: barber.yearsExperience,
+      specialties: barber.specialties
+        .map((s) => s.style)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map(({ id, key, name }) => ({ id, key, name })),
       serviceIds: barber.services
         .filter((s) => !onlyAvailableServices || s.service.isAvailable)
         .map((s) => s.serviceId),

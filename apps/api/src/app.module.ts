@@ -36,6 +36,7 @@ import { SupportModule } from './modules/support/support.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AccountModule } from './modules/account/account.module';
+import { ImagesModule } from './modules/images/images.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { AccountModule } from './modules/account/account.module';
     AdminModule,
     NotificationsModule,
     AccountModule,
+    ImagesModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

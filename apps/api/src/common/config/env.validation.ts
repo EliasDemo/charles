@@ -8,6 +8,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUrl,
   Matches,
   Max,
   Min,
@@ -172,6 +173,44 @@ export class EnvironmentVariables {
   @Transform(toBoolean)
   @IsBoolean()
   SCHEDULED_JOBS_ENABLED = true;
+
+  // ───────────── Fase 14: almacenamiento de imágenes (S3: SeaweedFS local, R2 en producción) ─────────────
+
+  /** Endpoint S3 (en R2: https://<cuenta>.r2.cloudflarestorage.com). Vacío = AWS. */
+  @IsOptional()
+  @IsUrl({ require_tld: false, protocols: ['http', 'https'], require_protocol: true })
+  S3_ENDPOINT?: string;
+
+  @IsString()
+  S3_REGION = 'auto';
+
+  /** Bucket de imágenes. Sin él, las subidas responden 503 (imágenes desactivadas). */
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
+  S3_BUCKET?: string;
+
+  /** Credenciales S3: solo en `.env`, nunca en el repositorio. */
+  @IsOptional()
+  @IsString()
+  S3_ACCESS_KEY_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  S3_SECRET_ACCESS_KEY?: string;
+
+  /** SeaweedFS y MinIO usan rutas (`endpoint/bucket/clave`); R2 y AWS, no hace falta. */
+  @Transform(toBoolean)
+  @IsBoolean()
+  S3_FORCE_PATH_STYLE = false;
+
+  /**
+   * URL pública de las imágenes (en R2: el dominio público del bucket o un CDN). Si falta, la
+   * propia API las sirve en `/api/v1/media/...` (solo fuera de producción).
+   */
+  @IsOptional()
+  @IsUrl({ require_tld: false, protocols: ['http', 'https'], require_protocol: true })
+  MEDIA_PUBLIC_BASE_URL?: string;
 }
 
 /** Configuración ya validada e interpretada que consume la aplicación. */
@@ -202,6 +241,16 @@ export interface AppConfig {
   mail: { driver: MailerDriver };
   push: { driver: PushDriver; expoAccessToken: string | null };
   scheduledJobsEnabled: boolean;
+  /** Nunca registrar este objeto en logs (lleva credenciales). */
+  storage: {
+    bucket: string | null;
+    endpoint: string | null;
+    region: string;
+    accessKeyId: string | null;
+    secretAccessKey: string | null;
+    forcePathStyle: boolean;
+    publicBaseUrl: string | null;
+  };
 }
 
 interface Parsed<T> {
@@ -289,6 +338,24 @@ function productionErrors(env: EnvironmentVariables, corsOrigins: string[]): str
   if (env.PUSH_DRIVER === PushDriver.Fake) {
     errors.push('PUSH_DRIVER: el push simulado no se permite en producción');
   }
+  if (env.S3_BUCKET) {
+    if (env.S3_ENDPOINT && /\/\/(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(env.S3_ENDPOINT)) {
+      errors.push('S3_ENDPOINT: en producción no puede ser local');
+    }
+    const localKeys = ['minioadmin', 'charles_local_only'];
+    if (!env.S3_ACCESS_KEY_ID || localKeys.includes(env.S3_ACCESS_KEY_ID)) {
+      errors.push('S3_ACCESS_KEY_ID: en producción no se permiten credenciales de desarrollo');
+    }
+    if (
+      !env.S3_SECRET_ACCESS_KEY ||
+      /^(minioadmin|charles_local_only)/.test(env.S3_SECRET_ACCESS_KEY)
+    ) {
+      errors.push('S3_SECRET_ACCESS_KEY: en producción no se permiten credenciales de desarrollo');
+    }
+    if (!env.MEDIA_PUBLIC_BASE_URL?.startsWith('https://')) {
+      errors.push('MEDIA_PUBLIC_BASE_URL: en producción es obligatoria y con https');
+    }
+  }
   if (corsOrigins.some((o) => !o.startsWith('https://'))) {
     errors.push('CORS_ORIGINS: en producción todos los orígenes deben usar https');
   }
@@ -350,6 +417,15 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
     },
     mail: { driver: env.MAILER_DRIVER },
     push: { driver: env.PUSH_DRIVER, expoAccessToken: env.EXPO_ACCESS_TOKEN || null },
+    storage: {
+      bucket: env.S3_BUCKET || null,
+      endpoint: env.S3_ENDPOINT || null,
+      region: env.S3_REGION,
+      accessKeyId: env.S3_ACCESS_KEY_ID || null,
+      secretAccessKey: env.S3_SECRET_ACCESS_KEY || null,
+      forcePathStyle: env.S3_FORCE_PATH_STYLE,
+      publicBaseUrl: env.MEDIA_PUBLIC_BASE_URL?.replace(/\/+$/, '') || null,
+    },
     scheduledJobsEnabled: env.SCHEDULED_JOBS_ENABLED,
   };
 }

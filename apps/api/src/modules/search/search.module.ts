@@ -2,6 +2,7 @@ import { ReviewsModule } from '../reviews/reviews.module';
 import { Module } from '@nestjs/common';
 import { AvailabilityModule } from '../availability/availability.module';
 import { BarbershopAccessModule } from '../barbershops/barbershop-access.module';
+import { ImageStorageModule } from '../images/image-storage.module';
 import { ServicesModule } from '../services/services.module';
 import { SettingsModule } from '../settings/settings.module';
 import { OrganicRankingStrategy, RANKING_STRATEGY } from './ranking/ranking';
@@ -22,6 +23,7 @@ import { SearchService } from './search.service';
     ServicesModule,
     SettingsModule,
     ReviewsModule,
+    ImageStorageModule,
   ],
   controllers: [SearchController],
   providers: [

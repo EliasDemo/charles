@@ -161,6 +161,9 @@ describe('RF-BAR-001…004 Gestión de barberías (e2e)', () => {
       expect(res.body).toEqual({
         id: owner.shopId,
         isFavorite: false,
+        logoUrl: null,
+        coverUrl: null,
+        coverThumbUrl: null,
         name: 'Barbería E2E',
         description: 'Cortes clásicos',
         address: 'Av. Prueba 123, Miraflores, Lima',

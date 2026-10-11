@@ -12,6 +12,7 @@ import { SessionsService } from '../auth/sessions.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { SettingKey, SettingsService } from '../settings/settings.service';
 import { UsersService } from '../users/users.service';
+import { ImagesService } from '../images/images.service';
 import type {
   AccountDeletionPreviewDto,
   AccountDeletionStatusDto,
@@ -54,6 +55,7 @@ export class AccountDeletionService {
     private readonly outbox: OutboxService,
     @Inject(MAILER) private readonly mailer: Mailer,
     @Inject(CLOCK) private readonly clock: Clock,
+    private readonly images: ImagesService,
   ) {}
 
   // ───────────── Consulta ─────────────
@@ -251,6 +253,7 @@ export class AccountDeletionService {
       ACCOUNT_DELETION_DEFAULTS.emailBlockDays,
     );
     const now = new Date(this.clock.now());
+    let imageKeys: string[] = [];
     await this.prisma.$transaction(
       async (tx) => {
         const [user] = await tx.$queryRaw<
@@ -270,6 +273,12 @@ export class AccountDeletionService {
             },
           });
         }
+        // La foto de perfil del barbero es un dato personal: se borra. La galería es de la barbería.
+        const barbers = await tx.barber.findMany({ where: { userId }, select: { id: true } });
+        imageKeys = await this.images.softDeleteInTx(tx, {
+          barberIds: barbers.map((b) => b.id),
+          kinds: ['BARBER_PHOTO'],
+        });
         await this.eraseRelated(tx, userId);
         await this.users.anonymize(userId, now, tx);
         await this.outbox.publish(tx, DELETION_EVENTS.DELETED, { userId });
@@ -286,6 +295,8 @@ export class AccountDeletionService {
       },
       { maxWait: 10_000, timeout: 30_000 },
     );
+    // Archivos: después de confirmar (regla 12).
+    await this.images.deleteFiles(imageKeys);
     return true;
   }
 
@@ -318,6 +329,7 @@ export class AccountDeletionService {
       where: { reportedById: userId },
       data: { details: null },
     });
+    await tx.imageReport.updateMany({ where: { reportedById: userId }, data: { details: null } });
     // Motivos que escribió al cancelar sus reservas.
     await tx.booking.updateMany({
       where: { clientId: userId, cancelledById: userId },

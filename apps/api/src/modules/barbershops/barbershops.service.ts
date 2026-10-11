@@ -1,5 +1,5 @@
 import { FavoritesService } from '../reviews/favorites.service';
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { auditChanges } from '../../common/audit/audit-diff';
 import { AuditService } from '../../common/audit/audit.service';
 import { AppException } from '../../common/errors/app.exception';
@@ -29,6 +29,9 @@ export const OWNER_DOCUMENT_CHANGED_FLAG = 'owner_document_changed';
 import { BarbersService } from '../barbers/barbers.service';
 import { BookingsReadService } from '../bookings/bookings-read.service';
 import { SettingKey, SettingsService } from '../settings/settings.service';
+import { type BarbershopMedia, barbershopMedia, NO_MEDIA } from '../images/barbershop-media';
+import { IMAGE_STORAGE, type ImageStorage } from '../images/image-storage';
+import { ImagesService } from '../images/images.service';
 import { UsersService } from '../users/users.service';
 import { BarbershopAccessService, publicBarbershopWhere } from './barbershop-access.service';
 import { MembersService } from './members.service';
@@ -66,9 +69,13 @@ type AuditableBarbershop = Pick<
   | 'facebookUrl'
 >;
 
-export function toPublicDto(shop: Barbershop): BarbershopPublicDto {
+export function toPublicDto(
+  shop: Barbershop,
+  media: BarbershopMedia = NO_MEDIA,
+): BarbershopPublicDto {
   return {
     isFavorite: false,
+    ...media,
     id: shop.id,
     name: shop.name,
     description: shop.description,
@@ -92,8 +99,9 @@ function toManageDto(
   shop: Barbershop,
   myRole: BarbershopMemberRole,
   ownerDocument: OwnerDocumentViewDto | null,
+  media: BarbershopMedia,
 ): BarbershopManageDto {
-  return { ...toPublicDto(shop), ownerDocument, myRole, createdAt: shop.createdAt };
+  return { ...toPublicDto(shop, media), ownerDocument, myRole, createdAt: shop.createdAt };
 }
 
 const invalidDocument = (): AppException =>
@@ -120,6 +128,8 @@ export class BarbershopsService {
     private readonly barbers: BarbersService,
     private readonly favorites: FavoritesService,
     private readonly encryption: EncryptionService,
+    @Inject(IMAGE_STORAGE) private readonly storage: ImageStorage,
+    private readonly images: ImagesService,
   ) {}
 
   /**
@@ -139,7 +149,7 @@ export class BarbershopsService {
     const shop = await this.prisma.$transaction((tx) =>
       this.createShop(tx, userId, dto, 'BARBERSHOP', requireReview, ip),
     );
-    return { ...this.manage(shop, 'OWNER'), ownerRoleGranted };
+    return { ...(await this.manage(shop, 'OWNER')), ownerRoleGranted };
   }
 
   /**
@@ -177,7 +187,7 @@ export class BarbershopsService {
         return { shop: created, barberId: profile.barberId };
       });
       return {
-        ...this.manage(shop, 'OWNER'),
+        ...(await this.manage(shop, 'OWNER')),
         ownerRoleGranted: !roles.includes('OWNER'),
         barberId,
         barberRoleGranted: !roles.includes('BARBER'),
@@ -208,7 +218,7 @@ export class BarbershopsService {
     const requirePhoto = await this.settings.boolean(SettingKey.BARBERSHOPS_REQUIRE_PHOTO, false);
     const missing = missingRequirements({
       hasOwnerDocument: document !== null,
-      hasPhoto: false, // las fotos llegan con la Fase 14
+      hasPhoto: false, // recién creada: aún no tiene portada
       requirePhoto,
     });
     // Sin revisión previa: visible al instante. Con revisión: a revisión si cumple los requisitos,
@@ -261,7 +271,8 @@ export class BarbershopsService {
     const shop = await this.prisma.barbershop.findFirst({ where: publicBarbershopWhere(id) });
     if (!shop) throw notFound();
     const favorites = await this.favorites.favoriteIds(viewerId, [shop.id]);
-    return { ...toPublicDto(shop), isFavorite: favorites.has(shop.id) };
+    const media = await barbershopMedia(this.prisma, this.storage, [shop.id]);
+    return { ...toPublicDto(shop, media.get(shop.id)), isFavorite: favorites.has(shop.id) };
   }
 
   async findManaged(userId: string, id: string): Promise<BarbershopManageDto> {
@@ -469,7 +480,7 @@ export class BarbershopsService {
         },
       },
     });
-    const missing = await this.missingFor(shop.ownerDocumentType !== null);
+    const missing = await this.missingFor(id, shop.ownerDocumentType !== null);
     return {
       status: shop.status,
       missingRequirements: missing,
@@ -498,7 +509,7 @@ export class BarbershopsService {
           [{ from: shop.status, to: 'PENDING_REVIEW' }],
         );
       }
-      const missing = await this.missingFor(shop.has_document);
+      const missing = await this.missingFor(id, shop.has_document, tx);
       if (missing.length > 0) {
         throw new AppException(
           ErrorCode.REVIEW_REQUIREMENTS_MISSING,
@@ -530,9 +541,19 @@ export class BarbershopsService {
     return this.review(userId, id);
   }
 
-  private async missingFor(hasOwnerDocument: boolean): Promise<ReviewRequirement[]> {
+  /** La "foto del local" es la portada vigente (Fase 14). */
+  private async missingFor(
+    barbershopId: string,
+    hasOwnerDocument: boolean,
+    db: Prisma.TransactionClient = this.prisma,
+  ): Promise<ReviewRequirement[]> {
     const requirePhoto = await this.settings.boolean(SettingKey.BARBERSHOPS_REQUIRE_PHOTO, false);
-    return missingRequirements({ hasOwnerDocument, hasPhoto: false, requirePhoto });
+    const hasPhoto =
+      requirePhoto &&
+      (await db.image.count({
+        where: { barbershopId, kind: 'BARBERSHOP_COVER', deletedAt: null },
+      })) > 0;
+    return missingRequirements({ hasOwnerDocument, hasPhoto, requirePhoto });
   }
 
   private documentData(document: OwnerDocumentInputDto): {
@@ -551,7 +572,7 @@ export class BarbershopsService {
   }
 
   /** Vista de gestión: el documento solo para el OWNER, enmascarado. */
-  private manage(shop: Barbershop, role: BarbershopMemberRole): BarbershopManageDto {
+  private async manage(shop: Barbershop, role: BarbershopMemberRole): Promise<BarbershopManageDto> {
     const document =
       role === 'OWNER' && shop.ownerDocumentType && shop.ownerDocumentEnc
         ? {
@@ -564,12 +585,13 @@ export class BarbershopsService {
             ),
           }
         : null;
-    return toManageDto(shop, role, document);
+    const media = await barbershopMedia(this.prisma, this.storage, [shop.id]);
+    return toManageDto(shop, role, document, media.get(shop.id) ?? NO_MEDIA);
   }
 
   async remove(userId: string, id: string, ip: string | null): Promise<void> {
     await this.access.requireMember(userId, id, ['OWNER']);
-    await this.prisma.$transaction(async (tx) => {
+    const imageKeys = await this.prisma.$transaction(async (tx) => {
       if (await this.bookings.hasFutureActive({ barbershopId: id }, tx)) {
         throw new AppException(
           ErrorCode.HAS_FUTURE_BOOKINGS,
@@ -592,6 +614,9 @@ export class BarbershopsService {
         },
         tx,
       );
+      return this.images.softDeleteInTx(tx, { barbershopId: id });
     });
+    // Los archivos se borran después de confirmar (regla 12).
+    await this.images.deleteFiles(imageKeys);
   }
 }

@@ -1,0 +1,11 @@
+{
+  "identities": [
+    {
+      "name": "charles-local",
+      "credentials": [
+        { "accessKey": "charles_local_only", "secretKey": "charles_local_only_secret" }
+      ],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

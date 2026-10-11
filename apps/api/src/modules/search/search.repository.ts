@@ -11,6 +11,11 @@ export interface CandidateFilters {
   /** Texto ya recortado (2–80): coincide con el nombre de la barbería o de sus servicios. */
   text?: string;
   categoryKey?: string;
+  /**
+   * Fase 14: estilo (clave). Barberías con una foto visible de ese estilo o un barbero activo con
+   * esa especialidad. `hideThreshold`: reportes abiertos con los que una foto deja de contar.
+   */
+  style?: { key: string; hideThreshold: number };
   minPrice?: number;
   maxPrice?: number;
   minRating?: number;
@@ -99,6 +104,27 @@ export class SearchRepository {
     if (filters.minRating !== undefined)
       where.push(Prisma.sql`b.rating_count > 0 AND b.rating_avg >= ${filters.minRating}::numeric`);
     if (serviceConditions.length) where.push(Prisma.sql`s.min_price IS NOT NULL`);
+    if (filters.style) {
+      const { key, hideThreshold } = filters.style;
+      where.push(Prisma.sql`(
+        EXISTS (
+          SELECT 1 FROM images i
+          JOIN image_styles ist ON ist.image_id = i.id
+          JOIN service_styles st ON st.id = ist.style_id
+          WHERE i.barbershop_id = b.id AND i.kind = 'GALLERY' AND i.deleted_at IS NULL
+            AND i.removed_at IS NULL AND st.key = ${key} AND st.is_active
+            AND (SELECT count(*) FROM image_reports r
+                  WHERE r.image_id = i.id AND r.status <> 'RESOLVED') < ${hideThreshold}::int
+        )
+        OR EXISTS (
+          SELECT 1 FROM barbers br
+          JOIN barber_specialties bs ON bs.barber_id = br.id
+          JOIN service_styles st ON st.id = bs.style_id
+          WHERE br.barbershop_id = b.id AND br.is_active AND br.deleted_at IS NULL
+            AND st.key = ${key} AND st.is_active
+        )
+      )`);
+    }
     if (filters.excludeBarbershopId)
       where.push(Prisma.sql`b.id <> ${filters.excludeBarbershopId}::uuid`);
     if (filters.text) {

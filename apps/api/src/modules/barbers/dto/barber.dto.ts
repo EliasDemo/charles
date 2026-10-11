@@ -8,12 +8,15 @@ import {
   IsArray,
   IsBoolean,
   IsEmail,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Length,
   Matches,
+  Max,
   MaxLength,
+  Min,
   ValidateIf,
 } from 'class-validator';
 import { PHONE_PATTERN } from '../../users/dto/profile.dto';
@@ -95,6 +98,20 @@ export class UpdateBarberDto {
   @Matches(PHONE_PATTERN)
   phone?: string | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    type: Number,
+    minimum: 0,
+    maximum: 60,
+    description: 'Años de experiencia (Fase 14). null lo quita.',
+  })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsInt()
+  @Min(0)
+  @Max(60)
+  yearsExperience?: number | null;
+
   @ApiPropertyOptional({ description: 'false lo desactiva (rechazado si tiene reservas futuras).' })
   @IsOptional()
   @IsBoolean()
@@ -120,6 +137,18 @@ export class InviteBarberDto {
 
 // ───────────── Respuestas ─────────────
 
+/** Estilo del catálogo (Fase 14), en forma resumida. */
+export class StyleRefDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'fade_low' })
+  key!: string;
+
+  @ApiProperty({ example: 'Degradado bajo' })
+  name!: string;
+}
+
 /** Datos públicos: nunca el teléfono ni la cuenta vinculada. */
 export class BarberPublicDto {
   @ApiProperty({ format: 'uuid' })
@@ -136,6 +165,15 @@ export class BarberPublicDto {
 
   @ApiProperty({ type: [String] })
   serviceIds!: string[];
+
+  @ApiProperty({ nullable: true, type: Number, description: 'Años de experiencia (Fase 14).' })
+  yearsExperience!: number | null;
+
+  @ApiProperty({
+    type: () => [StyleRefDto],
+    description: 'Especialidades (hasta 5 estilos), en el orden del catálogo.',
+  })
+  specialties!: StyleRefDto[];
 
   @ApiProperty({ type: RatingDto, description: 'Valoraciones visibles del barbero (Fase 11).' })
   rating!: RatingDto;

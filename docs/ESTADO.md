@@ -2,17 +2,17 @@
 
 Punto de partida para retomar el trabajo en una conversación nueva. **Léelo antes de hacer nada**, junto con `CLAUDE.md` y `docs/pendientes-produccion.md`. Se actualiza al cerrar cada fase (CLAUDE.md §1).
 
-Última actualización: alta con revisión previa.
+Última actualización: cierre de la Fase 14 (galería y perfiles).
 
 ## Resumen
 
-|                           |                                                                                                                            |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Fase cerrada más reciente | **9** (atención e inasistencias)                                                                                           |
-| En espera                 | **8B** (adaptador de Izipay): falta documentación de Izipay que enviará el usuario                                         |
-| Siguiente a implementar   | **11 y 12** (valoraciones y soporte): preguntas y plan presentados, pendientes de aprobación. La 10 y la 8B siguen después |
-| Pruebas al cierre         | 369 unitarias y 399 e2e, todas en verde; `pnpm verify` pasa                                                                |
-| Repositorio               | solo commits locales: **sin remoto y sin push** hasta que el usuario lo indique                                            |
+|                           |                                                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Fase cerrada más reciente | **14** (galería y perfiles)                                                                                        |
+| En espera                 | **8B** (adaptador de Izipay): falta documentación de Izipay que enviará el usuario                                 |
+| Siguiente a implementar   | a definir por el usuario (13, 15 y 16 esperan decisiones de negocio; 8B, la documentación de Izipay)               |
+| Pruebas al cierre         | 468 unitarias y 559 e2e, todas en verde; `pnpm verify` pasa (cobertura de images: 96,8 % sentencias, 82,9 % ramas) |
+| Repositorio               | solo commits locales: **sin remoto y sin push** hasta que el usuario lo indique                                    |
 
 ## Fases cerradas y sus commits
 
@@ -33,6 +33,7 @@ Punto de partida para retomar el trabajo en una conversación nueva. **Léelo an
 | 10   | Notificaciones: push (Expo), correo y bandeja; recordatorios; dispositivos                              | (ver `git log`)                                                                                |
 | —    | Eliminación de cuenta (Apple y Google): gracia de 30 días, anonimización, lista de bloqueo              | (ver `git log`)                                                                                |
 | —    | Alta con revisión previa: documento del responsable, cambios pedidos y reenvío; categoryKey en reservas | (ver `git log`)                                                                                |
+| 14   | Galería y perfiles: imágenes en S3 (R2), sharp sin EXIF, estilos, especialidades, reportes              | (ver `git log`)                                                                                |
 
 ## Fase en curso
 
@@ -84,6 +85,15 @@ Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Eliminación de
 
 Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Alta con revisión previa"). Migraciones `20261016000000_barbershop_review` y `20261016000001_drop_barbershop_ruc` aplicadas en `charles`; `migrate:ruc` ejecutado entre ambas (0 RUC que migrar). En `charles`: `barbershops.require_review = true` y `barbershops.require_photo = false`. Las 2 barberías existentes siguen aprobadas (`OPEN`) sin documento; si lo registran, quedan marcadas para soporte.
 
+### 14 — Galería y perfiles: cerrada
+
+Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Galería y perfiles (Fase 14)"). Migración `20261017000000_images`, estilos iniciales y ajustes `images.*` aplicados en `charles`; `barbershops.require_photo = true` en `charles` (la portada es la foto del local).
+
+- **Cambio sobre lo aprobado:** el almacenamiento local es **SeaweedFS** (`chrislusf/seaweedfs:3.97`, S3, Apache 2.0) en lugar de MinIO, que ya no publica imágenes gratuitas. Mismo puerto (9000) y mismo cliente S3; la consola web de MinIO (9001) no existe. Credenciales locales en `docker/seaweedfs/s3.json` (solo locales; producción las rechaza).
+- **Producción:** Cloudflare R2; guía en `docs/pendientes-produccion.md`.
+- **Hasta 3 estilos por foto** (ADR 0004); especialidades del barbero, hasta 5.
+- **Pendiente sin decidir:** la ADR 0004 menciona "categoría obligatoria" por foto; hoy la categoría se deduce de los estilos y no se exige.
+
 ### Siguiente: a definir por el usuario (8B en espera de la documentación de Izipay)
 
 ### Fases futuras registradas (no implementadas)
@@ -91,7 +101,6 @@ Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Alta con revisi
 Diseño previsto en [ADR 0004](adr/0004-fases-de-crecimiento.md):
 
 - **13 (ampliación):** campañas con público, espacios en pantallas de la barbería y catálogo de productos con enlace externo.
-- **14:** galería y perfiles. **Debe estar lista antes de la app móvil.** Categoría obligatoria y hasta 3 estilos por foto (listas cerradas de `ADMIN`); fotos fijadas al inicio.
 - **15:** planes de suscripción como datos, derechos (`EntitlementsService`), comisión por plan y cobro recurrente.
 - **16:** membresías para clientes.
 
@@ -139,11 +148,11 @@ Requisitos: Node 24, pnpm 10 y Docker.
 
 ```bash
 pnpm install                       # también activa el hook de pre-commit (core.hooksPath)
-docker compose up -d               # PostgreSQL 16 + PostGIS y Redis 7
+docker compose up -d               # PostgreSQL 16 + PostGIS, Redis 7 y almacenamiento S3 (SeaweedFS)
 # apps/api/.env (desarrollo) y apps/api/.env.test (pruebas) no se versionan.
 # Copiar apps/api/.env.example y completar las claves (cifrado, JWT, SEED_USER_PASSWORD...).
 pnpm --filter api prisma migrate deploy
-pnpm --filter api seed:reference   # categorías de servicio (datos de referencia)
+pnpm --filter api seed:reference   # categorías y estilos de servicio (datos de referencia)
 pnpm --filter api prisma db seed   # datos de prueba ficticios (nunca en producción)
 pnpm --filter api start:dev
 ```
@@ -156,7 +165,7 @@ Las e2e usan `charles_test` (debe existir) y Redis en una base distinta de la 0.
 pnpm verify
 ```
 
-- **Pasos:** lint, typecheck, formato, unitarias, e2e, coberturas mínimas (`availability`, `search`, `bookings` + `payments` + `moderation`, `reviews`, `admin` + `support`, `notifications`), OpenAPI y tipos de `packages/shared` al día, y `pnpm audit --audit-level=high`.
+- **Pasos:** lint, typecheck, formato, unitarias, e2e, coberturas mínimas (`availability`, `search`, `bookings` + `payments` + `moderation`, `reviews`, `admin` + `support`, `notifications`, `images`), OpenAPI y tipos de `packages/shared` al día, y `pnpm audit --audit-level=high`.
 - **Duración:** unos 4 minutos. Necesita Docker levantado.
 - **Hook `.githooks/pre-commit`:** lo ejecuta en cada commit. Nunca se omite con `--no-verify`.
 - **Prueba de carga** (fuera de `verify`): `pnpm --filter api test:load:race`.

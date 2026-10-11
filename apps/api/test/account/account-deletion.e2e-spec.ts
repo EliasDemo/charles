@@ -3,6 +3,8 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { OutboxRelay } from '../../src/common/outbox/outbox.relay';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { AccountDeletionService } from '../../src/modules/account/account-deletion.service';
+import sharp from 'sharp';
+import { IMAGE_STORAGE, type ImageStorage } from '../../src/modules/images/image-storage';
 import { NotificationsService } from '../../src/modules/notifications/notifications.service';
 import { REVIEW_RATE_LIMIT } from '../../src/modules/reviews/review-rate-limit';
 import { UsersService } from '../../src/modules/users/users.service';
@@ -287,6 +289,37 @@ describe('Eliminación de cuenta (Apple y Google) (e2e)', () => {
           person.token,
         )
         .expect(204);
+      // Fase 14: es barbero (cuenta vinculada) con foto, y reporta una foto de otra barbería.
+      const jpeg = await sharp({
+        create: { width: 600, height: 600, channels: 3, background: '#335577' },
+      })
+        .jpeg()
+        .toBuffer();
+      await prisma.barber.update({
+        where: { id: otherShop.barberId },
+        data: { userId: person.userId },
+      });
+      const photo = await person.client.http
+        .put(`${API}/barbershops/${otherShop.shopId}/barbers/${otherShop.barberId}/photo`)
+        .set('X-Forwarded-For', person.client.ip)
+        .set('Authorization', `Bearer ${person.token}`)
+        .attach('file', jpeg, { filename: 'yo.jpg', contentType: 'image/jpeg' })
+        .expect(200);
+      const photoKey = (photo.body.photoUrl as string).replace('/api/v1/media/', '');
+      const galleryImage = await shop.owner.client.http
+        .post(`${API}/barbershops/${shop.shopId}/barbers/${shop.barberId}/gallery`)
+        .set('X-Forwarded-For', shop.owner.client.ip)
+        .set('Authorization', `Bearer ${shop.owner.token}`)
+        .field('consent', 'true')
+        .attach('file', jpeg, { filename: 'corte.jpg', contentType: 'image/jpeg' })
+        .expect(201);
+      await person.client
+        .post(
+          `${API}/gallery/${galleryImage.body.id}/reports`,
+          { reason: 'NOT_MY_PHOTO', details: `Foto ${tag}` },
+          person.token,
+        )
+        .expect(204);
       await person.client.put(`${API}/me/favorites/${shop.shopId}`, {}, person.token).expect(204);
       await person.client
         .put(
@@ -355,6 +388,16 @@ describe('Eliminación de cuenta (Apple y Google) (e2e)', () => {
       expect(leaks).toEqual([]);
 
       // 3. Borrado lo que no se conserva.
+      expect(
+        await prisma.image.count({
+          where: { barberId: otherShop.barberId, kind: 'BARBER_PHOTO', deletedAt: null },
+        }),
+      ).toBe(0);
+      expect(await app.get<ImageStorage>(IMAGE_STORAGE).get(photoKey)).toBeNull();
+      // La galería es de la barbería: se conserva.
+      expect(
+        await prisma.image.count({ where: { id: galleryImage.body.id, deletedAt: null } }),
+      ).toBe(1);
       expect(await prisma.deviceToken.count({ where: { userId: person.userId } })).toBe(0);
       expect(await prisma.favorite.count({ where: { clientId: person.userId } })).toBe(0);
       expect(await prisma.notification.count({ where: { userId: person.userId } })).toBe(0);

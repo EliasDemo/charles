@@ -24,6 +24,7 @@ const steps = [
     'pnpm',
     ['--filter', 'api', 'test:cov:notifications'],
   ],
+  ['Cobertura de images (mínimo 80 %)', 'pnpm', ['--filter', 'api', 'test:cov:images']],
   [
     'Generar OpenAPI y tipos de packages/shared',
     'pnpm',

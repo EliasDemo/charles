@@ -103,6 +103,14 @@ function build(options: {
     cursor as unknown as SearchCursor,
     options.ranking ?? new OrganicRankingStrategy(),
     { favoriteIds: () => Promise.resolve(new Set<string>()) } as never,
+    {
+      image: { findMany: () => Promise.resolve([]) },
+      serviceStyle: {
+        findFirst: ({ where }: { where: { key: string } }) =>
+          Promise.resolve(where.key === 'fade_low' ? { id: 'style' } : null),
+      },
+    } as never,
+    { publicUrl: (key: string) => `/media/${key}` } as never,
   );
   return { service, repository, availability };
 }

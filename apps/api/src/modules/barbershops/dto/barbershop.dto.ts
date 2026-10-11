@@ -357,6 +357,27 @@ export class BarbershopPublicDto {
   rating!: RatingDto;
 
   @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Fase 14: logo (cuadrado de 512 px, WebP).',
+  })
+  logoUrl!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Fase 14: portada (1600 px de ancho, WebP).',
+  })
+  coverUrl!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Fase 14: portada en miniatura (400 px).',
+  })
+  coverThumbUrl!: string | null;
+
+  @ApiProperty({
     description: 'Fase 11: si es favorita de la cuenta que consulta. Sin sesión, siempre false.',
   })
   isFavorite!: boolean;

@@ -1,11 +1,11 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Prisma, PrismaClient } from '../src/generated/prisma/client';
-import { seedServiceCategories } from './seed/categories';
+import { seedServiceCategories, seedServiceStyles } from './seed/categories';
 import { SEED_SETTINGS } from './seed/seed';
 
 /**
- * Datos de referencia (categorías de servicio y, con --settings, claves de app_settings que
+ * Datos de referencia (categorías y estilos de servicio y, con --settings, claves de app_settings que
  * falten). Idempotente: solo crea lo que no existe, nunca modifica ni borra. Apto para cualquier
  * entorno: `pnpm --filter api seed:reference [--settings]`.
  */
@@ -15,6 +15,7 @@ async function main(): Promise<void> {
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
   try {
     const categories = await seedServiceCategories(prisma);
+    const styles = await seedServiceStyles(prisma);
     let settings = 0;
     if (process.argv.includes('--settings')) {
       for (const setting of SEED_SETTINGS) {
@@ -31,7 +32,9 @@ async function main(): Promise<void> {
         settings++;
       }
     }
-    console.log(`Datos de referencia: ${categories} categorías y ${settings} ajustes creados.`);
+    console.log(
+      `Datos de referencia: ${categories} categorías, ${styles} estilos y ${settings} ajustes creados.`,
+    );
   } finally {
     await prisma.$disconnect();
   }

@@ -73,6 +73,10 @@ export const ErrorCode = {
   DELETION_BLOCKED: 'DELETION_BLOCKED',
   // Alta con revisión previa
   REVIEW_REQUIREMENTS_MISSING: 'REVIEW_REQUIREMENTS_MISSING',
+  // Galería e imágenes (Fase 14)
+  INVALID_IMAGE: 'INVALID_IMAGE',
+  IMAGE_LIMIT_REACHED: 'IMAGE_LIMIT_REACHED',
+  STORAGE_UNAVAILABLE: 'STORAGE_UNAVAILABLE',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode] | (string & {});

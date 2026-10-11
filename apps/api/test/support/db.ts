@@ -19,7 +19,7 @@ export async function truncateAll(prisma: PrismaClient): Promise<void> {
   const tables = await prisma.$queryRaw<{ tablename: string }[]>`
     SELECT tablename FROM pg_tables
     WHERE schemaname = 'public'
-      AND tablename NOT IN ('_prisma_migrations', 'audit_log', 'spatial_ref_sys', 'service_categories')`;
+      AND tablename NOT IN ('_prisma_migrations', 'audit_log', 'spatial_ref_sys', 'service_categories', 'service_styles')`;
   if (tables.length === 0) return;
   const list = tables.map((t) => `"public"."${t.tablename}"`).join(', ');
   // Nombres obtenidos del catálogo (no de entrada externa).
