@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { ServicesService } from '../services/services.service';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
@@ -7,7 +8,7 @@ import { ErrorCode } from '../../common/errors/error-codes';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { BookingStatus } from '../../generated/prisma/enums';
 import { AvailabilityService } from '../availability/availability.service';
-import { localDayBounds } from '../availability/engine/local-time';
+import { addDays, localDayBounds } from '../availability/engine/local-time';
 import { BarbersService } from '../barbers/barbers.service';
 import { BarbershopAccessService } from '../barbershops/barbershop-access.service';
 import { SettingKey, SettingsService } from '../settings/settings.service';
@@ -19,6 +20,7 @@ import {
   NO_SHOW_DEFAULTS,
   noShowAllowed,
 } from './booking-policy';
+import { cancellationDecision } from './booking-policy';
 import { BookingStateMachine, SYSTEM_ACTOR } from './booking-state-machine';
 import type { AgendaDto, AttendanceCorrectionDto } from './dto/attendance.dto';
 
@@ -41,6 +43,9 @@ const notFound = (): AppException =>
  * las correcciones, por `correct()`. El no-show (Fase 8A) vive en `BookingsService.markNoShow`;
  * aquí solo se integra en la agenda y en la corrección.
  */
+
+/** Días hacia atrás que se puede consultar la agenda. */
+export const AGENDA_PAST_DAYS = 90;
 @Injectable()
 export class BookingAttendanceService {
   constructor(
@@ -252,6 +257,34 @@ export class BookingAttendanceService {
 
   // ───────────── RF-ATE-001: agenda del día ─────────────
 
+  /**
+   * Fecha de la agenda: real (no 2030-02-30) y dentro de [hoy − 90 días, hoy + horizonte de
+   * reservas], según el calendario de la barbería.
+   */
+  private async assertAgendaDate(date: string, timezone: string): Promise<void> {
+    const parsed = DateTime.fromISO(date, { zone: timezone });
+    if (!parsed.isValid || parsed.toISODate() !== date) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Los datos enviados no son válidos.',
+        HttpStatus.BAD_REQUEST,
+        [{ field: 'date', constraints: ['isDate'] }],
+      );
+    }
+    const { horizonDays } = await this.availability.loadSettings();
+    const today = this.availability.todayIn(timezone);
+    const firstDate = addDays(today, -AGENDA_PAST_DAYS);
+    const lastDate = addDays(today, horizonDays);
+    if (date < firstDate || date > lastDate) {
+      throw new AppException(
+        ErrorCode.DATE_OUT_OF_RANGE,
+        `La agenda se consulta desde ${AGENDA_PAST_DAYS} días atrás hasta ${horizonDays} días adelante.`,
+        HttpStatus.BAD_REQUEST,
+        [{ today, firstDate, lastDate, timezone }],
+      );
+    }
+  }
+
   /** Agenda del barbero: su perfil activo, en el día local de su barbería. */
   async barberAgenda(userId: string, date: string | undefined): Promise<AgendaDto> {
     const [profile] = await this.barbers.activeProfilesOfUser(userId);
@@ -287,6 +320,7 @@ export class BookingAttendanceService {
   ): Promise<AgendaDto> {
     const timezone = await this.access.timezoneOf(barbershopId);
     const localDate = date ?? this.availability.todayIn(timezone);
+    if (date !== undefined) await this.assertAgendaDate(date, timezone);
     const day = localDayBounds(localDate, timezone);
     const range = { from: new Date(day.start), to: new Date(day.end) };
     const now = this.clock.now();
@@ -363,6 +397,10 @@ export class BookingAttendanceService {
               now,
               correctionHours: settings.correctionHours,
             }),
+          // La misma regla que aplica POST /bookings/{id}/cancel a la barbería.
+          canCancel:
+            viewer === 'BARBERSHOP' &&
+            cancellationDecision({ status: b.status, startAt, now, by: 'BARBERSHOP' }).allowed,
         },
       };
     });

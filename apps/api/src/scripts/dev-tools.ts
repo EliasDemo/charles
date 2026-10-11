@@ -1,5 +1,12 @@
+import { randomUUID } from 'node:crypto';
 import type { INestApplicationContext } from '@nestjs/common';
+import { dbErrorInfo, isExclusionViolation } from '../common/errors/db-error';
+import { BarbersService } from '../modules/barbers/barbers.service';
+import { BookingStateMachine } from '../modules/bookings/booking-state-machine';
+import { PaymentsService } from '../modules/payments/payments.service';
+import { UsersService } from '../modules/users/users.service';
 import { AuditService } from '../common/audit/audit.service';
+import { CLOCK, type Clock } from '../common/clock/clock';
 import { APP_CONFIG } from '../common/config/app-config.token';
 import { type AppConfig, MailerDriver } from '../common/config/env.validation';
 import { FakeMailer, type StoredMail } from '../common/mail/fake-mailer';
@@ -84,6 +91,175 @@ export async function devPay(
     select: { status: true },
   });
   return { paymentId: payment.id, bookingStatus: booking.status, duplicate: receipt.duplicate };
+}
+
+export interface DevBookingOptions {
+  /** Correo de la cuenta del barbero (perfil activo). */
+  barberEmail: string;
+  /** Correo del cliente; por defecto, el cliente del seed. */
+  clientEmail?: string;
+  /** Inicio relativo a ahora, en minutos (negativo = ya empezó). */
+  startOffsetMinutes: number;
+  serviceId?: string;
+  /** Confirmar el pago por el mismo camino que `dev:pay`. */
+  confirm?: boolean;
+  /** Además marcarla ATTENDED (para probar la corrección dentro de las 48 h). */
+  attended?: boolean;
+}
+
+export const SEED_CLIENT_EMAIL = 'cliente.demo@example.com';
+
+/**
+ * `dev:booking`: crea una reserva a una hora **relativa a ahora** (también pasada: −20 min, −47 h)
+ * para probar las ventanas de asistencia, no-show y corrección. Solo desarrollo y pasarela simulada,
+ * y queda auditada.
+ *
+ * No pasa por la disponibilidad (que nunca acepta horas pasadas): inserta la reserva en una
+ * transacción con el mismo registro que el flujo normal (historial, outbox, pago pendiente), y la
+ * restricción de la base contra reservas solapadas sigue aplicándose. Con `confirm`, el pago se
+ * confirma por el webhook simulado, como `dev:pay`.
+ */
+export async function devBooking(
+  app: INestApplicationContext,
+  options: DevBookingOptions,
+): Promise<{ bookingId: string; startAt: Date; status: string; barbershopId: string }> {
+  const config = app.get<AppConfig>(APP_CONFIG);
+  assertNotProduction(config.isProduction ? 'production' : config.nodeEnv);
+  const gateway = app.get<PaymentGateway>(PAYMENT_GATEWAY);
+  if (gateway.provider !== FAKE_PROVIDER) {
+    throw new DevToolError('dev:booking solo funciona con la pasarela simulada.');
+  }
+  const users = app.get(UsersService);
+  const prisma = app.get(PrismaService);
+  const now = app.get<Clock>(CLOCK).now();
+  const findUser = async (email: string, label: string) => {
+    const id = await users.findIdByEmailHash(users.emailHash(email));
+    if (!id) throw new DevToolError(`No existe una cuenta ${label} con ese correo.`);
+    return id;
+  };
+  const barberUserId = await findUser(options.barberEmail, 'de barbero');
+  const [profile] = await app.get(BarbersService).activeProfilesOfUser(barberUserId);
+  if (!profile) throw new DevToolError('Esa cuenta no tiene un perfil de barbero activo.');
+  const clientId = await findUser(options.clientEmail ?? SEED_CLIENT_EMAIL, 'de cliente');
+
+  const link = await prisma.barberService.findFirst({
+    where: {
+      barberId: profile.id,
+      ...(options.serviceId ? { serviceId: options.serviceId } : {}),
+      service: { deletedAt: null, isAvailable: true },
+    },
+    select: { service: true },
+    orderBy: { serviceId: 'asc' },
+  });
+  if (!link) throw new DevToolError('El barbero no tiene ese servicio (o ningún servicio activo).');
+  const service = link.service;
+
+  // Al minuto, para que las horas sean legibles.
+  const startAt = Math.floor((now + options.startOffsetMinutes * 60_000) / 60_000) * 60_000;
+  const endAt = startAt + service.durationMinutes * 60_000;
+  const ttlMinutes = await app
+    .get(SettingsService)
+    .positiveInt(SettingKey.PENDING_PAYMENT_TTL_MINUTES, 10);
+
+  let bookingId: string;
+  try {
+    bookingId = await prisma.$transaction(async (tx) => {
+      const booking = await tx.booking.create({
+        data: {
+          clientId,
+          barbershopId: profile.barbershopId,
+          barberId: profile.id,
+          serviceId: service.id,
+          startAt: new Date(startAt),
+          endAt: new Date(endAt),
+          status: 'PENDING_PAYMENT',
+          barberChosenByClient: true,
+          serviceNameSnapshot: service.name,
+          durationMinutesSnapshot: service.durationMinutes,
+          subtotalAmount: service.priceAmount,
+          totalAmount: service.priceAmount,
+          currency: service.currency,
+          expiresAt: new Date(now + ttlMinutes * 60_000),
+          idempotencyKey: randomUUID(),
+          metadata: { source: 'dev:booking' },
+          priceLines: {
+            create: [
+              {
+                type: 'SERVICE',
+                description: service.name,
+                amount: service.priceAmount,
+                sourceType: 'service',
+                sourceId: service.id,
+              },
+            ],
+          },
+        },
+        select: { id: true },
+      });
+      await app
+        .get(BookingStateMachine)
+        .recordCreation(
+          tx,
+          { id: booking.id, barbershopId: profile.barbershopId, barberId: profile.id, clientId },
+          { userId: clientId, role: 'CLIENT' },
+        );
+      await app.get(PaymentsService).createPendingInTx(tx, {
+        id: booking.id,
+        totalAmount: service.priceAmount,
+        currency: service.currency,
+      });
+      return booking.id;
+    });
+  } catch (error) {
+    if (isExclusionViolation(dbErrorInfo(error))) {
+      throw new DevToolError('El barbero ya tiene una reserva que se cruza con ese horario.');
+    }
+    throw error;
+  }
+
+  if (options.confirm || options.attended) await devPay(app, bookingId, 'SUCCEEDED');
+  if (options.attended) {
+    await prisma.$transaction((tx) =>
+      app
+        .get(BookingStateMachine)
+        .transition(
+          tx,
+          bookingId,
+          'ATTENDED',
+          { userId: barberUserId, role: 'BARBERSHOP' },
+          'dev:booking',
+        ),
+    );
+  }
+  await app.get(AuditService).record({
+    action: 'dev.booking_created',
+    entityType: 'booking',
+    entityId: bookingId,
+    changes: {
+      tool: 'dev:booking',
+      startOffsetMinutes: options.startOffsetMinutes,
+      confirm: !!options.confirm,
+      attended: !!options.attended,
+    },
+  });
+  const created = await prisma.booking.findUniqueOrThrow({
+    where: { id: bookingId },
+    select: { status: true },
+  });
+  return {
+    bookingId,
+    startAt: new Date(startAt),
+    status: created.status,
+    barbershopId: profile.barbershopId,
+  };
+}
+
+/** `-20m`, `+2h`, `-47h`, `0` → minutos. */
+export function parseOffset(value: string): number {
+  const match = /^([+-]?\d+)([mh]?)$/.exec(value.trim());
+  if (!match) throw new DevToolError('--start debe ser como -20m, +10m, -2h o -47h.');
+  const amount = Number(match[1]);
+  return match[2] === 'h' ? amount * 60 : amount;
 }
 
 /** `dev:mail`: correos simulados de un destinatario, del más reciente al más antiguo. */

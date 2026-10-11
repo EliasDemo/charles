@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { getMetadataStorage } from 'class-validator';
 import { join } from 'node:path';
 
 /**
@@ -48,7 +49,70 @@ function problems(schema: Schema, path: string): string[] {
   return found;
 }
 
+/** Carga todos los DTO para que registren sus reglas de validación. */
+function loadAllDtos(dir: string): void {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) loadAllDtos(path);
+    // Carga síncrona para registrar los decoradores de cada DTO antes de leerlos.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    else if (/\.dto\.ts$/.test(entry.name)) require(path);
+  }
+}
+
+interface LengthRule {
+  schema: string;
+  property: string;
+  min?: number;
+  max?: number;
+}
+
+/** Reglas de longitud de class-validator (Length, MinLength, MaxLength) por DTO y propiedad. */
+function lengthRules(): LengthRule[] {
+  loadAllDtos(join(__dirname, 'modules'));
+  loadAllDtos(join(__dirname, 'common'));
+  const storage = getMetadataStorage() as unknown as {
+    validationMetadatas: Map<
+      { name: string },
+      { propertyName: string; name?: string; constraints?: unknown[] }[]
+    >;
+  };
+  const rules = new Map<string, LengthRule>();
+  for (const [target, metadatas] of storage.validationMetadatas) {
+    for (const m of metadatas) {
+      if (!['isLength', 'minLength', 'maxLength'].includes(m.name ?? '')) continue;
+      const key = `${target.name}.${m.propertyName}`;
+      const rule = rules.get(key) ?? { schema: target.name, property: m.propertyName };
+      const [a, b] = (m.constraints ?? []) as number[];
+      if (m.name === 'isLength') Object.assign(rule, { min: a, max: b });
+      if (m.name === 'minLength') rule.min = a;
+      if (m.name === 'maxLength') rule.max = a;
+      rules.set(key, rule);
+    }
+  }
+  return [...rules.values()];
+}
+
 describe('Contrato OpenAPI', () => {
+  it('todo límite de longitud de la validación (Length, MinLength, MaxLength) se publica', () => {
+    const rules = lengthRules();
+    expect(rules.length).toBeGreaterThan(20);
+    const missing: string[] = [];
+    for (const rule of rules) {
+      const schema = spec.components.schemas[rule.schema];
+      if (!schema) continue; // DTO que no está en el contrato (p. ej. solo interno)
+      const property = schema.properties?.[rule.property];
+      if (!property) continue;
+      if (rule.min !== undefined && property.minLength !== rule.min) {
+        missing.push(`${rule.schema}.${rule.property}: minLength ${rule.min}`);
+      }
+      if (rule.max !== undefined && property.maxLength !== rule.max) {
+        missing.push(`${rule.schema}.${rule.property}: maxLength ${rule.max}`);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
   it('toda propiedad tiene un tipo concreto (ningún object vacío por un tipo no declarado)', () => {
     const found = Object.entries(spec.components.schemas).flatMap(([name, schema]) =>
       problems(schema, name),

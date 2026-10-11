@@ -351,6 +351,7 @@ describe('RF-ATE-001…003 Atención, inasistencias, corrección y agenda — Fa
         canMarkAttended: false,
         canMarkNoShow: false,
         canCorrect: false,
+        canCancel: false, // el barbero nunca cancela
       });
       // El barbero nunca puede corregir.
       expect(byId[done.id]!.actions.canCorrect).toBe(false);

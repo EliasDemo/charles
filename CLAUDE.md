@@ -75,7 +75,7 @@ Cada módulo contiene: `*.controller.ts`, `*.service.ts`, `dto/`, `*.module.ts`,
 
 ### Contrato OpenAPI
 
-`src/openapi-contract.spec.ts` exige que toda propiedad del OpenAPI tenga un tipo concreto: un `string | null` declarado sin `type: String` sale como `object` vacío y rompe el tipo generado para la app.
+`publishValidationLimits()` copia al OpenAPI los límites de `@Length`/`@MinLength`/`@MaxLength` (Swagger no los lee solo). `src/openapi-contract.spec.ts` exige que todos estén publicados y que toda propiedad del OpenAPI tenga un tipo concreto: un `string | null` declarado sin `type: String` sale como `object` vacío y rompe el tipo generado para la app.
 
 ### Comandos
 
@@ -90,6 +90,7 @@ pnpm test | pnpm test:e2e | pnpm lint | pnpm typecheck
 pnpm verify                           # todo lo anterior + coberturas + OpenAPI + audit
 pnpm --filter api test:load:race      # carrera por un turno bajo carga (fuera de verify)
 pnpm --filter api dev:pay <bookingId> [--reject] | dev:mail <correo> | admin:grant <correo>
+pnpm --filter api dev:booking --barber <correo> --start -20m [--confirm] [--attended]
 ```
 
 Los scripts de consola (`dev:pay`, `dev:mail`, `admin:grant`, `openapi:export`) se ejecutan sobre el código fuente con `ts-node --transpile-only` (conserva la metadata de los decoradores; tsx no). **Nunca con `nest build`**: borraría `dist` y tumbaría el `start:dev` en marcha. Por lo mismo, `pnpm verify` no compila a `dist`.

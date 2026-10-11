@@ -49,7 +49,11 @@ export class CreateBookingDto {
 
 /** RF-RES-005. El motivo es obligatorio cuando cancela la barbería. */
 export class CancelBookingDto {
-  @ApiPropertyOptional({ description: 'Obligatorio si cancela la barbería (OWNER o MANAGER).' })
+  @ApiPropertyOptional({
+    minLength: 3,
+    maxLength: 300,
+    description: 'Obligatorio si cancela la barbería (OWNER o MANAGER); el cliente puede omitirlo.',
+  })
   @IsOptional()
   @Transform(trim)
   @IsString()

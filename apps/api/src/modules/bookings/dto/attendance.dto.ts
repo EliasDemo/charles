@@ -13,7 +13,11 @@ export class AttendanceCorrectionDto {
   @IsIn(['ATTENDED', 'NO_SHOW'])
   status!: 'ATTENDED' | 'NO_SHOW';
 
-  @ApiProperty({ description: 'Motivo de la corrección (queda en el historial y la auditoría).' })
+  @ApiProperty({
+    minLength: 3,
+    maxLength: 300,
+    description: 'Motivo de la corrección (queda en el historial y la auditoría).',
+  })
   @Transform(trim)
   @IsString()
   @Length(3, 300)
@@ -46,6 +50,13 @@ export class AgendaActionsDto {
 
   @ApiProperty({ description: 'Solo OWNER o MANAGER, dentro del plazo de corrección.' })
   canCorrect!: boolean;
+
+  @ApiProperty({
+    description:
+      'Solo OWNER o MANAGER (el barbero no cancela): reserva pendiente de pago, o confirmada que ' +
+      'aún no empieza. POST /bookings/{id}/cancel exige motivo.',
+  })
+  canCancel!: boolean;
 }
 
 export class AgendaItemDto {

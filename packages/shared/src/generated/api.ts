@@ -3223,6 +3223,8 @@ export interface components {
             canMarkNoShow: boolean;
             /** @description Solo OWNER o MANAGER, dentro del plazo de corrección. */
             canCorrect: boolean;
+            /** @description Solo OWNER o MANAGER (el barbero no cancela): reserva pendiente de pago, o confirmada que aún no empieza. POST /bookings/{id}/cancel exige motivo. */
+            canCancel: boolean;
         };
         AgendaItemDto: {
             /** Format: uuid */
@@ -3271,7 +3273,7 @@ export interface components {
             pendingAttention: number;
         };
         CancelBookingDto: {
-            /** @description Obligatorio si cancela la barbería (OWNER o MANAGER). */
+            /** @description Obligatorio si cancela la barbería (OWNER o MANAGER); el cliente puede omitirlo. */
             reason?: string;
         };
         CancelledBookingDto: {

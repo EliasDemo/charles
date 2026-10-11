@@ -14,6 +14,7 @@
     "openapi:export": "ts-node --transpile-only -P tsconfig.build.json src/scripts/export-openapi.ts",
     "dev:pay": "ts-node --transpile-only -P tsconfig.build.json src/scripts/dev-pay.ts",
     "dev:mail": "ts-node --transpile-only -P tsconfig.build.json src/scripts/dev-mail.ts",
+    "dev:booking": "ts-node --transpile-only -P tsconfig.build.json src/scripts/dev-booking.ts",
     "admin:grant": "ts-node --transpile-only -P tsconfig.build.json src/scripts/admin-grant.ts",
     "migrate:ruc": "ts-node --transpile-only -P tsconfig.build.json src/scripts/migrate-ruc.ts",
     "prisma": "prisma",
