@@ -243,6 +243,33 @@ export class SessionsService {
     return families.map((f) => f.familyId);
   }
 
+  /** Cierra todas las sesiones salvo la actual (y quita el push de esos dispositivos). */
+  async revokeOtherSessions(
+    userId: string,
+    keepSessionId: string,
+    tx: Prisma.TransactionClient = this.prisma,
+  ): Promise<string[]> {
+    const accessWindow = new Date(
+      Date.now() - (this.config.auth.accessTokenTtlSeconds + 60) * 1000,
+    );
+    const families = await tx.refreshToken.findMany({
+      where: {
+        userId,
+        familyId: { not: keepSessionId },
+        OR: [{ revokedAt: null }, { createdAt: { gte: accessWindow } }],
+      },
+      select: { familyId: true },
+      distinct: ['familyId'],
+    });
+    const sessionIds = families.map((f) => f.familyId);
+    await tx.refreshToken.updateMany({
+      where: { userId, familyId: { not: keepSessionId }, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    await this.devices.removeForSessions(userId, sessionIds, tx);
+    return sessionIds;
+  }
+
   async markRevoked(sessionIds: string[]): Promise<void> {
     if (sessionIds.length > 0) await this.revocations.revoke(sessionIds);
   }

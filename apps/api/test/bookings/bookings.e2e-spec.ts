@@ -868,7 +868,11 @@ describe('RF-RES-001…008 Reservas, máquina de estados, outbox y expiración (
       const shopList = await shop.owner.client
         .get(`${SHOPS}/${shop.owner.shopId}/bookings`, shop.owner.token)
         .expect(200);
-      expect(shopList.body.items[0].client).toEqual({ id: me.userId, name: 'Persona de Prueba' });
+      expect(shopList.body.items[0].client).toEqual({
+        id: me.userId,
+        name: 'Persona de Prueba',
+        photoUrl: null,
+      });
       const raw = JSON.stringify(shopList.body);
       expect(raw).not.toMatch(/@example|phone|email|document/i);
 

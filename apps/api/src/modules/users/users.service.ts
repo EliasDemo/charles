@@ -1,11 +1,26 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import { BlindIndexKind, EncryptedField } from '../../common/crypto/encryption-contexts';
+import { CLOCK, type Clock } from '../../common/clock/clock';
 import { EncryptionService } from '../../common/crypto/encryption.service';
+import { AppException } from '../../common/errors/app.exception';
+import { ErrorCode } from '../../common/errors/error-codes';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { NotificationChannel, type Role, type UserStatus } from '../../generated/prisma/enums';
+import { IMAGE_STORAGE, type ImageStorage } from '../images/image-storage';
+import { variantKeys, variantUrl } from '../images/image-variants';
 import type { ProfileDto, UpdateProfileDto } from './dto/profile.dto';
+
+/** Edad mínima para usar Charles (ADR 0003); también vale para la fecha de nacimiento. */
+const MIN_AGE_YEARS = 18;
+const MIN_BIRTH_YEAR = 1900;
+
+/** Nombre y foto de un cliente, para la agenda de la barbería donde reservó. */
+export interface ClientCard {
+  name: string;
+  photoUrl: string | null;
+}
 
 /** Canales activos por defecto mientras el usuario no elija los suyos. */
 export const DEFAULT_NOTIFICATION_CHANNELS: NotificationChannel[] = [
@@ -57,6 +72,8 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
     private readonly audit: AuditService,
+    @Inject(IMAGE_STORAGE) private readonly storage: ImageStorage,
+    @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
   emailHash(email: string): Buffer<ArrayBuffer> {
@@ -207,7 +224,8 @@ export class UsersService {
    * reemplaza por uno interno único, así el original puede registrarse de nuevo; la contraseña
    * queda inválida. La fila se conserva para los registros anonimizados que la referencian.
    */
-  async anonymize(id: string, now: Date, tx: Tx = this.prisma): Promise<void> {
+  async anonymize(id: string, now: Date, tx: Tx = this.prisma): Promise<string[]> {
+    const current = await tx.user.findUnique({ where: { id }, select: { photoVariants: true } });
     const placeholder = `eliminada+${id}@charles.invalid`;
     await tx.user.update({
       where: { id },
@@ -221,6 +239,8 @@ export class UsersService {
         documentNumberEnc: null,
         documentHash: null,
         birthDateEnc: null,
+        gender: null,
+        photoVariants: Prisma.DbNull,
         emailVerifiedAt: null,
         preferences: {},
         metadata: {},
@@ -230,6 +250,8 @@ export class UsersService {
       },
     });
     await tx.userRole.deleteMany({ where: { userId: id } });
+    // Archivos de la foto de perfil: los borra quien llama, después de confirmar (regla 12).
+    return variantKeys(current?.photoVariants);
   }
 
   /** Fase 12: contacto en claro, solo para el acceso auditado de soporte. */
@@ -262,6 +284,57 @@ export class UsersService {
           ...(excludeId ? { id: { not: excludeId } } : {}),
         },
       },
+    });
+  }
+
+  /**
+   * Nombre y foto de perfil de clientes, solo para la barbería donde reservaron (nunca contacto,
+   * fecha de nacimiento ni género).
+   */
+  async clientCards(ids: string[]): Promise<Map<string, ClientCard>> {
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, fullName: true, photoVariants: true },
+    });
+    return new Map(
+      users.map((u) => [
+        u.id,
+        { name: u.fullName, photoUrl: variantUrl(this.storage, u.photoVariants, 'square') },
+      ]),
+    );
+  }
+
+  /**
+   * Reemplaza (o quita, con `null`) la foto de perfil. Devuelve las claves de los archivos
+   * anteriores, que quien llama borra después de confirmar. `null` si la cuenta no existe.
+   */
+  async replacePhoto(
+    id: string,
+    variants: Prisma.InputJsonValue | null,
+    ip: string | null,
+  ): Promise<{ oldKeys: string[]; photoUrl: string | null } | null> {
+    return this.prisma.$transaction(async (tx) => {
+      const [row] = await tx.$queryRaw<{ photo_variants: unknown }[]>`
+        SELECT photo_variants FROM users WHERE id = ${id}::uuid AND deleted_at IS NULL FOR UPDATE`;
+      if (!row) return null;
+      await tx.user.update({
+        where: { id },
+        data: { photoVariants: variants ?? Prisma.DbNull },
+      });
+      await this.audit.record(
+        {
+          actorId: id,
+          action: variants ? 'user.photo_updated' : 'user.photo_removed',
+          entityType: 'user',
+          entityId: id,
+          ip,
+        },
+        tx,
+      );
+      return {
+        oldKeys: variantKeys(row.photo_variants),
+        photoUrl: variants ? variantUrl(this.storage, variants, 'square') : null,
+      };
     });
   }
 
@@ -300,6 +373,9 @@ export class UsersService {
         notificationChannels: notificationChannelsOf(user.preferences),
         reminders: !(isRecord(user.preferences) && user.preferences.reminders === false),
       },
+      birthDate: this.encryption.decryptNullable(user.birthDateEnc, EncryptedField.USER_BIRTH_DATE),
+      gender: user.gender,
+      photoUrl: variantUrl(this.storage, user.photoVariants, 'square'),
       createdAt: user.createdAt,
     };
   }
@@ -338,6 +414,18 @@ export class UsersService {
       };
       changed.push('preferences.notificationChannels');
     }
+    if (dto.birthDate !== undefined) {
+      if (dto.birthDate !== null) this.assertBirthDate(dto.birthDate);
+      data.birthDateEnc = this.encryption.encryptNullable(
+        dto.birthDate,
+        EncryptedField.USER_BIRTH_DATE,
+      );
+      changed.push('birthDate');
+    }
+    if (dto.gender !== undefined) {
+      data.gender = dto.gender;
+      changed.push('gender');
+    }
 
     if (changed.length > 0) {
       await this.prisma.$transaction(async (tx) => {
@@ -356,6 +444,25 @@ export class UsersService {
       });
     }
     return this.getProfile(id);
+  }
+
+  /** Fecha real del calendario, desde 1900 y con la edad mínima cumplida hoy (hora de Lima). */
+  private assertBirthDate(value: string): void {
+    const [year, month, day] = value.split('-').map(Number) as [number, number, number];
+    const date = new Date(Date.UTC(year, month - 1, day));
+    const real =
+      date.getUTCFullYear() === year &&
+      date.getUTCMonth() === month - 1 &&
+      date.getUTCDate() === day &&
+      year >= MIN_BIRTH_YEAR;
+    if (!real) throw invalidBirthDate('validDate');
+    // Hoy en Lima (UTC−5, sin horario de verano), como fecha de calendario.
+    const today = new Date(this.clock.now() - 5 * 60 * 60 * 1000);
+    const adultSince = new Date(Date.UTC(year + MIN_AGE_YEARS, month - 1, day));
+    const todayDate = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+    );
+    if (adultSince > todayDate) throw invalidBirthDate('minimumAge');
   }
 
   private async findCredentials(
@@ -387,6 +494,16 @@ export class UsersService {
     };
   }
 }
+
+const invalidBirthDate = (constraint: 'validDate' | 'minimumAge'): AppException =>
+  new AppException(
+    ErrorCode.VALIDATION_ERROR,
+    constraint === 'minimumAge'
+      ? 'Debes tener al menos 18 años.'
+      : 'La fecha de nacimiento no es válida.',
+    HttpStatus.BAD_REQUEST,
+    [{ field: 'birthDate', constraints: [constraint] }],
+  );
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

@@ -128,6 +128,24 @@ export class PasswordResetConfirmDto {
   newPassword!: string;
 }
 
+/** Cambio de contraseña con la sesión iniciada. */
+export class ChangePasswordDto {
+  @ApiProperty({ maxLength: PASSWORD_MAX_LENGTH })
+  @IsString()
+  @Length(1, PASSWORD_MAX_LENGTH)
+  currentPassword!: string;
+
+  @ApiProperty({
+    minLength: PASSWORD_MIN_LENGTH,
+    maxLength: PASSWORD_MAX_LENGTH,
+    description: 'Misma política que el registro; debe ser distinta de la actual.',
+  })
+  @IsString()
+  @Length(PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH)
+  @IsNotCommonPassword()
+  newPassword!: string;
+}
+
 export class EmailVerificationConfirmDto {
   @ApiProperty({ example: '123456' })
   @IsString()

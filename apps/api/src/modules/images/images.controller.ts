@@ -56,6 +56,7 @@ import {
 } from './dto/image.dto';
 import { MAX_UPLOAD_BYTES } from './image-processing';
 import { ImageUploadRateLimitGuard } from './image-rate-limit';
+import { ProfilePhotoDto } from '../users/dto/profile.dto';
 import { ImagesService } from './images.service';
 
 const uuid = new ParseUUIDPipe();
@@ -169,6 +170,34 @@ export class ImagesController {
     @Req() req: Request,
   ): Promise<BarbershopMediaDto> {
     return this.images.deleteBarbershopImage(user.id, id, 'BARBERSHOP_COVER', req.ip ?? null);
+  }
+
+  // ───────────── Foto de perfil de la cuenta ─────────────
+
+  @Put('users/me/photo')
+  @ApiBearerAuth()
+  @UseGuards(ImageUploadRateLimitGuard)
+  @SingleFile()
+  @UploadDocs(ImageUploadDto)
+  @ApiOperation({
+    summary: 'Subir o reemplazar mi foto de perfil (cuadrado de 512 px)',
+    description: `${UPLOAD_NOTE} La ven solo la propia cuenta y las barberías donde tiene reservas.`,
+  })
+  @ApiOkResponse({ type: ProfilePhotoDto })
+  setMyPhoto(
+    @CurrentUser() user: AuthUser,
+    @UploadedFile() file: UploadedImage | undefined,
+    @Req() req: Request,
+  ): Promise<ProfilePhotoDto> {
+    return this.images.setUserPhoto(user.id, file?.buffer, req.ip ?? null);
+  }
+
+  @Delete('users/me/photo')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Quitar mi foto de perfil (idempotente)' })
+  @ApiOkResponse({ type: ProfilePhotoDto })
+  deleteMyPhoto(@CurrentUser() user: AuthUser, @Req() req: Request): Promise<ProfilePhotoDto> {
+    return this.images.deleteUserPhoto(user.id, req.ip ?? null);
   }
 
   // ───────────── Barbero: foto, galería y especialidades (OWNER, MANAGER o el propio barbero) ─────────────

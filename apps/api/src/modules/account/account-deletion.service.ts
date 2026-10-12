@@ -280,7 +280,7 @@ export class AccountDeletionService {
           kinds: ['BARBER_PHOTO'],
         });
         await this.eraseRelated(tx, userId);
-        await this.users.anonymize(userId, now, tx);
+        imageKeys = [...imageKeys, ...(await this.users.anonymize(userId, now, tx))];
         await this.outbox.publish(tx, DELETION_EVENTS.DELETED, { userId });
         await this.audit.record(
           {

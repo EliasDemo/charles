@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsIn, IsOptional, IsString, IsUUID, Length, Matches } from 'class-validator';
 import { BookingStatus, TimeBlockType } from '../../../generated/prisma/enums';
-import { BookingServiceDto, NamedRefDto } from './booking.dto';
+import { BookingServiceDto, ClientRefDto, NamedRefDto } from './booking.dto';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -79,10 +79,10 @@ export class AgendaItemDto {
   barber!: NamedRefDto;
 
   @ApiProperty({
-    type: NamedRefDto,
-    description: 'Solo el nombre (sin teléfono, correo ni documento).',
+    type: ClientRefDto,
+    description: 'Nombre y foto de perfil (sin teléfono, correo ni documento).',
   })
-  client!: NamedRefDto;
+  client!: ClientRefDto;
 
   @ApiProperty({ description: 'PENDING_PAYMENT vigente: por confirmar.' })
   awaitingPayment!: boolean;

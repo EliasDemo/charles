@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AdminAccessModule } from '../admin/admin-access.module';
 import { BarbershopAccessModule } from '../barbershops/barbershop-access.module';
 import { SettingsModule } from '../settings/settings.module';
+import { UsersModule } from '../users/users.module';
 import { ImageModerationService } from './image-moderation.service';
 import { ImageRateLimitRefresher, ImageUploadRateLimitGuard } from './image-rate-limit';
 import { ImageStorageModule } from './image-storage.module';
@@ -12,7 +13,13 @@ import { MediaController } from './media.controller';
 
 /** Imágenes, galería, estilos y moderación de fotos (Fase 14). */
 @Module({
-  imports: [ImageStorageModule, BarbershopAccessModule, SettingsModule, AdminAccessModule],
+  imports: [
+    ImageStorageModule,
+    BarbershopAccessModule,
+    SettingsModule,
+    AdminAccessModule,
+    UsersModule,
+  ],
   controllers: [ImagesController, ImagesAdminController, MediaController],
   providers: [
     ImagesService,

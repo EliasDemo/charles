@@ -222,6 +222,13 @@ enum ReportStatus {
 }
 
 /// Fase 14: tipo de imagen. Logo, portada y foto de barbero: una vigente por dueño.
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
 enum ImageKind {
   BARBERSHOP_LOGO
   BARBERSHOP_COVER
@@ -281,6 +288,10 @@ model User {
   /// Único solo cuando no es nulo: índice único parcial en SQL manual (users_document_hash_key).
   documentHash          Bytes?     @map("document_hash")
   birthDateEnc          String?    @map("birth_date_enc")
+  /// Perfil: opcional. Uso declarado: sugerir estilos. Nunca visible para las barberías.
+  gender                Gender?
+  /// Perfil: foto de la cuenta (variantes en el almacenamiento, como `images.variants`).
+  photoVariants         Json?      @map("photo_variants")
   status                UserStatus @default(ACTIVE)
   /// Nulo = correo sin verificar (se exige verificado para reservar, Fase 7).
   emailVerifiedAt       DateTime?  @map("email_verified_at") @db.Timestamptz(3)

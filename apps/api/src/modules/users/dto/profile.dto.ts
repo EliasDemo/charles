@@ -12,7 +12,10 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { NotificationChannel, Role } from '../../../generated/prisma/enums';
+import { Gender, NotificationChannel, Role } from '../../../generated/prisma/enums';
+
+/** Fecha de calendario `YYYY-MM-DD` (la validez real y la edad se comprueban en el servicio). */
+export const BIRTH_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Teléfono en formato libre razonable: dígitos, espacios, guiones, paréntesis y "+" inicial. */
 export const PHONE_PATTERN = /^\+?[0-9][0-9 ()-]{5,19}$/;
@@ -36,7 +39,7 @@ export class NotificationPreferencesDto {
   reminders?: boolean;
 }
 
-/** RF-CLI-002: solo nombre, teléfono y preferencias. El correo no se puede cambiar en el MVP. */
+/** RF-CLI-002: nombre, teléfono, preferencias, fecha de nacimiento y género. El correo no se cambia. */
 export class UpdateProfileDto {
   @ApiPropertyOptional({ example: 'Ana Pérez' })
   @IsOptional()
@@ -62,6 +65,30 @@ export class UpdateProfileDto {
   @ValidateNested()
   @Type(() => NotificationPreferencesDto)
   preferences?: NotificationPreferencesDto;
+
+  @ApiPropertyOptional({
+    type: String,
+    format: 'date',
+    example: '1995-04-23',
+    nullable: true,
+    description:
+      'YYYY-MM-DD; fecha real, desde 1900 y con 18 años cumplidos (la app es para mayores de ' +
+      'edad). null la elimina. Se guarda cifrada y nunca la ven las barberías.',
+  })
+  @ValidateIf((_o, value) => value !== null && value !== undefined)
+  @IsString()
+  @Matches(BIRTH_DATE_PATTERN)
+  birthDate?: string | null;
+
+  @ApiPropertyOptional({
+    enum: Gender,
+    enumName: 'Gender',
+    nullable: true,
+    description: 'null lo elimina. Solo para sugerir estilos; nunca lo ven las barberías.',
+  })
+  @ValidateIf((_o, value) => value !== null && value !== undefined)
+  @IsEnum(Gender)
+  gender?: Gender | null;
 }
 
 export class ProfileDto {
@@ -86,6 +113,25 @@ export class ProfileDto {
   @ApiProperty({ type: NotificationPreferencesDto })
   preferences!: NotificationPreferencesDto;
 
+  @ApiProperty({ type: String, format: 'date', nullable: true, example: '1995-04-23' })
+  birthDate!: string | null;
+
+  @ApiProperty({ enum: Gender, enumName: 'Gender', nullable: true })
+  gender!: Gender | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Foto de perfil (cuadrado de 512 px, WebP). null si no tiene.',
+  })
+  photoUrl!: string | null;
+
   @ApiProperty()
   createdAt!: Date;
+}
+
+/** Foto de perfil tras subirla o quitarla. */
+export class ProfilePhotoDto {
+  @ApiProperty({ type: String, nullable: true })
+  photoUrl!: string | null;
 }

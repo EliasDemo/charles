@@ -26,6 +26,9 @@ describe('RF-CLI-001 / RF-CLI-002 Perfil del cliente (e2e)', () => {
       phone: null,
       roles: ['CLIENT'],
       preferences: { notificationChannels: ['PUSH', 'EMAIL', 'IN_APP'], reminders: true },
+      birthDate: null,
+      gender: null,
+      photoUrl: null,
       createdAt: expect.any(String),
     });
     const raw = JSON.stringify(res.body);

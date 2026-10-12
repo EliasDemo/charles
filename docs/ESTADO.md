@@ -2,7 +2,7 @@
 
 Punto de partida para retomar el trabajo en una conversación nueva. **Léelo antes de hacer nada**, junto con `CLAUDE.md` y `docs/pendientes-produccion.md`. Se actualiza al cerrar cada fase (CLAUDE.md §1).
 
-Última actualización: backend preparado para charlesweb (2FA del personal, sesión web con cookies y CSRF).
+Última actualización: perfil de la cuenta ampliado (foto, fecha de nacimiento, género y cambio de contraseña); charlesweb completa (etapas 1–5).
 
 ## Resumen
 
@@ -10,7 +10,7 @@ Punto de partida para retomar el trabajo en una conversación nueva. **Léelo an
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Fase cerrada más reciente | **8B** (pagos con Izipay, probado con simulador)                                                                                         |
 | En espera                 | credenciales de prueba de Mercado Pago para la prueba real (guía en `docs/pendientes-produccion.md`); cuenta de Izipay (sin negocio aún) |
-| Siguiente a implementar   | **charlesweb** (web de administración, Next.js, en `D:\barberia\charlesweb`): plan pendiente de presentar; luego Fase 13                 |
+| Siguiente a implementar   | **Fase 13** (promociones, cupones, destacados y auspiciadores): plan presentado, pendiente de aprobación                                 |
 | Pruebas al cierre         | 488 unitarias y 569 e2e, todas en verde; `pnpm verify` pasa                                                                              |
 | Repositorio               | solo commits locales: **sin remoto y sin push** hasta que el usuario lo indique                                                          |
 
@@ -36,6 +36,8 @@ Punto de partida para retomar el trabajo en una conversación nueva. **Léelo an
 | 14   | Galería y perfiles: imágenes en S3 (R2), sharp sin EXIF, estilos, especialidades, reportes                                                                   | (ver `git log`)                                                                                |
 | 8B   | Pagos con Izipay: formulario web (tarjeta y Yape), IPN firmada, consulta, devoluciones; comisión configurable                                                | (ver `git log`)                                                                                |
 | —    | Mercado Pago (Checkout Pro): pasarela activa para pruebas reales; Izipay se mantiene                                                                         | (ver `git log`)                                                                                |
+| —    | charlesweb (web de administración, `D:\barberia\charlesweb`): etapas 1–5 con pruebas Playwright                                                              | (commits en ese repositorio)                                                                   |
+| —    | Perfil ampliado: foto de perfil, fecha de nacimiento, género, cambio de contraseña; foto del cliente en la agenda                                            | (ver `git log`)                                                                                |
 | —    | Preparación de charlesweb: 2FA obligatorio del personal, sesión de personal (12 h / 30 min), sesión web con cookies y CSRF, `/admin/me` y `/admin/dashboard` | (ver `git log`)                                                                                |
 
 ## Fase en curso
@@ -50,9 +52,19 @@ Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Pagos con Izipa
 - **Hallazgo:** un rechazo de la pasarela cancelaba la reserva. Con Izipay se registra como intento fallido y el cliente puede reintentar hasta que venza.
 - **Por validar con cuenta real:** ver `docs/izipay/referencia.md` §8.
 
+### Perfil ampliado de la cuenta: cerrado
+
+Pedido de la app móvil, aprobado por el usuario con las recomendaciones. Migración `20261012193651_user_profile` aplicada en `charles` (nombre con fecha anterior a las dos últimas: no afecta, son independientes).
+
+- `PATCH /users/me`: `birthDate` (`YYYY-MM-DD`, cifrada, 18+ según la hora de Lima) y `gender` (`MALE`, `FEMALE`, `OTHER`, `PREFER_NOT_TO_SAY`); `null` los borra. Uso declarado (Ley 29733): saludo o promoción de cumpleaños y sugerencia de estilos. Nunca los ve una barbería.
+- `PUT`/`DELETE /users/me/photo`: mismas reglas que la foto del barbero; se guarda en `users.photo_variants`, no en `images` (sin moderación por reportes). La ven la cuenta y las barberías donde tiene reservas (`client.photoUrl` en agenda y reservas).
+- `POST /users/me/password`: exige la actual (`WRONG_PASSWORD`, 400; cuenta para el bloqueo), cierra las demás sesiones y avisa por correo. Cerrar sesión en todos los dispositivos ya existía.
+- Al eliminar la cuenta se borran la foto, la fecha y el género.
+- Guía para la app: `docs/mobile/PERFIL.md`.
+
 ### Preparación de charlesweb: cerrada
 
-Decisiones del usuario: la web es un proyecto aparte (`D:\barberia\charlesweb`, Next.js) bajo supervisión de Claude; por ahora solo administración; 2FA obligatorio para SUPPORT y ADMIN; sesión de personal de 12 h con cierre por 30 min de inactividad; dominio de producción tipo `admin.charles.pe`. Detalle en CLAUDE.md §6.3. Migración `20261019000000_staff_mfa` aplicada en `charles`.
+Decisiones del usuario: la web es un proyecto aparte (`D:barberiaarlesweb`, Next.js) bajo supervisión de Claude; por ahora solo administración; 2FA obligatorio para SUPPORT y ADMIN; sesión de personal de 12 h con cierre por 30 min de inactividad; dominio de producción tipo `admin.charles.pe`. Detalle en CLAUDE.md §6.3. Migración `20261019000000_staff_mfa` aplicada en `charles`.
 
 - **Diseño:** el login de la app no cambia; el segundo factor es un paso extra (`/auth/mfa/verify`) que emite la sesión de personal. La web usa rutas propias `/auth/web/*` (cookies) para no tocar el contrato de la app.
 - **Guía para la web:** `docs/web/GUIA-API.md` y `docs/web/openapi.json` (`pnpm web:openapi`).

@@ -4,8 +4,13 @@ import type { AuthUser } from '../../common/auth/auth-user';
 import { PasswordHasher } from '../../common/crypto/password-hasher';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
+import { PrismaService } from '../../common/prisma/prisma.service';
 import { UsersService } from '../users/users.service';
-import type { AcceptedResponseDto, PasswordResetConfirmDto } from './dto/auth.dto';
+import type {
+  AcceptedResponseDto,
+  ChangePasswordDto,
+  PasswordResetConfirmDto,
+} from './dto/auth.dto';
 import { LoginAttemptsService } from './login-attempts.service';
 import { AuthMailProducer } from './mail/auth-mail.producer';
 import { OneTimeCodesService } from './one-time-codes.service';
@@ -16,6 +21,13 @@ import { SessionsService } from './sessions.service';
 export const PASSWORD_RESET_ACCEPTED: AcceptedResponseDto = {
   message: 'Si el correo corresponde a una cuenta, te enviamos un código para recuperar el acceso.',
 };
+
+const wrongPassword = (): AppException =>
+  new AppException(
+    ErrorCode.WRONG_PASSWORD,
+    'La contraseña actual no es correcta.',
+    HttpStatus.BAD_REQUEST,
+  );
 
 const invalidCode = (): AppException =>
   new AppException(
@@ -37,6 +49,7 @@ export class AccountRecoveryService {
     private readonly sessions: SessionsService,
     private readonly mail: AuthMailProducer,
     private readonly audit: AuditService,
+    private readonly prisma: PrismaService,
   ) {}
 
   /** El trabajo (buscar la cuenta, generar el código y enviarlo) ocurre fuera de la petición. */
@@ -83,6 +96,52 @@ export class AccountRecoveryService {
 
     await this.attempts.recordSuccess(subject.accountKey);
     await this.sessions.markRevoked(revokedSessions);
+    await this.mail.enqueue({ type: 'password-changed', userId: user.id });
+  }
+
+  /**
+   * Cambio de contraseña con la sesión iniciada. Exige la actual (los fallos cuentan para el
+   * bloqueo, como en el login), cierra las **demás** sesiones y avisa por correo.
+   */
+  async changePassword(user: AuthUser, dto: ChangePasswordDto, ctx: RequestContext): Promise<void> {
+    const emailHash = await this.users.emailHashOf(user.id);
+    const credentials = await this.users.findCredentialsById(user.id);
+    if (!emailHash || !credentials || credentials.isDeleted) throw wrongPassword();
+    const subject = { accountKey: emailHash.toString('hex'), ip: ctx.ip };
+    await this.attempts.assertNotLocked(subject);
+
+    if (!(await PasswordHasher.verify(credentials.passwordHash, dto.currentPassword))) {
+      await this.attempts.recordFailure(subject);
+      throw wrongPassword();
+    }
+    await this.attempts.recordSuccess(subject.accountKey);
+    if (dto.newPassword === dto.currentPassword) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'La nueva contraseña debe ser distinta de la actual.',
+        HttpStatus.BAD_REQUEST,
+        [{ field: 'newPassword', constraints: ['differentFromCurrent'] }],
+      );
+    }
+
+    const newPasswordHash = await PasswordHasher.hash(dto.newPassword);
+    const revoked = await this.prisma.$transaction(async (tx) => {
+      await this.users.updatePasswordHash(user.id, newPasswordHash, tx);
+      const ids = await this.sessions.revokeOtherSessions(user.id, user.sessionId, tx);
+      await this.audit.record(
+        {
+          actorId: user.id,
+          action: 'auth.password_changed',
+          entityType: 'user',
+          entityId: user.id,
+          changes: { otherSessionsClosed: ids.length },
+          ip: ctx.ip,
+        },
+        tx,
+      );
+      return ids;
+    });
+    await this.sessions.markRevoked(revoked);
     await this.mail.enqueue({ type: 'password-changed', userId: user.id });
   }
 

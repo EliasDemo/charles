@@ -25,7 +25,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { ReconciliationService } from '../payments/reconciliation';
 import { ServicesService } from '../services/services.service';
 import { SettingKey, SettingsService } from '../settings/settings.service';
-import { UsersService } from '../users/users.service';
+import { type ClientCard, UsersService } from '../users/users.service';
 import { cancellationDecision, NO_SHOW_DEFAULTS, noShowAllowed } from './booking-policy';
 import { type BookingActor, BookingStateMachine, SYSTEM_ACTOR } from './booking-state-machine';
 import type { BookingStatus } from '../../generated/prisma/enums';
@@ -918,8 +918,8 @@ export class BookingsService {
       this.access.basicsIncludingDeleted(unique(bookings.map((b) => b.barbershopId))),
       this.barbers.displayNames(unique(bookings.map((b) => b.barberId))),
       viewer === 'STAFF'
-        ? this.users.fullNames(unique(bookings.map((b) => b.clientId)))
-        : Promise.resolve(new Map<string, string>()),
+        ? this.users.clientCards(unique(bookings.map((b) => b.clientId)))
+        : Promise.resolve(new Map<string, ClientCard>()),
       this.services.categoryKeysOf(unique(bookings.map((b) => b.serviceId))),
       eligibilityOf(),
     ]);
@@ -940,9 +940,15 @@ export class BookingsService {
         },
         barber: { id: b.barberId, name: barbers.get(b.barberId) ?? null },
         barberChosenByClient: b.barberChosenByClient,
-        // Solo el nombre: nunca teléfono, correo ni documento (decisión de la Fase 7).
+        // Nombre y foto: nunca teléfono, correo ni documento (decisión de la Fase 7).
         client:
-          viewer === 'STAFF' ? { id: b.clientId, name: clients.get(b.clientId) ?? null } : null,
+          viewer === 'STAFF'
+            ? {
+                id: b.clientId,
+                name: clients.get(b.clientId)?.name ?? null,
+                photoUrl: clients.get(b.clientId)?.photoUrl ?? null,
+              }
+            : null,
         startAt: b.startAt,
         endAt: b.endAt,
         durationMinutes: b.durationMinutesSnapshot,

@@ -353,7 +353,7 @@ export class BookingAttendanceService {
     ]);
     const [barberNames, clientNames, categories] = await Promise.all([
       this.barbers.displayNames([...new Set(bookings.map((b) => b.barberId))]),
-      this.users.fullNames([...new Set(bookings.map((b) => b.clientId))]),
+      this.users.clientCards([...new Set(bookings.map((b) => b.clientId))]),
       this.services.categoryKeysOf(bookings.map((b) => b.serviceId)),
     ]);
 
@@ -371,8 +371,12 @@ export class BookingAttendanceService {
           categoryKey: categories.get(b.serviceId) ?? 'other',
         },
         barber: { id: b.barberId, name: barberNames.get(b.barberId) ?? null },
-        // Solo el nombre (decisión de la Fase 7).
-        client: { id: b.clientId, name: clientNames.get(b.clientId) ?? null },
+        // Nombre y foto, nunca contacto (decisión de la Fase 7).
+        client: {
+          id: b.clientId,
+          name: clientNames.get(b.clientId)?.name ?? null,
+          photoUrl: clientNames.get(b.clientId)?.photoUrl ?? null,
+        },
         awaitingPayment: b.status === 'PENDING_PAYMENT',
         pendingAttention,
         actions: {

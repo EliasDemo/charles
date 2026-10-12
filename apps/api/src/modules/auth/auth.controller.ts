@@ -23,6 +23,7 @@ import { AuthService, type RequestContext } from './auth.service';
 import {
   AcceptedResponseDto,
   AuthTokensDto,
+  ChangePasswordDto,
   EmailVerificationConfirmDto,
   LoginDto,
   LogoutDto,
@@ -162,5 +163,33 @@ export class AuthController {
     @Req() req: Request,
   ): Promise<void> {
     return this.recovery.confirmEmailVerification(user, dto.code, contextOf(req));
+  }
+}
+
+/** Cambio de contraseña con la sesión iniciada (bajo `users/me`, junto al resto del perfil). */
+@ApiTags('users')
+@RateLimit('auth')
+@ApiBearerAuth()
+@Controller('users/me')
+export class PasswordChangeController {
+  constructor(private readonly recovery: AccountRecoveryService) {}
+
+  @Post('password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Cambiar mi contraseña',
+    description:
+      'Exige la contraseña actual (WRONG_PASSWORD si no coincide; los fallos cuentan para el ' +
+      'bloqueo temporal). Cierra las demás sesiones, mantiene la actual y avisa por correo.',
+  })
+  @ApiNoContentResponse()
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiUnauthorizedResponse({ type: ErrorResponseDto })
+  changePassword(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ChangePasswordDto,
+    @Req() req: Request,
+  ): Promise<void> {
+    return this.recovery.changePassword(user, dto, contextOf(req));
   }
 }

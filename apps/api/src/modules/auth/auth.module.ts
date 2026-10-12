@@ -4,7 +4,7 @@ import { DevicesModule } from '../notifications/devices.module';
 import { SettingsModule } from '../settings/settings.module';
 import { UsersModule } from '../users/users.module';
 import { AccountRecoveryService } from './account-recovery.service';
-import { AuthController } from './auth.controller';
+import { AuthController, PasswordChangeController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { LoginAttemptsService } from './login-attempts.service';
 import { AUTH_MAIL_QUEUE } from './mail/auth-mail.jobs';
@@ -23,7 +23,7 @@ import { WebAuthController } from './web-auth.controller';
     DevicesModule,
     BullModule.registerQueue({ name: AUTH_MAIL_QUEUE }),
   ],
-  controllers: [AuthController, MfaController, WebAuthController],
+  controllers: [AuthController, PasswordChangeController, MfaController, WebAuthController],
   providers: [
     AuthService,
     AccountRecoveryService,

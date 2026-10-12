@@ -212,6 +212,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cambiar mi contraseña
+         * @description Exige la contraseña actual (WRONG_PASSWORD si no coincide; los fallos cuentan para el bloqueo temporal). Cierra las demás sesiones, mantiene la actual y avisa por correo.
+         */
+        post: operations["PasswordChangeController_changePassword_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/mfa": {
         parameters: {
             query?: never;
@@ -970,6 +990,27 @@ export interface paths {
         post?: never;
         /** Fase 14: quitar la portada */
         delete: operations["ImagesController_deleteCover_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Subir o reemplazar mi foto de perfil (cuadrado de 512 px)
+         * @description multipart/form-data, campo `file`: JPEG, PNG o WebP hasta 10 MB (HEIC: convertir en la app). Se eliminan los metadatos (EXIF y GPS) y se guarda en WebP. La ven solo la propia cuenta y las barberías donde tiene reservas.
+         */
+        put: operations["ImagesController_setMyPhoto_v1"];
+        post?: never;
+        /** Quitar mi foto de perfil (idempotente) */
+        delete: operations["ImagesController_deleteMyPhoto_v1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2595,6 +2636,8 @@ export interface components {
              */
             reminders: boolean;
         };
+        /** @enum {string} */
+        Gender: "MALE" | "FEMALE" | "OTHER" | "PREFER_NOT_TO_SAY";
         ProfileDto: {
             /** Format: uuid */
             id: string;
@@ -2605,6 +2648,14 @@ export interface components {
             phone: string | null;
             roles: components["schemas"]["Role"][];
             preferences: components["schemas"]["NotificationPreferencesDto"];
+            /**
+             * Format: date
+             * @example 1995-04-23
+             */
+            birthDate: string | null;
+            gender: components["schemas"]["Gender"] | null;
+            /** @description Foto de perfil (cuadrado de 512 px, WebP). null si no tiene. */
+            photoUrl: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -2617,6 +2668,14 @@ export interface components {
              */
             phone?: string | null;
             preferences?: components["schemas"]["NotificationPreferencesDto"];
+            /**
+             * Format: date
+             * @description YYYY-MM-DD; fecha real, desde 1900 y con 18 años cumplidos (la app es para mayores de edad). null la elimina. Se guarda cifrada y nunca la ven las barberías.
+             * @example 1995-04-23
+             */
+            birthDate?: string | null;
+            /** @description null lo elimina. Solo para sugerir estilos; nunca lo ven las barberías. */
+            gender?: components["schemas"]["Gender"] | null;
         };
         TermsDto: {
             /** @example 2026-10 */
@@ -2714,6 +2773,11 @@ export interface components {
         EmailVerificationConfirmDto: {
             /** @example 123456 */
             code: string;
+        };
+        ChangePasswordDto: {
+            currentPassword: string;
+            /** @description Misma política que el registro; debe ser distinta de la actual. */
+            newPassword: string;
         };
         MfaStatusDto: {
             /** @description La verificación en dos pasos está activa. */
@@ -3456,6 +3520,9 @@ export interface components {
             coverUrl: string | null;
             coverThumbUrl: string | null;
         };
+        ProfilePhotoDto: {
+            photoUrl: string | null;
+        };
         BarberPhotoDto: {
             photoUrl: string | null;
         };
@@ -4014,6 +4081,13 @@ export interface components {
             id: string;
             name: string | null;
         };
+        ClientRefDto: {
+            /** Format: uuid */
+            id: string;
+            name: string | null;
+            /** @description Foto de perfil; null si no tiene. */
+            photoUrl: string | null;
+        };
         /** @enum {string} */
         PriceLineType: "SERVICE" | "DISCOUNT" | "FEE" | "TAX";
         PriceLineDto: {
@@ -4058,8 +4132,8 @@ export interface components {
             service: components["schemas"]["BookingServiceDto"];
             barber: components["schemas"]["NamedRefDto"];
             barberChosenByClient: boolean;
-            /** @description Solo para la barbería y el barbero: nombre del cliente (sin contacto). */
-            client: components["schemas"]["NamedRefDto"] | null;
+            /** @description Solo para la barbería y el barbero: nombre y foto del cliente (sin contacto). */
+            client: components["schemas"]["ClientRefDto"] | null;
             /** Format: date-time */
             startAt: string;
             /** Format: date-time */
@@ -4092,8 +4166,8 @@ export interface components {
             service: components["schemas"]["BookingServiceDto"];
             barber: components["schemas"]["NamedRefDto"];
             barberChosenByClient: boolean;
-            /** @description Solo para la barbería y el barbero: nombre del cliente (sin contacto). */
-            client: components["schemas"]["NamedRefDto"] | null;
+            /** @description Solo para la barbería y el barbero: nombre y foto del cliente (sin contacto). */
+            client: components["schemas"]["ClientRefDto"] | null;
             /** Format: date-time */
             startAt: string;
             /** Format: date-time */
@@ -4161,8 +4235,8 @@ export interface components {
             endAt: string;
             service: components["schemas"]["BookingServiceDto"];
             barber: components["schemas"]["NamedRefDto"];
-            /** @description Solo el nombre (sin teléfono, correo ni documento). */
-            client: components["schemas"]["NamedRefDto"];
+            /** @description Nombre y foto de perfil (sin teléfono, correo ni documento). */
+            client: components["schemas"]["ClientRefDto"];
             /** @description PENDING_PAYMENT vigente: por confirmar. */
             awaitingPayment: boolean;
             /** @description CONFIRMED que ya empezó y sigue sin marcar (RF-ATE-001). */
@@ -4210,8 +4284,8 @@ export interface components {
             service: components["schemas"]["BookingServiceDto"];
             barber: components["schemas"]["NamedRefDto"];
             barberChosenByClient: boolean;
-            /** @description Solo para la barbería y el barbero: nombre del cliente (sin contacto). */
-            client: components["schemas"]["NamedRefDto"] | null;
+            /** @description Solo para la barbería y el barbero: nombre y foto del cliente (sin contacto). */
+            client: components["schemas"]["ClientRefDto"] | null;
             /** Format: date-time */
             startAt: string;
             /** Format: date-time */
@@ -5368,6 +5442,43 @@ export interface operations {
                 };
             };
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PasswordChangeController_changePassword_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7365,6 +7476,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BarbershopMediaDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_setMyPhoto_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImageUploadDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePhotoDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ImagesController_deleteMyPhoto_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePhotoDto"];
                 };
             };
             404: {

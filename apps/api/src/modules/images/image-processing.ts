@@ -16,7 +16,13 @@ const ACCEPTED_FORMATS = new Set(['jpeg', 'png', 'webp']);
 /** Evita bombas de descompresión: una imagen de más píxeles se rechaza. */
 const MAX_INPUT_PIXELS = 50_000_000;
 
-export type ImageKind = 'BARBERSHOP_LOGO' | 'BARBERSHOP_COVER' | 'BARBER_PHOTO' | 'GALLERY';
+export type ImageKind =
+  | 'BARBERSHOP_LOGO'
+  | 'BARBERSHOP_COVER'
+  | 'BARBER_PHOTO'
+  | 'GALLERY'
+  /** Foto de perfil de la cuenta: se guarda en `users.photo_variants`, no en `images`. */
+  | 'USER_PHOTO';
 
 export interface Variant {
   name: 'thumb' | 'large' | 'square';
@@ -25,7 +31,7 @@ export interface Variant {
   height: number;
 }
 
-/** Variantes por tipo: galería y portada (400 y 1600 px de ancho); logo y foto (cuadrado de 512). */
+/** Variantes por tipo: galería y portada (400 y 1600 px de ancho); logo y fotos (cuadrado de 512). */
 const PLAN: Record<ImageKind, { name: Variant['name']; width: number; square?: boolean }[]> = {
   GALLERY: [
     { name: 'thumb', width: 400 },
@@ -37,6 +43,7 @@ const PLAN: Record<ImageKind, { name: Variant['name']; width: number; square?: b
   ],
   BARBERSHOP_LOGO: [{ name: 'square', width: 512, square: true }],
   BARBER_PHOTO: [{ name: 'square', width: 512, square: true }],
+  USER_PHOTO: [{ name: 'square', width: 512, square: true }],
 };
 
 const invalidImage = (reason: string): AppException =>

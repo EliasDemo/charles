@@ -101,6 +101,12 @@ export class NamedRefDto {
   name!: string | null;
 }
 
+/** Cliente de una reserva, visto por la barbería: nombre y foto de perfil, nunca contacto. */
+export class ClientRefDto extends NamedRefDto {
+  @ApiProperty({ type: String, nullable: true, description: 'Foto de perfil; null si no tiene.' })
+  photoUrl!: string | null;
+}
+
 /** Barbería de una reserva: las horas de la reserva se muestran en su zona. */
 export class BookingBarbershopDto extends NamedRefDto {
   @ApiProperty({
@@ -175,11 +181,11 @@ export class BookingDto {
   barberChosenByClient!: boolean;
 
   @ApiProperty({
-    type: NamedRefDto,
+    type: ClientRefDto,
     nullable: true,
-    description: 'Solo para la barbería y el barbero: nombre del cliente (sin contacto).',
+    description: 'Solo para la barbería y el barbero: nombre y foto del cliente (sin contacto).',
   })
-  client!: NamedRefDto | null;
+  client!: ClientRefDto | null;
 
   @ApiProperty()
   startAt!: Date;

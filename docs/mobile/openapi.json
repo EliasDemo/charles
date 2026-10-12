@@ -574,6 +574,55 @@
         "tags": ["auth"]
       }
     },
+    "/api/v1/users/me/password": {
+      "post": {
+        "description": "Exige la contraseña actual (WRONG_PASSWORD si no coincide; los fallos cuentan para el bloqueo temporal). Cierra las demás sesiones, mantiene la actual y avisa por correo.",
+        "operationId": "PasswordChangeController_changePassword_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cambiar mi contraseña",
+        "tags": ["users"]
+      }
+    },
     "/api/v1/auth/mfa": {
       "get": {
         "operationId": "MfaController_status_v1",
@@ -3628,6 +3677,125 @@
           }
         ],
         "summary": "Fase 14: quitar la portada",
+        "tags": ["images"]
+      }
+    },
+    "/api/v1/users/me/photo": {
+      "put": {
+        "description": "multipart/form-data, campo `file`: JPEG, PNG o WebP hasta 10 MB (HEIC: convertir en la app). Se eliminan los metadatos (EXIF y GPS) y se guarda en WebP. La ven solo la propia cuenta y las barberías donde tiene reservas.",
+        "operationId": "ImagesController_setMyPhoto_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageUploadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePhotoDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Subir o reemplazar mi foto de perfil (cuadrado de 512 px)",
+        "tags": ["images"]
+      },
+      "delete": {
+        "operationId": "ImagesController_deleteMyPhoto_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePhotoDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Quitar mi foto de perfil (idempotente)",
         "tags": ["images"]
       }
     },
@@ -10117,6 +10285,10 @@
         },
         "required": ["notificationChannels"]
       },
+      "Gender": {
+        "type": "string",
+        "enum": ["MALE", "FEMALE", "OTHER", "PREFER_NOT_TO_SAY"]
+      },
       "ProfileDto": {
         "type": "object",
         "properties": {
@@ -10147,6 +10319,25 @@
           "preferences": {
             "$ref": "#/components/schemas/NotificationPreferencesDto"
           },
+          "birthDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "example": "1995-04-23"
+          },
+          "gender": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Gender"
+              }
+            ]
+          },
+          "photoUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Foto de perfil (cuadrado de 512 px, WebP). null si no tiene."
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -10160,6 +10351,9 @@
           "phone",
           "roles",
           "preferences",
+          "birthDate",
+          "gender",
+          "photoUrl",
           "createdAt"
         ]
       },
@@ -10180,6 +10374,22 @@
           },
           "preferences": {
             "$ref": "#/components/schemas/NotificationPreferencesDto"
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date",
+            "example": "1995-04-23",
+            "nullable": true,
+            "description": "YYYY-MM-DD; fecha real, desde 1900 y con 18 años cumplidos (la app es para mayores de edad). null la elimina. Se guarda cifrada y nunca la ven las barberías."
+          },
+          "gender": {
+            "nullable": true,
+            "description": "null lo elimina. Solo para sugerir estilos; nunca lo ven las barberías.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Gender"
+              }
+            ]
           }
         }
       },
@@ -10424,6 +10634,23 @@
           }
         },
         "required": ["code"]
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 128,
+            "description": "Misma política que el registro; debe ser distinta de la actual."
+          }
+        },
+        "required": ["currentPassword", "newPassword"]
       },
       "MfaStatusDto": {
         "type": "object",
@@ -12604,6 +12831,16 @@
         },
         "required": ["logoUrl", "coverUrl", "coverThumbUrl"]
       },
+      "ProfilePhotoDto": {
+        "type": "object",
+        "properties": {
+          "photoUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": ["photoUrl"]
+      },
       "BarberPhotoDto": {
         "type": "object",
         "properties": {
@@ -14123,6 +14360,25 @@
         },
         "required": ["id", "name"]
       },
+      "ClientRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "photoUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Foto de perfil; null si no tiene."
+          }
+        },
+        "required": ["id", "name", "photoUrl"]
+      },
       "PriceLineType": {
         "type": "string",
         "enum": ["SERVICE", "DISCOUNT", "FEE", "TAX"]
@@ -14255,11 +14511,11 @@
           },
           "client": {
             "nullable": true,
-            "description": "Solo para la barbería y el barbero: nombre del cliente (sin contacto).",
+            "description": "Solo para la barbería y el barbero: nombre y foto del cliente (sin contacto).",
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/NamedRefDto"
+                "$ref": "#/components/schemas/ClientRefDto"
               }
             ]
           },
@@ -14379,11 +14635,11 @@
           },
           "client": {
             "nullable": true,
-            "description": "Solo para la barbería y el barbero: nombre del cliente (sin contacto).",
+            "description": "Solo para la barbería y el barbero: nombre y foto del cliente (sin contacto).",
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/NamedRefDto"
+                "$ref": "#/components/schemas/ClientRefDto"
               }
             ]
           },
@@ -14590,10 +14846,10 @@
             "$ref": "#/components/schemas/NamedRefDto"
           },
           "client": {
-            "description": "Solo el nombre (sin teléfono, correo ni documento).",
+            "description": "Nombre y foto de perfil (sin teléfono, correo ni documento).",
             "allOf": [
               {
-                "$ref": "#/components/schemas/NamedRefDto"
+                "$ref": "#/components/schemas/ClientRefDto"
               }
             ]
           },
@@ -14740,11 +14996,11 @@
           },
           "client": {
             "nullable": true,
-            "description": "Solo para la barbería y el barbero: nombre del cliente (sin contacto).",
+            "description": "Solo para la barbería y el barbero: nombre y foto del cliente (sin contacto).",
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/NamedRefDto"
+                "$ref": "#/components/schemas/ClientRefDto"
               }
             ]
           },

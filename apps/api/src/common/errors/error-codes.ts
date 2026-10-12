@@ -18,6 +18,8 @@ export const ErrorCode = {
   SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
   // Autenticación (Fase 3)
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  /** Cambio de contraseña: la contraseña actual no es correcta (400, no cierra la sesión). */
+  WRONG_PASSWORD: 'WRONG_PASSWORD',
   ACCOUNT_DISABLED: 'ACCOUNT_DISABLED',
   ACCOUNT_LOCKED: 'ACCOUNT_LOCKED',
   INVALID_REFRESH_TOKEN: 'INVALID_REFRESH_TOKEN',

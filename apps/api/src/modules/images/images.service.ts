@@ -13,6 +13,7 @@ import {
   forbidden,
   notFound,
 } from '../barbershops/barbershop-access.service';
+import { UsersService } from '../users/users.service';
 import { type BarbershopMedia, barbershopMedia, NO_MEDIA } from './barbershop-media';
 import type {
   BarberPhotoDto,
@@ -27,7 +28,7 @@ import type {
   SetSpecialtiesDto,
   UpdateGalleryImageDto,
 } from './dto/image.dto';
-import { processImage } from './image-processing';
+import { type ImageKind as ProcessedKind, processImage } from './image-processing';
 import { IMAGE_STORAGE, type ImageStorage } from './image-storage';
 import { IMAGE_DEFAULTS, isHiddenByReports } from './image-policy';
 import { type StoredVariants, variantKeys, variantUrl } from './image-variants';
@@ -100,7 +101,40 @@ export class ImagesService {
     private readonly audit: AuditService,
     @Inject(IMAGE_STORAGE) private readonly storage: ImageStorage,
     @Inject(CLOCK) private readonly clock: Clock,
+    private readonly users: UsersService,
   ) {}
+
+  // ───────────── Foto de perfil de la cuenta ─────────────
+
+  /** Sube o reemplaza la foto de perfil (cuadrado de 512 px). Los archivos viejos se borran al final. */
+  async setUserPhoto(
+    userId: string,
+    file: Buffer | undefined,
+    ip: string | null,
+  ): Promise<{ photoUrl: string | null }> {
+    const variants = await this.store(file, 'USER_PHOTO');
+    let result: Awaited<ReturnType<UsersService['replacePhoto']>>;
+    try {
+      result = await this.users.replacePhoto(userId, variants, ip);
+    } catch (error) {
+      await this.deleteFiles(variantKeys(variants));
+      throw error;
+    }
+    if (!result) {
+      await this.deleteFiles(variantKeys(variants));
+      throw notFound();
+    }
+    await this.deleteFiles(result.oldKeys);
+    return { photoUrl: result.photoUrl };
+  }
+
+  /** Quita la foto de perfil (idempotente). */
+  async deleteUserPhoto(userId: string, ip: string | null): Promise<{ photoUrl: null }> {
+    const result = await this.users.replacePhoto(userId, null, ip);
+    if (!result) throw notFound();
+    await this.deleteFiles(result.oldKeys);
+    return { photoUrl: null };
+  }
 
   // ───────────── Logo, portada y foto del barbero ─────────────
 
@@ -625,7 +659,7 @@ export class ImagesService {
   }
 
   /** Procesa y sube las variantes; devuelve lo que se guarda en `images.variants`. */
-  private async store(file: Buffer | undefined, kind: ImageKind): Promise<StoredVariants> {
+  private async store(file: Buffer | undefined, kind: ProcessedKind): Promise<StoredVariants> {
     if (!this.storage.enabled) throw storageUnavailable();
     if (!file) throw invalidField('file', 'isNotEmpty');
     const processed = await processImage(file, kind);

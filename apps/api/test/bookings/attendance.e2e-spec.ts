@@ -336,7 +336,7 @@ describe('RF-ATE-001…003 Atención, inasistencias, corrección y agenda — Fa
         status: string;
         awaitingPayment: boolean;
         pendingAttention: boolean;
-        client: { id: string; name: string };
+        client: { id: string; name: string; photoUrl: string | null };
         actions: { canMarkAttended: boolean; canMarkNoShow: boolean; canCorrect: boolean };
       }[];
       expect(items.map((i) => i.bookingId)).toEqual([done.id, due.id, pending.id, later.id]);
@@ -359,7 +359,11 @@ describe('RF-ATE-001…003 Atención, inasistencias, corrección y agenda — Fa
         expect.objectContaining({ barberId: shop.barberId, type: 'BREAK', reason: 'Almuerzo' }),
       ]);
       // Solo el nombre del cliente.
-      expect(byId[due.id]!.client).toEqual({ id: due.person.userId, name: 'Persona de Prueba' });
+      expect(byId[due.id]!.client).toEqual({
+        id: due.person.userId,
+        name: 'Persona de Prueba',
+        photoUrl: null,
+      });
       expect(JSON.stringify(res.body)).not.toMatch(/@example|phone|email|document/i);
     });
 
