@@ -38,6 +38,7 @@ export enum PushDriver {
 export enum PaymentsGateway {
   Fake = 'fake',
   Izipay = 'izipay',
+  MercadoPago = 'mercadopago',
 }
 
 export enum IzipayMode {
@@ -275,6 +276,23 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsUrl({ require_tld: false, protocols: ['http', 'https'], require_protocol: true })
   IZIPAY_CHECKOUT_SCRIPT_URL?: string;
+
+  // ───────────── Pagos con Mercado Pago (Checkout Pro, API de Preferences) ─────────────
+
+  /** Access Token de la aplicación ("Tus integraciones"): solo en `.env`. */
+  @IsOptional()
+  @IsString()
+  MERCADOPAGO_ACCESS_TOKEN?: string;
+
+  /** Clave secreta de los webhooks (Webhooks → Configurar notificación): firma `x-signature`. */
+  @IsOptional()
+  @IsString()
+  MERCADOPAGO_WEBHOOK_SECRET?: string;
+
+  /** Por defecto https://api.mercadopago.com (las pruebas usan otra URL local). */
+  @IsOptional()
+  @IsUrl({ require_tld: false, protocols: ['http', 'https'], require_protocol: true })
+  MERCADOPAGO_API_URL?: string;
 }
 
 /** Configuración ya validada e interpretada que consume la aplicación. */
@@ -309,6 +327,11 @@ export interface AppConfig {
   payments: {
     gateway: PaymentsGateway;
     publicApiUrl: string | null;
+    mercadoPago: {
+      accessToken: string | null;
+      webhookSecret: string | null;
+      apiUrl: string;
+    };
     izipay: {
       mode: IzipayMode;
       merchantCode: string | null;
@@ -453,7 +476,34 @@ function productionErrors(env: EnvironmentVariables, corsOrigins: string[]): str
       errors.push('PUBLIC_API_URL: en producción es obligatoria y con https');
     }
   }
+  if (env.PAYMENTS_GATEWAY === PaymentsGateway.MercadoPago) {
+    if (env.MERCADOPAGO_ACCESS_TOKEN?.startsWith('TEST-')) {
+      errors.push('MERCADOPAGO_ACCESS_TOKEN: en producción no se permiten credenciales de prueba');
+    }
+    if (
+      env.MERCADOPAGO_API_URL &&
+      !env.MERCADOPAGO_API_URL.startsWith('https://api.mercadopago.com')
+    ) {
+      errors.push('MERCADOPAGO_API_URL: en producción debe ser https://api.mercadopago.com');
+    }
+    if (!env.PUBLIC_API_URL?.startsWith('https://')) {
+      errors.push('PUBLIC_API_URL: en producción es obligatoria y con https');
+    }
+  }
   return errors;
+}
+
+/** Con Mercado Pago, sus credenciales y la URL pública son obligatorias (en cualquier entorno). */
+function mercadoPagoErrors(env: EnvironmentVariables): string[] {
+  if (env.PAYMENTS_GATEWAY !== PaymentsGateway.MercadoPago) return [];
+  const required = {
+    MERCADOPAGO_ACCESS_TOKEN: env.MERCADOPAGO_ACCESS_TOKEN,
+    MERCADOPAGO_WEBHOOK_SECRET: env.MERCADOPAGO_WEBHOOK_SECRET,
+    PUBLIC_API_URL: env.PUBLIC_API_URL,
+  };
+  return Object.entries(required)
+    .filter(([, value]) => !value)
+    .map(([name]) => `${name}: obligatoria con PAYMENTS_GATEWAY=mercadopago`);
 }
 
 const IZIPAY_URLS = {
@@ -504,7 +554,7 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
   const crypto = parseCryptoKeys(raw);
   const jwtKeys = parseJwtPrivateKey(raw.JWT_PRIVATE_KEY);
   errors.push(...cors.errors, ...trustProxy.errors, ...crypto.errors, ...jwtKeys.errors);
-  errors.push(...izipayErrors(env));
+  errors.push(...izipayErrors(env), ...mercadoPagoErrors(env));
 
   // Las reglas de producción solo se evalúan si los campos básicos son válidos.
   if (errors.length === 0 && env.NODE_ENV === NodeEnv.Production) {
@@ -542,6 +592,11 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
     payments: {
       gateway: env.PAYMENTS_GATEWAY,
       publicApiUrl: env.PUBLIC_API_URL?.replace(/\/+$/, '') || null,
+      mercadoPago: {
+        accessToken: env.MERCADOPAGO_ACCESS_TOKEN || null,
+        webhookSecret: env.MERCADOPAGO_WEBHOOK_SECRET || null,
+        apiUrl: (env.MERCADOPAGO_API_URL || 'https://api.mercadopago.com').replace(/\/+$/, ''),
+      },
       izipay: {
         mode: env.IZIPAY_MODE,
         merchantCode: env.IZIPAY_MERCHANT_CODE || null,

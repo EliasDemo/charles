@@ -5,10 +5,13 @@ import { SettingsModule } from '../settings/settings.module';
 import { APP_CONFIG } from '../../common/config/app-config.token';
 import { type AppConfig, PaymentsGateway } from '../../common/config/env.validation';
 import { UsersModule } from '../users/users.module';
+import { PaymentPagesController } from './checkout-pages';
 import { FakeGateway } from './fake-gateway';
 import { IzipayCheckoutController } from './izipay/izipay-checkout.controller';
 import { IzipayCheckoutService } from './izipay/izipay-checkout.service';
 import { IzipayGateway } from './izipay/izipay-gateway';
+import { MercadoPagoGateway } from './mercadopago/mercadopago-gateway';
+import { MercadoPagoReturnController } from './mercadopago/mercadopago-return.controller';
 import { PAYMENT_GATEWAY } from './payment-gateway';
 import { PaymentVerificationService } from './payment-verification.service';
 import { PaymentsProviderCheck } from './payments-provider.check';
@@ -35,15 +38,30 @@ import { WebhooksService } from './webhooks.service';
     UsersModule,
     BullModule.registerQueue({ name: PAYMENTS_QUEUE }),
   ],
-  controllers: [PaymentsController, IzipayCheckoutController],
+  controllers: [
+    PaymentsController,
+    PaymentPagesController,
+    IzipayCheckoutController,
+    MercadoPagoReturnController,
+  ],
   providers: [
     FakeGateway,
     IzipayGateway,
+    MercadoPagoGateway,
     {
       provide: PAYMENT_GATEWAY,
-      inject: [APP_CONFIG, FakeGateway, IzipayGateway],
-      useFactory: (config: AppConfig, fake: FakeGateway, izipay: IzipayGateway) =>
-        config.payments.gateway === PaymentsGateway.Izipay ? izipay : fake,
+      inject: [APP_CONFIG, FakeGateway, IzipayGateway, MercadoPagoGateway],
+      useFactory: (
+        config: AppConfig,
+        fake: FakeGateway,
+        izipay: IzipayGateway,
+        mercadoPago: MercadoPagoGateway,
+      ) =>
+        config.payments.gateway === PaymentsGateway.Izipay
+          ? izipay
+          : config.payments.gateway === PaymentsGateway.MercadoPago
+            ? mercadoPago
+            : fake,
     },
     IzipayCheckoutService,
     PaymentsService,

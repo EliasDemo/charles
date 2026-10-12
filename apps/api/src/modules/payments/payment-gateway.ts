@@ -47,8 +47,11 @@ export interface CreatePaymentInput {
 
 /** Lo que la app necesita para que el cliente pague (Izipay: formToken, clave pública y servidor). */
 export interface ClientPaymentAction {
-  /** IZIPAY_WEB: la app abre `data.paymentUrl` (formulario web de Izipay) en un WebView. */
-  type: 'FAKE' | 'IZIPAY_WEB';
+  /**
+   * IZIPAY_WEB y MERCADOPAGO_WEB: la app abre `data.paymentUrl` (formulario de la pasarela) en un
+   * WebView y lo cierra al llegar a `data.doneUrlPrefix`.
+   */
+  type: 'FAKE' | 'IZIPAY_WEB' | 'MERCADOPAGO_WEB';
   data: Record<string, string>;
 }
 
@@ -113,6 +116,8 @@ export interface PaymentWebhookEvent {
   payload: Record<string, unknown>;
   /** Ver `ProviderPaymentState.providerData`. */
   providerData?: Record<string, string>;
+  /** Aviso auténtico que no afecta a ningún pago (otro tema): se responde 200 y no se procesa. */
+  ignored?: boolean;
 }
 
 export interface RawWebhook {
@@ -138,8 +143,12 @@ export interface PaymentGateway {
     refundId: string;
     providerRefundId: string | null;
   }): Promise<ProviderRefundState>;
-  /** Verifica la firma y normaliza. Lanza `InvalidSignatureError` si no es auténtico. */
-  parseWebhook(raw: RawWebhook): PaymentWebhookEvent;
+  /**
+   * Verifica la firma y normaliza. Lanza `InvalidSignatureError` si no es auténtico. Puede
+   * consultar al proveedor (Mercado Pago no envía el monto en el aviso): siempre se llama fuera
+   * de toda transacción.
+   */
+  parseWebhook(raw: RawWebhook): PaymentWebhookEvent | Promise<PaymentWebhookEvent>;
   /**
    * Verifica la respuesta que la app reenvía tras pagar (Izipay: firmada con la clave HMAC) y
    * devuelve el ID del pago. Nunca confirma por sí sola: solo dispara la consulta al proveedor.

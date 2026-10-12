@@ -35,6 +35,7 @@ describe('Fase 8B: pagos con Izipay (simulado) — página de pago, IPN, consult
         payments: {
           gateway: PaymentsGateway.Izipay,
           publicApiUrl: PUBLIC,
+          mercadoPago: base.payments.mercadoPago,
           izipay: {
             mode: IzipayMode.Test,
             merchantCode: izipay.merchantCode,
@@ -132,7 +133,7 @@ describe('Fase 8B: pagos con Izipay (simulado) — página de pago, IPN, consult
         paymentUrl: expect.stringMatching(
           new RegExp(`^${PUBLIC}/api/v1/payments/izipay/checkout/${payment.id}\\?e=\\d+&s=`),
         ),
-        doneUrlPrefix: `${PUBLIC}/api/v1/payments/izipay/done`,
+        doneUrlPrefix: `${PUBLIC}/api/v1/payments/done`,
       },
     });
 
@@ -233,13 +234,11 @@ describe('Fase 8B: pagos con Izipay (simulado) — página de pago, IPN, consult
       .send(izipay.signedResult({ orderNumber: payment.providerPaymentId!, amount: '25.00' }))
       .expect(303);
     expect(res.headers.location).toBe(
-      `${PUBLIC}/api/v1/payments/izipay/done?status=success&paymentId=${payment.id}&bookingId=${body.id}`,
+      `${PUBLIC}/api/v1/payments/done?status=success&paymentId=${payment.id}&bookingId=${body.id}`,
     );
     expect(izipay.calls).toContain('POST /orderinfo/v1/Transaction/Search');
     expect(await statusOf(body.id as string)).toBe('CONFIRMED');
-    const done = await new AuthClient(app)
-      .get(`${API}/payments/izipay/done?status=success`)
-      .expect(200);
+    const done = await new AuthClient(app).get(`${API}/payments/done?status=success`).expect(200);
     expect(done.text).toContain('Pago enviado');
 
     // Cancelado sin datos firmados: no consulta ni cambia nada.

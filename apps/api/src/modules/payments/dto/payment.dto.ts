@@ -4,18 +4,19 @@ import { MoneyDto } from '../../barbershops/dto/barbershop.dto';
 
 export class ClientPaymentActionDto {
   @ApiProperty({
-    enum: ['FAKE', 'IZIPAY_WEB'],
+    enum: ['FAKE', 'IZIPAY_WEB', 'MERCADOPAGO_WEB'],
     description:
-      'FAKE: pasarela simulada (desarrollo; pagar con dev:pay). IZIPAY_WEB: abrir data.paymentUrl ' +
-      '(formulario de Izipay con tarjeta y Yape) en un WebView; el pago termina cuando la página ' +
-      'navega a una URL que contiene /payments/izipay/done.',
+      'FAKE: pasarela simulada (desarrollo; pagar con dev:pay). IZIPAY_WEB y MERCADOPAGO_WEB: abrir ' +
+      'data.paymentUrl (formulario de la pasarela, con tarjeta y Yape) en un WebView; el pago ' +
+      'termina cuando la página navega a una URL que empieza con data.doneUrlPrefix.',
   })
-  type!: 'FAKE' | 'IZIPAY_WEB';
+  type!: 'FAKE' | 'IZIPAY_WEB' | 'MERCADOPAGO_WEB';
 
   @ApiProperty({
     type: 'object',
     additionalProperties: { type: 'string' },
-    description: 'FAKE: { paymentId }. IZIPAY_WEB: { paymentUrl, doneUrlPrefix }.',
+    description:
+      'FAKE: { paymentId }. IZIPAY_WEB y MERCADOPAGO_WEB: { paymentUrl, doneUrlPrefix }.',
   })
   data!: Record<string, string>;
 }

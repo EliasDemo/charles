@@ -539,6 +539,14 @@ PENDING_PAYMENT ──pago confirmado──▶ CONFIRMED ──▶ ATTENDED
 - **Comisión de Charles** (`bookings/commission-policy.ts`, pura): `fees.percent_bp` (0–3000), `fees.fixed_amount` (céntimos, 0–10 000) y `fees.payer` (`BARBERSHOP` por defecto, o `CLIENT`), editables solo por ADMIN. Se congela en `bookings.commission_amount` y `commission_payer`; si paga el cliente también es la línea `FEE` y suma al total (CHECK en SQL). La barbería la ve en `BookingDto.commission`.
 - **Pruebas:** `test/support/izipay-simulator.ts` (servidor HTTP local que firma como Izipay, credenciales aleatorias) y `izipay.e2e-spec.ts`.
 
+#### Pagos con Mercado Pago (Checkout Pro)
+
+- **Pasarela activa para pruebas reales** (`PAYMENTS_GATEWAY=mercadopago`); Izipay se mantiene. Referencia: `docs/mercadopago/referencia.md`. Variables `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET` y `PUBLIC_API_URL` (obligatorias con esta pasarela); en producción no arranca con un token `TEST-`, otra API ni URL pública sin https.
+- **Pago:** preferencia con `external_reference` = ID del pago, `X-Idempotency-Key`, vencimiento de 30 min y `notification_url` con `source_news=webhooks`. `clientAction = MERCADOPAGO_WEB` (`init_point` en un WebView). Regreso por `back_urls` (GET `/payments/mercadopago/return/{paymentId}`): solo dispara la consulta y lleva a `/payments/done` (página final común).
+- **Webhook:** firma `x-signature` (`HMAC-SHA256-hex(secreto, "id:{data.id};request-id:{x-request-id};ts:{ts};")`, como el SDK oficial). El aviso no trae el monto: `parseWebhook` (asíncrono, fuera de transacciones) consulta el pago. Solo `approved` confirma; pendiente (Yape), rechazado o cancelado no cambian la reserva. Idempotente por `{pago}:{estado}`; otros temas, `ignored` (200 sin procesar).
+- **Conciliación** por `external_reference`; **devoluciones** con `metadata.provider.mpPaymentId` (`providerRefundId = {pago}:{devolución}`).
+- **Pruebas:** `test/support/mercadopago-simulator.ts` y `mercadopago.e2e-spec.ts`.
+
 #### Atención e inasistencias (Fase 9, RF-ATE-001…003)
 
 - **Marcar atendida (`POST /bookings/{id}/attended`):** el barbero asignado o la barbería (OWNER o MANAGER), sobre una reserva `CONFIRMED`, desde la hora de inicio y hasta `booking.attendance_auto_close_hours` (24) después, con límites inclusivos. No hay devolución.

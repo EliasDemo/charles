@@ -2,20 +2,11 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Res } from '@
 import { ApiExcludeController } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { Public } from '../../../common/auth/public.decorator';
-import { type CheckoutPage, IzipayCheckoutService } from './izipay-checkout.service';
+import { sendPage } from '../checkout-pages';
+import { IzipayCheckoutService } from './izipay-checkout.service';
 import { IZIPAY_CHECKOUT_ROUTE } from './izipay-gateway';
 
 const uuid = new ParseUUIDPipe();
-
-function send(res: Response, page: CheckoutPage): void {
-  res
-    .status(page.status)
-    .setHeader('Content-Type', 'text/html; charset=utf-8')
-    .setHeader('Content-Security-Policy', page.csp)
-    .setHeader('Cache-Control', 'no-store')
-    .setHeader('Referrer-Policy', 'no-referrer')
-    .send(page.html);
-}
 
 /**
  * Páginas del pago con Izipay que abre la app en un WebView (Fase 8B). No son parte del contrato
@@ -34,7 +25,7 @@ export class IzipayCheckoutController {
     @Query('s') signature: unknown,
     @Res() res: Response,
   ): Promise<void> {
-    send(res, await this.checkout.page(paymentId, expires, signature));
+    sendPage(res, await this.checkout.page(paymentId, expires, signature));
   }
 
   /** Izipay vuelve aquí por POST (x-www-form-urlencoded) al terminar el formulario. */
@@ -47,11 +38,5 @@ export class IzipayCheckoutController {
     @Res() res: Response,
   ): Promise<void> {
     res.redirect(303, await this.checkout.handleReturn(paymentId, result, body ?? {}));
-  }
-
-  @Public()
-  @Get('done')
-  done(@Query('status') status: unknown, @Res() res: Response): void {
-    send(res, this.checkout.donePage(status));
   }
 }

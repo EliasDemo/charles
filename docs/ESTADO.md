@@ -2,17 +2,17 @@
 
 Punto de partida para retomar el trabajo en una conversación nueva. **Léelo antes de hacer nada**, junto con `CLAUDE.md` y `docs/pendientes-produccion.md`. Se actualiza al cerrar cada fase (CLAUDE.md §1).
 
-Última actualización: cierre de la Fase 8B (pagos con Izipay).
+Última actualización: Mercado Pago como pasarela para pruebas reales.
 
 ## Resumen
 
-|                           |                                                                                 |
-| ------------------------- | ------------------------------------------------------------------------------- |
-| Fase cerrada más reciente | **8B** (pagos con Izipay, probado con simulador)                                |
-| En espera                 | cuenta real de Izipay (proyecto universitario: sin negocio aún)                 |
-| Siguiente a implementar   | a definir por el usuario (13, 15 y 16 esperan decisiones de negocio)            |
-| Pruebas al cierre         | 488 unitarias y 569 e2e, todas en verde; `pnpm verify` pasa                     |
-| Repositorio               | solo commits locales: **sin remoto y sin push** hasta que el usuario lo indique |
+|                           |                                                                                                                                          |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Fase cerrada más reciente | **8B** (pagos con Izipay, probado con simulador)                                                                                         |
+| En espera                 | credenciales de prueba de Mercado Pago para la prueba real (guía en `docs/pendientes-produccion.md`); cuenta de Izipay (sin negocio aún) |
+| Siguiente a implementar   | a definir por el usuario (13, 15 y 16 esperan decisiones de negocio)                                                                     |
+| Pruebas al cierre         | 488 unitarias y 569 e2e, todas en verde; `pnpm verify` pasa                                                                              |
+| Repositorio               | solo commits locales: **sin remoto y sin push** hasta que el usuario lo indique                                                          |
 
 ## Fases cerradas y sus commits
 
@@ -35,6 +35,7 @@ Punto de partida para retomar el trabajo en una conversación nueva. **Léelo an
 | —    | Alta con revisión previa: documento del responsable, cambios pedidos y reenvío; categoryKey en reservas       | (ver `git log`)                                                                                |
 | 14   | Galería y perfiles: imágenes en S3 (R2), sharp sin EXIF, estilos, especialidades, reportes                    | (ver `git log`)                                                                                |
 | 8B   | Pagos con Izipay: formulario web (tarjeta y Yape), IPN firmada, consulta, devoluciones; comisión configurable | (ver `git log`)                                                                                |
+| —    | Mercado Pago (Checkout Pro): pasarela activa para pruebas reales; Izipay se mantiene                          | (ver `git log`)                                                                                |
 
 ## Fase en curso
 
@@ -47,6 +48,14 @@ Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Pagos con Izipa
 - **Decisiones del usuario:** tarjeta y Yape; formulario web en la app; comisión configurable por ADMIN (por defecto la barbería, en 0); la comisión de Izipay en devoluciones la asume la barbería; la barbería usa DNI o RUC (el RUC de Izipay es el de Charles).
 - **Hallazgo:** un rechazo de la pasarela cancelaba la reserva. Con Izipay se registra como intento fallido y el cliente puede reintentar hasta que venza.
 - **Por validar con cuenta real:** ver `docs/izipay/referencia.md` §8.
+
+### Mercado Pago: integrado (pendiente la prueba real)
+
+Por decisión del usuario, **Mercado Pago** es la pasarela para pruebas reales (da credenciales y usuarios de prueba sin negocio) e **Izipay se mantiene** para el futuro. Detalle en CLAUDE.md §8, "Pagos con Mercado Pago (Checkout Pro)".
+
+- Probado con un simulador que firma como el SDK oficial. **Falta la prueba real** con las credenciales de prueba del usuario y un túnel https (guía en `docs/pendientes-produccion.md`).
+- La página final del pago ahora es común: `/payments/done` (antes `/payments/izipay/done`).
+- **Decisión técnica:** `parseWebhook` puede consultar al proveedor (Mercado Pago no envía el monto en el aviso), siempre fuera de transacciones.
 
 ### 9 — Atención e inasistencias: cerrada
 
@@ -177,7 +186,8 @@ pnpm verify
 
 **En espera:**
 
-- **Cuenta de Izipay** (afiliación con RUC y credenciales): no hay negocio todavía. Con ella, seguir la guía de `docs/pendientes-produccion.md`.
+- **Prueba real con Mercado Pago:** credenciales de prueba del usuario en `.env`, túnel https y la guía de `docs/pendientes-produccion.md`.
+- **Cuenta de Izipay** (afiliación con RUC y credenciales): no hay negocio todavía.
 
 **Preguntas abiertas** (detalle en `docs/pendientes-produccion.md`):
 

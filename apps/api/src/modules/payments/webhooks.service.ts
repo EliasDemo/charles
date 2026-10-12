@@ -55,7 +55,7 @@ export class WebhooksService {
     await this.rateLimiter.assertIpNotBlocked(ip);
     let event: PaymentWebhookEvent;
     try {
-      event = this.gateway.parseWebhook(raw);
+      event = await this.gateway.parseWebhook(raw);
     } catch (error) {
       if (error instanceof InvalidSignatureError) {
         await this.rateLimiter.recordInvalid(ip);
@@ -65,6 +65,7 @@ export class WebhooksService {
       throw error;
     }
     await this.rateLimiter.consumeProvider(this.gateway.provider);
+    if (event.ignored) return { received: true, duplicate: false };
     this.assertFresh(event);
     const paymentId = await this.resolvePaymentId(event);
     await this.assertCoherent(event, paymentId);

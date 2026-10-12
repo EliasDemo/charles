@@ -6,16 +6,16 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 import { UsersService } from '../../users/users.service';
 import { PAYMENT_GATEWAY, type PaymentGateway } from '../payment-gateway';
 import { ReconciliationService } from '../reconciliation';
-import { IZIPAY_CHECKOUT_ROUTE, IZIPAY_DONE_PATH, IzipayGateway } from './izipay-gateway';
-
-export type CheckoutResult = 'success' | 'error' | 'cancel' | 'expired';
-
-export interface CheckoutPage {
-  status: number;
-  html: string;
-  /** Política de seguridad de contenido propia de la página (permite el script de Izipay). */
-  csp: string;
-}
+import {
+  type CheckoutPage,
+  type CheckoutResult,
+  doneUrl,
+  escapeHtml,
+  htmlPage,
+  messagePage,
+  redirectPage,
+} from '../checkout-pages';
+import { IZIPAY_CHECKOUT_ROUTE, IzipayGateway } from './izipay-gateway';
 
 /**
  * Página de pago que la app abre en un WebView (Fase 8B). Carga el formulario web de Izipay en
@@ -42,7 +42,7 @@ export class IzipayCheckoutService {
   async page(paymentId: string, expires: unknown, signature: unknown): Promise<CheckoutPage> {
     const izipay = this.izipay;
     if (!izipay || !izipay.isValidCheckoutLink(paymentId, expires, signature)) {
-      return message(404, 'Enlace no válido', 'Este enlace de pago no existe o ya venció.');
+      return messagePage(404, 'Enlace no válido', 'Este enlace de pago no existe o ya venció.');
     }
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
@@ -67,7 +67,10 @@ export class IzipayCheckoutService {
       !payment.booking.expiresAt ||
       payment.booking.expiresAt.getTime() <= now
     ) {
-      return this.redirectPage(izipay, payment?.booking.id ?? null, paymentId, 'expired');
+      return redirectPage(
+        this.doneUrl(izipay, payment?.booking.id ?? null, paymentId, 'expired'),
+        'Este pago ya no está disponible.',
+      );
     }
     const [user, contact] = await Promise.all([
       this.prisma.user.findUnique({
@@ -86,7 +89,7 @@ export class IzipayCheckoutService {
       });
     } catch (error) {
       this.logger.warn({ err: (error as Error).name, paymentId }, 'Izipay no generó el token');
-      return message(
+      return messagePage(
         502,
         'No pudimos abrir el pago',
         'El servicio de pagos no respondió. Vuelve a intentarlo en unos segundos.',
@@ -178,51 +181,15 @@ export class IzipayCheckoutService {
     return this.doneUrl(izipay, payment.bookingId, paymentId, outcome);
   }
 
-  donePage(result: unknown): CheckoutPage {
-    const texts: Record<CheckoutResult, [string, string]> = {
-      success: ['Pago enviado', 'Estamos confirmando tu reserva. Ya puedes volver a Charles.'],
-      error: ['El pago no se completó', 'Puedes volver a Charles e intentarlo de nuevo.'],
-      cancel: ['Pago cancelado', 'No se realizó ningún cobro. Vuelve a Charles para continuar.'],
-      expired: ['Este pago ya no está disponible', 'La reserva venció o ya fue pagada.'],
-    };
-    const key = (
-      typeof result === 'string' && result in texts ? result : 'error'
-    ) as CheckoutResult;
-    return message(200, ...texts[key]);
-  }
-
-  private redirectPage(
-    izipay: IzipayGateway,
-    bookingId: string | null,
-    paymentId: string,
-    result: CheckoutResult,
-  ): CheckoutPage {
-    const url = this.doneUrl(izipay, bookingId, paymentId, result);
-    return {
-      status: 200,
-      csp: BASE_CSP,
-      html: page(
-        'Redirigiendo',
-        `<p>Este pago ya no está disponible.</p><p><a href="${escapeHtml(url)}">Continuar</a></p>`,
-        `<meta http-equiv="refresh" content="0;url=${escapeHtml(url)}">`,
-      ),
-    };
-  }
-
   private doneUrl(
     izipay: IzipayGateway | null,
     bookingId: string | null,
     paymentId: string,
     result: CheckoutResult,
   ): string {
-    const query = new URLSearchParams({ status: result, paymentId });
-    if (bookingId) query.set('bookingId', bookingId);
-    return `${izipay?.publicBaseUrl() ?? ''}${IZIPAY_DONE_PATH}?${query.toString()}`;
+    return doneUrl(izipay?.publicBaseUrl() ?? '', bookingId, paymentId, result);
   }
 }
-
-const BASE_CSP =
-  "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 
 /** Permite solo el script de Izipay (y lo que carga desde sus dominios) y el propio con nonce. */
 function izipayCsp(nonce: string, scriptUrl: string): string {
@@ -253,7 +220,7 @@ function checkoutHtml(input: {
 }): string {
   // JSON dentro de <script>: se escapan "<" para que nada cierre la etiqueta.
   const json = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c');
-  return page(
+  return htmlPage(
     'Pagar reserva',
     `<h1>${escapeHtml(input.title)}</h1>
 ${input.testMode ? '<p class="test">Modo de pruebas: no se cobra dinero real.</p>' : ''}
@@ -270,38 +237,6 @@ window.addEventListener('load', function () {
 });
 </script>`,
     `<script src="${escapeHtml(input.scriptUrl)}" defer></script>`,
-  );
-}
-
-function message(status: number, title: string, text: string): CheckoutPage {
-  return {
-    status,
-    csp: BASE_CSP,
-    html: page(title, `<h1>${escapeHtml(title)}</h1><p>${escapeHtml(text)}</p>`),
-  };
-}
-
-function page(title: string, body: string, head = ''): string {
-  return `<!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>${escapeHtml(title)} · Charles</title>
-<style>body{font-family:system-ui,sans-serif;margin:24px 16px;color:#1d1d1f}h1{font-size:20px}.test{background:#fff4ce;padding:8px;border-radius:6px}</style>
-${head}
-</head>
-<body>
-${body}
-</body>
-</html>`;
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
   );
 }
 

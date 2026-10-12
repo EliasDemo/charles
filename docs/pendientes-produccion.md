@@ -95,3 +95,14 @@ Las credenciales van **solo** en el `.env` del servidor; nunca en el repositorio
 4. **Prueba de punta a punta** con tarjetas de prueba y Yape: reserva, pago, IPN, conciliación y cancelación.
 5. **Producción:** credenciales de producción, `IZIPAY_MODE=PRODUCTION` (la app no arranca en producción con TEST, con URLs de sandbox ni sin `PUBLIC_API_URL` https) y **vigilar la primera devolución** (no se puede probar en sandbox).
 6. **Pendiente de la liquidación a la barbería:** descontar la comisión de Charles (`commission_amount` cuando `payer = BARBERSHOP`) y la comisión de Izipay en las devoluciones.
+
+## Guía: prueba real con Mercado Pago (modo de prueba)
+
+1. En **mercadopago.com.pe/developers** → "Tus integraciones" → **Crear aplicación** → **Checkout Pro**, tipo de API **Preferences**.
+2. **Pruebas → Credenciales de prueba:** copia el **Access Token** a `MERCADOPAGO_ACCESS_TOKEN` en `apps/api/.env`.
+3. **Cuentas de prueba:** crea un **vendedor** y un **comprador** (Perú). Guarda sus usuarios y contraseñas fuera del repositorio.
+4. **Túnel https** a la API local (por ejemplo `cloudflared tunnel --url http://localhost:3000`) y pon su URL en `PUBLIC_API_URL`.
+5. **Webhooks → Configurar notificación:** URL `{PUBLIC_API_URL}/api/v1/payments/webhooks/mercadopago`, evento **Pagos**; copia la **clave secreta** a `MERCADOPAGO_WEBHOOK_SECRET`.
+6. `PAYMENTS_GATEWAY=mercadopago` y reinicia la API. En `app_settings`, `payments.provider` puede quedar como está en desarrollo (la validación de `FAKE` solo aplica en producción).
+7. Reserva desde la app, abre el pago, inicia sesión con el **comprador de prueba** (ventana de incógnito si es en el navegador) y paga con la tarjeta de prueba y titular `APRO`. Verifica que la reserva pase a `CONFIRMED`; luego cancela y verifica la devolución.
+8. **Producción:** credenciales de producción, `PUBLIC_API_URL` https propia y `payments.provider = MERCADOPAGO`. La app no arranca en producción con un token `TEST-`.

@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../common/clock/clock';
 import { APP_CONFIG } from '../../../common/config/app-config.token';
 import { type AppConfig, IzipayMode } from '../../../common/config/env.validation';
+import { PAYMENTS_DONE_PATH } from '../checkout-pages';
 import {
   type CreatePaymentInput,
   type CreatePaymentResult,
@@ -29,8 +30,6 @@ import {
 export const IZIPAY_PROVIDER = 'IZIPAY';
 /** Ruta (bajo /api/v1) de la página de pago y del regreso del formulario. */
 export const IZIPAY_CHECKOUT_ROUTE = 'payments/izipay';
-/** La app detecta el fin del pago cuando el WebView navega a una URL que contiene esto. */
-export const IZIPAY_DONE_PATH = `/api/v1/${IZIPAY_CHECKOUT_ROUTE}/done`;
 /** Vigencia del enlace de la página de pago (la reserva vence antes: 10 min por defecto). */
 const CHECKOUT_LINK_TTL_MS = 30 * 60 * 1000;
 const HTTP_TIMEOUT_MS = 15_000;
@@ -147,7 +146,7 @@ export class IzipayGateway implements PaymentGateway {
           type: 'IZIPAY_WEB',
           data: {
             paymentUrl: this.checkoutUrl(input.paymentId),
-            doneUrlPrefix: `${this.publicApiUrl}${IZIPAY_DONE_PATH}`,
+            doneUrlPrefix: `${this.publicApiUrl}${PAYMENTS_DONE_PATH}`,
           },
         },
       });

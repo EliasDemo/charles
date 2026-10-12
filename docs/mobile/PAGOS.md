@@ -1,6 +1,6 @@
 # Pagos en la app móvil
 
-Para quien construye la app. Estado al cierre de la Fase 8B: el sistema de pagos funciona con la pasarela simulada (`FakeGateway`, desarrollo) y con **Izipay** (formulario web con tarjeta y Yape, abierto en un WebView). Izipay está probado con un simulador: falta una cuenta real (ver `docs/pendientes-produccion.md`). Referencia del backend: `docs/izipay/referencia.md`.
+Para quien construye la app. **Pasarela para pruebas reales: Mercado Pago** (`MERCADOPAGO_WEB`, ver abajo). Estado al cierre de la Fase 8B: el sistema de pagos funciona con la pasarela simulada (`FakeGateway`, desarrollo) y con **Izipay** (formulario web con tarjeta y Yape, abierto en un WebView). Izipay está probado con un simulador: falta una cuenta real (ver `docs/pendientes-produccion.md`). Referencia del backend: `docs/izipay/referencia.md`.
 
 ## Principio que no cambia
 
@@ -50,14 +50,14 @@ Sin módulos nativos: funciona en **Expo Go** con `react-native-webview`.
      "type": "IZIPAY_WEB",
      "data": {
        "paymentUrl": "https://…/api/v1/payments/izipay/checkout/{paymentId}?e=…&s=…",
-       "doneUrlPrefix": "https://…/api/v1/payments/izipay/done"
+       "doneUrlPrefix": "https://…/api/v1/payments/done"
      }
    }
    ```
 
 2. **Abre `paymentUrl` en un `WebView`** a pantalla completa. Es la página de pago de Charles, que carga el formulario oficial de Izipay: tarjeta (Visa, Mastercard, Amex, Diners) y **Yape** (número + código de aprobación de la app de Yape, hasta S/ 2000). Los datos de la tarjeta nunca pasan por Charles ni por la app.
    - El enlace es personal y vence a los 30 minutos (la reserva vence antes, a los 10). Si vence, llama a `POST /bookings/{id}/payment` para obtener uno nuevo.
-3. **Detecta el final** con `onNavigationStateChange` (o `onShouldStartLoadWithRequest`): cuando la URL **empieza con `doneUrlPrefix`**, cierra el WebView. Esa URL trae `status` (`success`, `error`, `cancel` o `expired`), `paymentId` y `bookingId`.
+3. **Detecta el final** con `onNavigationStateChange` (o `onShouldStartLoadWithRequest`): cuando la URL **empieza con `doneUrlPrefix`**, cierra el WebView. Esa URL trae `status` (`success`, `pending`, `error`, `cancel` o `expired`), `paymentId` y `bookingId`.
    - `success`: muestra "Confirmando tu pago…" y consulta `GET /bookings/{id}` hasta ver `CONFIRMED` (el servidor ya consultó a Izipay; la notificación también llega).
    - `error`: "El pago no se completó". La reserva **sigue pendiente**: ofrece reintentar (vuelve a abrir el formulario) mientras no venza.
    - `cancel`: el cliente cerró el formulario; igual que `error`, sin cobro.
@@ -90,4 +90,18 @@ Ejemplo mínimo:
 
 La página muestra "Modo de pruebas: no se cobra dinero real". Las tarjetas de prueba las da Izipay con la cuenta de pruebas.
 
-Encapsula el pago en un módulo que elija según `clientAction.type`: `FAKE` (espera la confirmación; en desarrollo se paga con `dev:pay`) o `IZIPAY_WEB` (WebView).
+## Con Mercado Pago (Checkout Pro): `MERCADOPAGO_WEB`
+
+Mismo patrón que Izipay: `clientAction = { type: "MERCADOPAGO_WEB", data: { paymentUrl, doneUrlPrefix } }`.
+
+1. Abre `paymentUrl` (checkout de Mercado Pago: tarjeta, cuenta de Mercado Pago y **Yape**) en un WebView.
+2. Cierra al llegar a `doneUrlPrefix` y lee `status`:
+   - `success`: "Confirmando tu pago…" y consulta la reserva hasta `CONFIRMED`.
+   - `pending`: el pago quedó **pendiente** (por ejemplo, Yape). Muestra "Tu pago está en proceso" y consulta la reserva; se confirma cuando Mercado Pago lo apruebe. Si llega después del vencimiento, el servidor devuelve el dinero.
+   - `error`: rechazado; la reserva sigue pendiente, ofrece reintentar.
+3. Para reintentar o si el enlace venció: `POST /bookings/{id}/payment` (nuevo `paymentUrl`).
+4. **Prueba real (modo de prueba):** inicia sesión en el checkout con el **comprador de prueba** y usa las tarjetas de prueba (titular `APRO` = aprobado, `OTHE` = rechazado, `CONT` = pendiente). Ver `docs/mercadopago/referencia.md`.
+
+Mercado Pago sugiere `expo-web-browser` (Custom Tabs) en su guía de Expo Go; si el WebView diera problemas con su login, se puede usar ese navegador, que también terminará en `doneUrlPrefix`.
+
+Encapsula el pago en un módulo que elija según `clientAction.type`: `FAKE` (espera la confirmación; en desarrollo se paga con `dev:pay`), `IZIPAY_WEB` o `MERCADOPAGO_WEB` (los dos con WebView).

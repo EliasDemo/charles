@@ -91,6 +91,45 @@ describe('validateEnv', () => {
       ]);
     });
 
+    describe('Mercado Pago', () => {
+      const mp = {
+        PAYMENTS_GATEWAY: 'mercadopago',
+        MERCADOPAGO_ACCESS_TOKEN: 'APP_USR-real',
+        MERCADOPAGO_WEBHOOK_SECRET: 'secreto-real',
+        PUBLIC_API_URL: 'https://api.charles.pe',
+      };
+      const problemsWith = (overrides: Record<string, string>): string => {
+        try {
+          validateEnv({ ...production, ...mp, ...overrides });
+        } catch (error) {
+          return (error as Error).message;
+        }
+        return '';
+      };
+
+      it('con credenciales de producción no hay problemas de pagos', () => {
+        expect(problemsWith({})).not.toMatch(/MERCADOPAGO|PAYMENTS_GATEWAY|PUBLIC_API_URL/);
+      });
+
+      it('rechaza credenciales TEST-, otra API y una URL pública sin https', () => {
+        expect(problemsWith({ MERCADOPAGO_ACCESS_TOKEN: 'TEST-123' })).toMatch(/ACCESS_TOKEN/);
+        expect(problemsWith({ MERCADOPAGO_API_URL: 'http://127.0.0.1:9999' })).toMatch(/API_URL/);
+        expect(problemsWith({ PUBLIC_API_URL: 'http://api.charles.pe' })).toMatch(/PUBLIC_API_URL/);
+      });
+
+      it('exige access token, secreto y URL pública (en cualquier entorno)', () => {
+        expect(() => validateEnv({ ...base, PAYMENTS_GATEWAY: 'mercadopago' })).toThrow(
+          /MERCADOPAGO_ACCESS_TOKEN[\s\S]*MERCADOPAGO_WEBHOOK_SECRET[\s\S]*PUBLIC_API_URL/,
+        );
+        const config = validateEnv({ ...base, ...mp, MERCADOPAGO_ACCESS_TOKEN: 'TEST-123' });
+        expect(config.payments.mercadoPago).toEqual({
+          accessToken: 'TEST-123',
+          webhookSecret: 'secreto-real',
+          apiUrl: 'https://api.mercadopago.com',
+        });
+      });
+    });
+
     describe('Fase 8B: Izipay', () => {
       const izipay = {
         PAYMENTS_GATEWAY: 'izipay',

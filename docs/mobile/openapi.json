@@ -12996,15 +12996,15 @@
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["FAKE", "IZIPAY_WEB"],
-            "description": "FAKE: pasarela simulada (desarrollo; pagar con dev:pay). IZIPAY_WEB: abrir data.paymentUrl (formulario de Izipay con tarjeta y Yape) en un WebView; el pago termina cuando la página navega a una URL que contiene /payments/izipay/done."
+            "enum": ["FAKE", "IZIPAY_WEB", "MERCADOPAGO_WEB"],
+            "description": "FAKE: pasarela simulada (desarrollo; pagar con dev:pay). IZIPAY_WEB y MERCADOPAGO_WEB: abrir data.paymentUrl (formulario de la pasarela, con tarjeta y Yape) en un WebView; el pago termina cuando la página navega a una URL que empieza con data.doneUrlPrefix."
           },
           "data": {
             "type": "object",
             "additionalProperties": {
               "type": "string"
             },
-            "description": "FAKE: { paymentId }. IZIPAY_WEB: { paymentUrl, doneUrlPrefix }."
+            "description": "FAKE: { paymentId }. IZIPAY_WEB y MERCADOPAGO_WEB: { paymentUrl, doneUrlPrefix }."
           }
         },
         "required": ["type", "data"]
