@@ -15,6 +15,7 @@ import {
   MONDAY,
   type Person,
 } from '../support/bookings';
+import { staffToken } from '../support/mfa';
 
 const WEDNESDAY = '2030-01-09';
 
@@ -104,6 +105,7 @@ describe('RF-OPE-001…003 Operación de la plataforma (/admin) — Fase 12 (e2e
   async function staff(role: Level = 'SUPPORT'): Promise<Person> {
     const p = await person();
     await prisma.userRole.create({ data: { userId: p.userId, role } });
+    p.token = await staffToken(app, p);
     return p;
   }
 
@@ -339,6 +341,8 @@ describe('RF-OPE-001…003 Operación de la plataforma (/admin) — Fase 12 (e2e
           admin.token,
         )
         .expect(200);
+      // Con el rol nuevo, entra a /admin tras el segundo factor.
+      target.token = await staffToken(app, target);
       await target.client.get(`${API}/admin/tickets`, target.token).expect(200);
       await admin.client
         .post(
@@ -395,6 +399,7 @@ describe('RF-OPE-001…003 Operación de la plataforma (/admin) — Fase 12 (e2e
       const result = await grantRoleFromConsole(app, `  ${target.email} `, 'ADMIN');
       expect(result).toEqual({ userId: target.userId, alreadyHadRole: false });
       expect((await grantRoleFromConsole(app, target.email, 'ADMIN')).alreadyHadRole).toBe(true);
+      target.token = await staffToken(app, target);
       await target.client.get(`${API}/admin/settings`, target.token).expect(200);
       const audit = await prisma.auditLog.findFirstOrThrow({
         where: { action: 'role.granted', entityId: target.userId },
@@ -646,6 +651,7 @@ describe('RF-OPE-001…003 Operación de la plataforma (/admin) — Fase 12 (e2e
       await prisma.userRole.create({
         data: { userId: selfBooking.person.userId, role: 'SUPPORT' },
       });
+      selfBooking.person.token = await staffToken(app, selfBooking.person);
       const res = await selfBooking.person.client
         .get(`${API}/admin/bookings/${selfBooking.id}`, selfBooking.person.token)
         .expect(403);
@@ -783,6 +789,7 @@ describe('RF-OPE-001…003 Operación de la plataforma (/admin) — Fase 12 (e2e
         .expect(409);
       // El autor de la valoración no la modera.
       await prisma.userRole.create({ data: { userId: booking.person.userId, role: 'SUPPORT' } });
+      booking.person.token = await staffToken(app, booking.person);
       await booking.person.client
         .post(
           `${API}/admin/reviews/${review.body.id}/moderation`,

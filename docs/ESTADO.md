@@ -2,7 +2,7 @@
 
 Punto de partida para retomar el trabajo en una conversación nueva. **Léelo antes de hacer nada**, junto con `CLAUDE.md` y `docs/pendientes-produccion.md`. Se actualiza al cerrar cada fase (CLAUDE.md §1).
 
-Última actualización: Mercado Pago como pasarela para pruebas reales.
+Última actualización: backend preparado para charlesweb (2FA del personal, sesión web con cookies y CSRF).
 
 ## Resumen
 
@@ -10,32 +10,33 @@ Punto de partida para retomar el trabajo en una conversación nueva. **Léelo an
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Fase cerrada más reciente | **8B** (pagos con Izipay, probado con simulador)                                                                                         |
 | En espera                 | credenciales de prueba de Mercado Pago para la prueba real (guía en `docs/pendientes-produccion.md`); cuenta de Izipay (sin negocio aún) |
-| Siguiente a implementar   | a definir por el usuario (13, 15 y 16 esperan decisiones de negocio)                                                                     |
+| Siguiente a implementar   | **charlesweb** (web de administración, Next.js, en `D:\barberia\charlesweb`): plan pendiente de presentar; luego Fase 13                 |
 | Pruebas al cierre         | 488 unitarias y 569 e2e, todas en verde; `pnpm verify` pasa                                                                              |
 | Repositorio               | solo commits locales: **sin remoto y sin push** hasta que el usuario lo indique                                                          |
 
 ## Fases cerradas y sus commits
 
-| Fase | Contenido                                                                                                     | Commits                                                                                        |
-| ---- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| 1    | Base del monorepo y API NestJS, CI, seguridad base                                                            | `c67c951`, `6371135`                                                                           |
-| 2    | Esquema completo, `EncryptionService`, datos de prueba                                                        | `97ecf93`                                                                                      |
-| 3    | Autenticación, sesiones, recuperación, perfil                                                                 | `f7f52f4`, `21a3e95`                                                                           |
-| 4    | Barberías, responsables, barberos, servicios; barbero independiente                                           | `4918a4a`, `121ad72`, `1e7d43a`                                                                |
-| 5    | Horarios, bloqueos y motor de disponibilidad                                                                  | `009c79c`                                                                                      |
-| 6    | Búsqueda, cercanía, filtros, alternativas; categorías de servicio                                             | `55d90a9`; `255c732` (cobertura propia de availability y `pnpm verify`)                        |
-| 7    | Reservas, máquina de estados, outbox, expiración                                                              | `329c5eb`, `aa2a171` (columna `cancelled_by_role`, arranque sin `NODE_ENV=test`)               |
-| 8A   | Pagos con `FakeGateway`: webhooks, reembolsos, conciliación, no-show, sanción a barberías                     | `29182fc`, `044e34b`, `eeda3dd` (contención y bloqueo ordenado), `9d19023` (regla 10 ampliada) |
-| 9    | Atención, inasistencias, corrección y agenda del día                                                          | `e546048`                                                                                      |
-| —    | Ajustes para la app: `dev:pay`, `dev:mail`, `GET /me/barber`, gracia de rotación (10 s)                       | (ver `git log`)                                                                                |
-| 11   | Favoritos y valoraciones: respuesta, reportes, moderación, promedios por barbero                              | (ver `git log`)                                                                                |
-| 12   | Soporte y operación: tickets, `/admin`, ADMIN, suspensión, reembolso manual, ajustes                          | (ver `git log`)                                                                                |
-| 10   | Notificaciones: push (Expo), correo y bandeja; recordatorios; dispositivos                                    | (ver `git log`)                                                                                |
-| —    | Eliminación de cuenta (Apple y Google): gracia de 30 días, anonimización, lista de bloqueo                    | (ver `git log`)                                                                                |
-| —    | Alta con revisión previa: documento del responsable, cambios pedidos y reenvío; categoryKey en reservas       | (ver `git log`)                                                                                |
-| 14   | Galería y perfiles: imágenes en S3 (R2), sharp sin EXIF, estilos, especialidades, reportes                    | (ver `git log`)                                                                                |
-| 8B   | Pagos con Izipay: formulario web (tarjeta y Yape), IPN firmada, consulta, devoluciones; comisión configurable | (ver `git log`)                                                                                |
-| —    | Mercado Pago (Checkout Pro): pasarela activa para pruebas reales; Izipay se mantiene                          | (ver `git log`)                                                                                |
+| Fase | Contenido                                                                                                                                                    | Commits                                                                                        |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| 1    | Base del monorepo y API NestJS, CI, seguridad base                                                                                                           | `c67c951`, `6371135`                                                                           |
+| 2    | Esquema completo, `EncryptionService`, datos de prueba                                                                                                       | `97ecf93`                                                                                      |
+| 3    | Autenticación, sesiones, recuperación, perfil                                                                                                                | `f7f52f4`, `21a3e95`                                                                           |
+| 4    | Barberías, responsables, barberos, servicios; barbero independiente                                                                                          | `4918a4a`, `121ad72`, `1e7d43a`                                                                |
+| 5    | Horarios, bloqueos y motor de disponibilidad                                                                                                                 | `009c79c`                                                                                      |
+| 6    | Búsqueda, cercanía, filtros, alternativas; categorías de servicio                                                                                            | `55d90a9`; `255c732` (cobertura propia de availability y `pnpm verify`)                        |
+| 7    | Reservas, máquina de estados, outbox, expiración                                                                                                             | `329c5eb`, `aa2a171` (columna `cancelled_by_role`, arranque sin `NODE_ENV=test`)               |
+| 8A   | Pagos con `FakeGateway`: webhooks, reembolsos, conciliación, no-show, sanción a barberías                                                                    | `29182fc`, `044e34b`, `eeda3dd` (contención y bloqueo ordenado), `9d19023` (regla 10 ampliada) |
+| 9    | Atención, inasistencias, corrección y agenda del día                                                                                                         | `e546048`                                                                                      |
+| —    | Ajustes para la app: `dev:pay`, `dev:mail`, `GET /me/barber`, gracia de rotación (10 s)                                                                      | (ver `git log`)                                                                                |
+| 11   | Favoritos y valoraciones: respuesta, reportes, moderación, promedios por barbero                                                                             | (ver `git log`)                                                                                |
+| 12   | Soporte y operación: tickets, `/admin`, ADMIN, suspensión, reembolso manual, ajustes                                                                         | (ver `git log`)                                                                                |
+| 10   | Notificaciones: push (Expo), correo y bandeja; recordatorios; dispositivos                                                                                   | (ver `git log`)                                                                                |
+| —    | Eliminación de cuenta (Apple y Google): gracia de 30 días, anonimización, lista de bloqueo                                                                   | (ver `git log`)                                                                                |
+| —    | Alta con revisión previa: documento del responsable, cambios pedidos y reenvío; categoryKey en reservas                                                      | (ver `git log`)                                                                                |
+| 14   | Galería y perfiles: imágenes en S3 (R2), sharp sin EXIF, estilos, especialidades, reportes                                                                   | (ver `git log`)                                                                                |
+| 8B   | Pagos con Izipay: formulario web (tarjeta y Yape), IPN firmada, consulta, devoluciones; comisión configurable                                                | (ver `git log`)                                                                                |
+| —    | Mercado Pago (Checkout Pro): pasarela activa para pruebas reales; Izipay se mantiene                                                                         | (ver `git log`)                                                                                |
+| —    | Preparación de charlesweb: 2FA obligatorio del personal, sesión de personal (12 h / 30 min), sesión web con cookies y CSRF, `/admin/me` y `/admin/dashboard` | (ver `git log`)                                                                                |
 
 ## Fase en curso
 
@@ -48,6 +49,14 @@ Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Pagos con Izipa
 - **Decisiones del usuario:** tarjeta y Yape; formulario web en la app; comisión configurable por ADMIN (por defecto la barbería, en 0); la comisión de Izipay en devoluciones la asume la barbería; la barbería usa DNI o RUC (el RUC de Izipay es el de Charles).
 - **Hallazgo:** un rechazo de la pasarela cancelaba la reserva. Con Izipay se registra como intento fallido y el cliente puede reintentar hasta que venza.
 - **Por validar con cuenta real:** ver `docs/izipay/referencia.md` §8.
+
+### Preparación de charlesweb: cerrada
+
+Decisiones del usuario: la web es un proyecto aparte (`D:\barberia\charlesweb`, Next.js) bajo supervisión de Claude; por ahora solo administración; 2FA obligatorio para SUPPORT y ADMIN; sesión de personal de 12 h con cierre por 30 min de inactividad; dominio de producción tipo `admin.charles.pe`. Detalle en CLAUDE.md §6.3. Migración `20261019000000_staff_mfa` aplicada en `charles`.
+
+- **Diseño:** el login de la app no cambia; el segundo factor es un paso extra (`/auth/mfa/verify`) que emite la sesión de personal. La web usa rutas propias `/auth/web/*` (cookies) para no tocar el contrato de la app.
+- **Guía para la web:** `docs/web/GUIA-API.md` y `docs/web/openapi.json` (`pnpm web:openapi`).
+- `soporte.demo@example.com` deberá activar el 2FA la primera vez que entre a la administración.
 
 ### Mercado Pago: integrado (pendiente la prueba real)
 

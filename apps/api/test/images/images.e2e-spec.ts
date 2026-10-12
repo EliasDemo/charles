@@ -14,6 +14,7 @@ import {
   MONDAY,
   type Person,
 } from '../support/bookings';
+import { staffToken } from '../support/mfa';
 
 const SHOPS = `${API}/barbershops`;
 
@@ -406,6 +407,7 @@ describe('Imágenes y galería (e2e, Fase 14)', () => {
 
     const support = await person();
     await prisma.userRole.create({ data: { userId: support.userId, role: 'SUPPORT' } });
+    support.token = await staffToken(app, support);
     const queue = await support.client
       .get(`${API}/admin/images/reported`, support.token)
       .expect(200);
@@ -469,10 +471,12 @@ describe('Imágenes y galería (e2e, Fase 14)', () => {
 
     const support = await person();
     await prisma.userRole.create({ data: { userId: support.userId, role: 'SUPPORT' } });
+    support.token = await staffToken(app, support);
     await support.client.get(`${API}/admin/service-styles`, support.token).expect(403);
 
     const admin = await person();
     await prisma.userRole.create({ data: { userId: admin.userId, role: 'ADMIN' } });
+    admin.token = await staffToken(app, admin);
     const category = await prisma.serviceCategory.findUniqueOrThrow({ where: { key: 'beard' } });
     const key = `test_${Date.now().toString(36)}`;
     const created = await admin.client
@@ -678,6 +682,7 @@ describe('Imágenes y galería (e2e, Fase 14)', () => {
   it('moderación y estilos: errores y filtros', async () => {
     const support = await person();
     await prisma.userRole.create({ data: { userId: support.userId, role: 'SUPPORT' } });
+    support.token = await staffToken(app, support);
     await support.client
       .post(
         `${API}/admin/images/00000000-0000-7000-8000-000000000000/moderation`,
@@ -701,6 +706,7 @@ describe('Imágenes y galería (e2e, Fase 14)', () => {
 
     const admin = await person();
     await prisma.userRole.create({ data: { userId: admin.userId, role: 'ADMIN' } });
+    admin.token = await staffToken(app, admin);
     const all = await admin.client.get(`${API}/admin/service-styles`, admin.token).expect(200);
     expect(all.body.length).toBeGreaterThanOrEqual(30);
     await admin.client

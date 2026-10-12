@@ -10,8 +10,11 @@ import { LoginAttemptsService } from './login-attempts.service';
 import { AUTH_MAIL_QUEUE } from './mail/auth-mail.jobs';
 import { AuthMailProcessor } from './mail/auth-mail.processor';
 import { AuthMailProducer } from './mail/auth-mail.producer';
+import { MfaController } from './mfa/mfa.controller';
+import { MfaService } from './mfa/mfa.service';
 import { OneTimeCodesService } from './one-time-codes.service';
 import { SessionsService } from './sessions.service';
+import { WebAuthController } from './web-auth.controller';
 
 @Module({
   imports: [
@@ -20,7 +23,7 @@ import { SessionsService } from './sessions.service';
     DevicesModule,
     BullModule.registerQueue({ name: AUTH_MAIL_QUEUE }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, MfaController, WebAuthController],
   providers: [
     AuthService,
     AccountRecoveryService,
@@ -29,8 +32,9 @@ import { SessionsService } from './sessions.service';
     OneTimeCodesService,
     AuthMailProducer,
     AuthMailProcessor,
+    MfaService,
   ],
   // Reutilizados por otros módulos para códigos de invitación (mismas reglas de bloqueo).
-  exports: [LoginAttemptsService, SessionsService],
+  exports: [LoginAttemptsService, SessionsService, MfaService],
 })
 export class AuthModule {}

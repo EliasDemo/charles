@@ -73,6 +73,14 @@ export class AdminAccessGuard implements CanActivate {
     const isAdmin = user.roles.includes('ADMIN');
     const allowed = required === 'ADMIN' ? isAdmin : isAdmin || user.roles.includes('SUPPORT');
     if (!allowed) throw forbidden();
+    // Segundo factor obligatorio para el personal: solo una sesión de personal entra.
+    if (!request.user?.mfa) {
+      throw new AppException(
+        ErrorCode.MFA_REQUIRED,
+        'Confirma tu identidad con la verificación en dos pasos para entrar a la administración.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
     request.staff = { id: user.id, roles: user.roles, role: isAdmin ? 'ADMIN' : 'SUPPORT' };
     return true;
   }

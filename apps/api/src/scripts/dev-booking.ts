@@ -2,7 +2,8 @@ import { runDevTool } from './dev-cli';
 import { devBooking, parseOffset } from './dev-tools';
 
 /**
- * Solo desarrollo:
+ * Solo desarrollo. Con una pasarela real (PAYMENTS_GATEWAY=mercadopago) imprime el enlace de pago.
+ *
  * `pnpm --filter api dev:booking --barber <correo> [--start -20m] [--client <correo>]
  *  [--service <id>] [--confirm] [--attended]`
  */
@@ -32,4 +33,7 @@ void runDevTool(async (app) => {
     `Reserva ${result.bookingId}: ${result.status}, inicio ${result.startAt.toISOString()} ` +
       `(barbería ${result.barbershopId}).`,
   );
+  if (result.paymentUrl)
+    console.warn(`Enlace de pago (ábrelo en el navegador):
+${result.paymentUrl}`);
 });

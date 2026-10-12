@@ -22,6 +22,8 @@ export const EncryptedField = {
   SPONSOR_CONTACT: 'charles/sponsor.contact/v1',
   /** Cursor de búsqueda (Fase 6): opaco y autenticado; no expone la distancia al cliente. */
   SEARCH_CURSOR: 'charles/search.cursor/v1',
+  /** Secreto TOTP del segundo factor del personal. */
+  USER_MFA_SECRET: 'charles/user.mfa-secret/v1',
 } as const;
 
 export type EncryptedField = (typeof EncryptedField)[keyof typeof EncryptedField];
@@ -42,6 +44,8 @@ export const OneTimeCodePurpose = {
   PASSWORD_RESET: 'charles/otp/password-reset/v1',
   EMAIL_VERIFICATION: 'charles/otp/email-verification/v1',
   BARBERSHOP_INVITATION: 'charles/otp/barbershop-invitation/v1',
+  /** Códigos de recuperación del segundo factor. */
+  MFA_RECOVERY: 'charles/otp/mfa-recovery/v1',
 } as const;
 
 export type OneTimeCodePurpose = (typeof OneTimeCodePurpose)[keyof typeof OneTimeCodePurpose];

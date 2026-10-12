@@ -16,11 +16,21 @@ import type { Prisma } from '../../generated/prisma/client';
 
 const REFRESH_TOKEN_BYTES = 32;
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** Sesión de personal (con segundo factor): 12 h como máximo y 30 min de inactividad. */
+export const STAFF_SESSION = { absoluteMs: 12 * 60 * 60 * 1000, idleMs: 30 * 60 * 1000 } as const;
 
 export interface IssuedRefreshToken {
   refreshToken: string;
   expiresAt: Date;
   sessionId: string;
+  /** Sesión de personal con segundo factor. */
+  mfa: boolean;
+}
+
+/** Atributos de la familia que se conservan al rotar. */
+interface SessionKind {
+  mfa: boolean;
+  absoluteExpiresAt: Date | null;
 }
 
 export interface RotatedSession extends IssuedRefreshToken {
@@ -60,9 +70,16 @@ export class SessionsService {
     private readonly devices: DevicesService,
   ) {}
 
-  async create(userId: string, deviceInfo?: Prisma.InputJsonValue): Promise<IssuedRefreshToken> {
+  async create(
+    userId: string,
+    deviceInfo?: Prisma.InputJsonValue,
+    options: { mfa?: boolean } = {},
+  ): Promise<IssuedRefreshToken> {
     const sessionId = randomUUID();
-    return this.issue(this.prisma, userId, sessionId, deviceInfo);
+    const kind: SessionKind = options.mfa
+      ? { mfa: true, absoluteExpiresAt: new Date(Date.now() + STAFF_SESSION.absoluteMs) }
+      : { mfa: false, absoluteExpiresAt: null };
+    return this.issue(this.prisma, userId, sessionId, kind, deviceInfo);
   }
 
   /**
@@ -93,6 +110,7 @@ export class SessionsService {
           tx,
           current.userId,
           current.familyId,
+          { mfa: current.amr === 'mfa', absoluteExpiresAt: current.absoluteExpiresAt },
           current.deviceInfo ?? undefined,
         );
         // Condicional: si otra petición rotó el mismo token a la vez, solo una gana. La que pierde
@@ -119,6 +137,7 @@ export class SessionsService {
       sessionId: current.familyId,
       refreshToken: rotated.refreshToken,
       expiresAt: rotated.expiresAt,
+      mfa: rotated.mfa,
     };
   }
 
@@ -171,7 +190,7 @@ export class SessionsService {
     if (successor.tokenId !== token.replacedBy) return null;
     const row = await this.prisma.refreshToken.findUnique({
       where: { tokenHash: hashToken(successor.refreshToken) },
-      select: { id: true, revokedAt: true, expiresAt: true },
+      select: { id: true, revokedAt: true, expiresAt: true, amr: true },
     });
     if (!row || row.id !== token.replacedBy || row.revokedAt || row.expiresAt <= new Date()) {
       return null;
@@ -182,6 +201,7 @@ export class SessionsService {
       sessionId: token.familyId,
       refreshToken: successor.refreshToken,
       expiresAt: new Date(successor.expiresAt),
+      mfa: row.amr === 'mfa',
     };
   }
 
@@ -248,10 +268,17 @@ export class SessionsService {
     tx: Prisma.TransactionClient,
     userId: string,
     sessionId: string,
+    kind: SessionKind,
     deviceInfo?: Prisma.InputJsonValue,
   ): Promise<IssuedRefreshToken & { tokenId: string }> {
     const refreshToken = randomBytes(REFRESH_TOKEN_BYTES).toString('base64url');
-    const expiresAt = new Date(Date.now() + this.config.auth.refreshTokenTtlDays * DAY_MS);
+    const now = Date.now();
+    // Personal: 30 min sin renovar la cierran, y nunca pasa del tope de 12 h desde el inicio.
+    const expiresAt =
+      kind.mfa && kind.absoluteExpiresAt
+        ? new Date(Math.min(now + STAFF_SESSION.idleMs, kind.absoluteExpiresAt.getTime()))
+        : new Date(now + this.config.auth.refreshTokenTtlDays * DAY_MS);
+    if (expiresAt.getTime() <= now) throw invalidRefreshToken();
     const row = await tx.refreshToken.create({
       data: {
         userId,
@@ -259,9 +286,11 @@ export class SessionsService {
         tokenHash: hashToken(refreshToken),
         expiresAt,
         deviceInfo,
+        amr: kind.mfa ? 'mfa' : 'pwd',
+        absoluteExpiresAt: kind.mfa ? kind.absoluteExpiresAt : null,
       },
       select: { id: true },
     });
-    return { refreshToken, expiresAt, sessionId, tokenId: row.id };
+    return { refreshToken, expiresAt, sessionId, tokenId: row.id, mfa: kind.mfa };
   }
 }

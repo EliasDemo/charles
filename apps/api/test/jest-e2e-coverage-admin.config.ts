@@ -15,6 +15,8 @@ const config: Config = {
     'test/(admin|account)/.*\\.e2e-spec\\.ts$',
     // La revisión del alta (aprobar, pedir cambios, ver el documento) se prueba allí.
     'test/barbershops/review\\.e2e-spec\\.ts$',
+    // /admin/me, /admin/dashboard y el reinicio del segundo factor se prueban con el 2FA.
+    'test/auth/staff-mfa\\.e2e-spec\\.ts$',
     'src/modules/(admin|support|account)/.*\\.spec\\.ts$',
   ],
   transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/test/tsconfig.coverage.json' }] },

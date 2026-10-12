@@ -13,6 +13,7 @@ import {
   MONDAY,
   type Person,
 } from '../support/bookings';
+import { staffToken } from '../support/mfa';
 
 const DAY = 24 * HOUR;
 
@@ -47,6 +48,7 @@ describe('RF-SOP-001…003 Tickets de soporte y reportes de barberías — Fase 
   async function staff(role: 'SUPPORT' | 'ADMIN' = 'SUPPORT'): Promise<Person> {
     const p = await person();
     await prisma.userRole.create({ data: { userId: p.userId, role } });
+    p.token = await staffToken(app, p);
     return p;
   }
 

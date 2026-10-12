@@ -17,6 +17,11 @@ export interface AuthUser {
    * - `deletion`: cuenta pendiente de eliminación (consultar o cancelar la eliminación).
    */
   restricted?: RestrictedScope;
+  /**
+   * Sesión de personal con segundo factor (TOTP): obligatoria para `/admin`. Dura como máximo
+   * 12 h y se cierra tras 30 min sin renovarse.
+   */
+  mfa?: boolean;
 }
 
 export type AuthenticatedRequest = Request & { user?: AuthUser };

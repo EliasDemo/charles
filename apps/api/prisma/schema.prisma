@@ -336,6 +336,9 @@ model User {
   couponRedemptions         CouponRedemption[]
   sponsorEvents             SponsorEvent[]
 
+  mfa              UserMfa?
+  mfaRecoveryCodes MfaRecoveryCode[]
+
   @@index([phoneHash])
   @@map("users")
 }
@@ -366,17 +369,50 @@ model UserRole {
   @@map("user_roles")
 }
 
+/// Verificación en dos pasos (TOTP) del personal. Sin `enabledAt` = activación pendiente.
+model UserMfa {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  userId       String    @unique @map("user_id") @db.Uuid
+  secretEnc    String    @map("secret_enc")
+  enabledAt    DateTime? @map("enabled_at") @db.Timestamptz(3)
+  lastUsedStep BigInt?   @map("last_used_step")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_mfa")
+}
+
+/// Códigos de recuperación del segundo factor: solo su HMAC, un solo uso.
+model MfaRecoveryCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  Bytes     @unique @map("code_hash")
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mfa_recovery_codes")
+}
+
 model RefreshToken {
-  id         String    @id @default(uuid(7)) @db.Uuid
-  userId     String    @map("user_id") @db.Uuid
-  tokenHash  Bytes     @unique @map("token_hash")
-  familyId   String    @map("family_id") @db.Uuid
-  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
-  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
-  replacedBy String?   @map("replaced_by") @db.Uuid
-  deviceInfo Json?     @map("device_info")
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                String    @id @default(uuid(7)) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  tokenHash         Bytes     @unique @map("token_hash")
+  familyId          String    @map("family_id") @db.Uuid
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz(3)
+  replacedBy        String?   @map("replaced_by") @db.Uuid
+  deviceInfo        Json?     @map("device_info")
+  /// `pwd` = contraseña; `mfa` = sesión de personal con segundo factor (12 h máx., 30 min de inactividad).
+  amr               String    @default("pwd")
+  absoluteExpiresAt DateTime? @map("absolute_expires_at") @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

@@ -13,6 +13,7 @@ import { IS_PUBLIC_KEY } from './public.decorator';
 import { ALLOW_RESTRICTED_SESSION_KEY } from './restricted-session.decorator';
 import { SessionRevocationStore } from './session-revocation.store';
 import { TokenService } from './token.service';
+import { cookieOf, isCsrfValid, WEB_COOKIES } from './web-session';
 
 const unauthorized = (): AppException =>
   new AppException(
@@ -46,8 +47,8 @@ export class JwtAuthGuard implements CanActivate {
       return true;
     }
 
-    const [scheme, token] = (request.headers.authorization ?? '').split(' ');
-    if (scheme?.toLowerCase() !== 'bearer' || !token) throw unauthorized();
+    const token = this.tokenOf(request, true);
+    if (!token) throw unauthorized();
 
     const user = this.tokens.verifyAccessToken(token);
     if (!user) throw unauthorized();
@@ -90,9 +91,29 @@ export class JwtAuthGuard implements CanActivate {
     return true;
   }
 
+  /**
+   * `Authorization: Bearer` (app) o la cookie de la web. Con la cookie, las peticiones que cambian
+   * datos exigen el token CSRF: si falta o no coincide, 403 (o, en endpoints públicos, anónimo).
+   */
+  private tokenOf(request: AuthenticatedRequest, strict: boolean): string | undefined {
+    const [scheme, bearer] = (request.headers.authorization ?? '').split(' ');
+    if (scheme?.toLowerCase() === 'bearer' && bearer) return bearer;
+    const cookie = cookieOf(request, WEB_COOKIES.access);
+    if (!cookie) return undefined;
+    if (!isCsrfValid(request)) {
+      if (!strict) return undefined;
+      throw new AppException(
+        ErrorCode.CSRF_INVALID,
+        'La solicitud no es válida. Recarga la página e inténtalo de nuevo.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+    return cookie;
+  }
+
   private async attachOptionalUser(request: AuthenticatedRequest): Promise<void> {
-    const [scheme, token] = (request.headers.authorization ?? '').split(' ');
-    if (scheme?.toLowerCase() !== 'bearer' || !token) return;
+    const token = this.tokenOf(request, false);
+    if (!token) return;
     const user = this.tokens.verifyAccessToken(token);
     if (!user || user.restricted) return;
     try {

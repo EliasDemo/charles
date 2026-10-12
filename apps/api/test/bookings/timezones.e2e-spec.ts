@@ -2,6 +2,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { createAuthTestApp } from '../support/auth';
 import { API, bookingKit, type BookingKit, lima, MONDAY } from '../support/bookings';
+import { staffToken } from '../support/mfa';
 
 /**
  * Toda respuesta con horas de una barbería trae su zona horaria (para mostrarlas en su zona y no
@@ -88,6 +89,7 @@ describe('Zona horaria en las respuestas con horas de una barbería (e2e)', () =
     // Vista de soporte.
     const agent = await kit.verified();
     await prisma.userRole.create({ data: { userId: agent.userId, role: 'SUPPORT' } });
+    agent.token = await staffToken(app, agent);
     const admin = await agent.client
       .get(`${API}/admin/bookings/${booking.id}`, agent.token)
       .expect(200);

@@ -56,15 +56,15 @@ Resueltas en la Fase 8A: devoluciones al cancelar, plazo para cancelar, no-show 
 
 ## Web y seguridad
 
-| Pendiente                    | Situación actual                                                                                                                                                |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Cookies y CSRF de la web** | Hoy la sesión usa tokens en cabecera (app móvil). Antes de publicar la web hay que definir las cookies (`HttpOnly`, `Secure`, `SameSite`) y la protección CSRF. |
+| Pendiente                    | Situación actual                                                                                                                                                                                                |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Cookies y CSRF de la web** | **Resuelto:** cookies `HttpOnly` + CSRF por doble envío (`/auth/web/*`). En producción: `COOKIE_SECURE=true`, `COOKIE_DOMAIN` del dominio común (p. ej. `.charles.pe`) y el origen de la web en `CORS_ORIGINS`. |
 
 | **Versión mínima de la app** | Sin mecanismo hoy. Antes del lanzamiento: cabecera `X-App-Version` y respuesta `426` o `APP_UPDATE_REQUIRED` para obligar a actualizar cuando cambie el contrato. |
 | **Textos de validación en español** | `VALIDATION_ERROR` devuelve `field` y `constraints` con nombres de reglas en inglés. Definir mensajes por campo en español (backend o tabla en la app) antes del lanzamiento. |
 
-| **Verificación en dos pasos para SUPPORT y ADMIN** (bloqueante) | **No se puede salir a producción sin esto.** Hoy soporte y ADMIN entran solo con contraseña. Exigir un segundo factor (TOTP o similar) a esas cuentas. |
-| **Sesiones más cortas para SUPPORT y ADMIN** (bloqueante) | **No se puede salir a producción sin esto.** Hoy usan la misma sesión de 30 días que un cliente. Definir una vida corta del token de renovación y reautenticación para acciones sensibles. |
+| **Verificación en dos pasos para SUPPORT y ADMIN** | **Resuelto:** TOTP obligatorio para entrar a `/admin`, con códigos de recuperación, bloqueo por intentos y reinicio por ADMIN. |
+| **Sesiones más cortas para SUPPORT y ADMIN** | **Resuelto:** la sesión de personal dura 12 h como máximo y se cierra tras 30 min sin renovarse. |
 
 ## Operación
 

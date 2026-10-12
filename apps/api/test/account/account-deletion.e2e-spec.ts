@@ -18,6 +18,7 @@ import {
   MONDAY,
   type Person,
 } from '../support/bookings';
+import { staffToken } from '../support/mfa';
 
 const DAY = 24 * HOUR;
 const WEDNESDAY = '2030-01-09';
@@ -110,6 +111,7 @@ describe('Eliminación de cuenta (Apple y Google) (e2e)', () => {
 
       const { person, password } = await withPassword();
       await prisma.userRole.create({ data: { userId: person.userId, role: 'SUPPORT' } });
+      person.token = await staffToken(app, person);
       const blocked = await requestDeletion(person, password).expect(409);
       expect(blocked.body.code).toBe('DELETION_BLOCKED');
       expect(blocked.body.details).toEqual([

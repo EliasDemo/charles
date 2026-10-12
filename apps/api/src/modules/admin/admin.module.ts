@@ -10,6 +10,7 @@ import { SettingsModule } from '../settings/settings.module';
 import { AdminAccessModule } from './admin-access.module';
 import { AdminBarbershopsService } from './admin-barbershops.service';
 import { AdminOperationsService } from './admin-operations.service';
+import { AdminOverviewController, AdminOverviewService } from './admin-overview';
 import { AdminSettingsService } from './admin-settings';
 import { AdminUsersService } from './admin-users.service';
 import {
@@ -37,12 +38,14 @@ import {
     AdminBarbershopsController,
     AdminOperationsController,
     AdminConfigController,
+    AdminOverviewController,
   ],
   providers: [
     AdminUsersService,
     AdminBarbershopsService,
     AdminOperationsService,
     AdminSettingsService,
+    AdminOverviewService,
   ],
 })
 export class AdminModule {}

@@ -4,6 +4,7 @@ import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { AuthClient, createAuthTestApp } from '../support/auth';
 import { shopPayload } from '../support/barbershops';
 import { API, bookingKit, type BookingKit, lima, MONDAY, type Person } from '../support/bookings';
+import { staffToken } from '../support/mfa';
 
 const SHOPS = `${API}/barbershops`;
 const DNI = { type: 'DNI', number: '12345678' };
@@ -50,6 +51,7 @@ describe('Alta de barberías con revisión previa (e2e)', () => {
   async function staff(): Promise<Person> {
     const p = await owner();
     await prisma.userRole.create({ data: { userId: p.userId, role: 'SUPPORT' } });
+    p.token = await staffToken(app, p);
     return p;
   }
 
@@ -245,6 +247,7 @@ describe('Alta de barberías con revisión previa (e2e)', () => {
     expect(audit.changes).toEqual({ reason: 'Verificar identidad', actorRole: 'SUPPORT' });
     // Conflicto de interés: un miembro de la barbería no lo ve.
     await prisma.userRole.create({ data: { userId: manager.userId, role: 'SUPPORT' } });
+    manager.token = await staffToken(app, manager);
     await manager.client
       .post(`${API}/admin/barbershops/${id}/owner-document`, { reason: 'Es mía' }, manager.token)
       .expect(403);

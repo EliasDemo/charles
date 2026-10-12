@@ -6,6 +6,7 @@ import { ErrorCode } from '../../common/errors/error-codes';
 import { OutboxService } from '../../common/outbox/outbox.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { Prisma } from '../../generated/prisma/client';
+import { MfaService } from '../auth/mfa/mfa.service';
 import { SessionsService } from '../auth/sessions.service';
 import { type StaffUserView, UsersService } from '../users/users.service';
 import { ConflictOfInterestService, type StaffActor } from './admin-access';
@@ -42,6 +43,7 @@ export class AdminUsersService {
     private readonly audit: AuditService,
     private readonly outbox: OutboxService,
     @Inject(CLOCK) private readonly clock: Clock,
+    private readonly mfa: MfaService,
   ) {}
 
   /** Búsqueda exacta por correo (índice ciego). La auditoría no guarda el correo. */
@@ -184,6 +186,40 @@ export class AdminUsersService {
         tx,
       );
     });
+    return (await this.users.staffView(userId))!;
+  }
+
+  /**
+   * Solo ADMIN. Reinicia el segundo factor de alguien que perdió el teléfono y los códigos: lo
+   * borra y cierra sus sesiones; deberá activarlo de nuevo. Nunca sobre la propia cuenta.
+   */
+  async resetMfa(staff: StaffActor, userId: string, reason: string): Promise<StaffUserView> {
+    this.conflicts.assertNotSelf(staff, userId);
+    const target = await this.users.findCredentialsById(userId);
+    if (!target || target.isDeleted) throw userNotFound();
+    const sessionIds = await this.prisma.$transaction(async (tx) => {
+      const had = await tx.userMfa.count({ where: { userId } });
+      if (!had) {
+        throw new AppException(
+          ErrorCode.MFA_NOT_ENABLED,
+          'La cuenta no tiene verificación en dos pasos.',
+          HttpStatus.CONFLICT,
+        );
+      }
+      const ids = await this.mfa.resetFor(tx, userId);
+      await this.audit.record(
+        {
+          actorId: staff.id,
+          action: 'mfa.reset',
+          entityType: 'user',
+          entityId: userId,
+          changes: { reason, actorRole: staff.role },
+        },
+        tx,
+      );
+      return ids;
+    });
+    await this.sessions.markRevoked(sessionIds);
     return (await this.users.staffView(userId))!;
   }
 

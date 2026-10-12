@@ -118,16 +118,28 @@ export const SEED_CLIENT_EMAIL = 'cliente.demo@example.com';
  * transacción con el mismo registro que el flujo normal (historial, outbox, pago pendiente), y la
  * restricción de la base contra reservas solapadas sigue aplicándose. Con `confirm`, el pago se
  * confirma por el webhook simulado, como `dev:pay`.
+ *
+ * Con una pasarela real (Mercado Pago o Izipay en modo de prueba) solo crea la reserva pendiente
+ * e **inicia el pago**: devuelve el enlace (`paymentUrl`) para pagar en el navegador.
  */
 export async function devBooking(
   app: INestApplicationContext,
   options: DevBookingOptions,
-): Promise<{ bookingId: string; startAt: Date; status: string; barbershopId: string }> {
+): Promise<{
+  bookingId: string;
+  startAt: Date;
+  status: string;
+  barbershopId: string;
+  paymentUrl: string | null;
+}> {
   const config = app.get<AppConfig>(APP_CONFIG);
   assertNotProduction(config.isProduction ? 'production' : config.nodeEnv);
   const gateway = app.get<PaymentGateway>(PAYMENT_GATEWAY);
-  if (gateway.provider !== FAKE_PROVIDER) {
-    throw new DevToolError('dev:booking solo funciona con la pasarela simulada.');
+  const simulated = gateway.provider === FAKE_PROVIDER;
+  if (!simulated && (options.confirm || options.attended)) {
+    throw new DevToolError(
+      'Con una pasarela real, --confirm y --attended no aplican: paga con el enlace que se imprime.',
+    );
   }
   const users = app.get(UsersService);
   const prisma = app.get(PrismaService);
@@ -162,6 +174,7 @@ export async function devBooking(
     .positiveInt(SettingKey.PENDING_PAYMENT_TTL_MINUTES, 10);
 
   let bookingId: string;
+  let paymentId = '';
   try {
     bookingId = await prisma.$transaction(async (tx) => {
       const booking = await tx.booking.create({
@@ -203,7 +216,7 @@ export async function devBooking(
           { id: booking.id, barbershopId: profile.barbershopId, barberId: profile.id, clientId },
           { userId: clientId, role: 'CLIENT' },
         );
-      await app.get(PaymentsService).createPendingInTx(tx, {
+      paymentId = await app.get(PaymentsService).createPendingInTx(tx, {
         id: booking.id,
         totalAmount: service.priceAmount,
         currency: service.currency,
@@ -218,6 +231,11 @@ export async function devBooking(
   }
 
   if (options.confirm || options.attended) await devPay(app, bookingId, 'SUCCEEDED');
+  // Pasarela real: se inicia el pago (fuera de la transacción) y se devuelve el enlace.
+  const paymentUrl = simulated
+    ? null
+    : ((await app.get(PaymentsService).startAfterCreation(paymentId, service.name)).clientAction
+        ?.data.paymentUrl ?? null);
   if (options.attended) {
     await prisma.$transaction((tx) =>
       app
@@ -251,6 +269,7 @@ export async function devBooking(
     startAt: new Date(startAt),
     status: created.status,
     barbershopId: profile.barbershopId,
+    paymentUrl,
   };
 }
 

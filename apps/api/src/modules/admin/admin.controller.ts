@@ -166,6 +166,23 @@ export class AdminUsersController {
     return this.users.enable(staff, id, dto.reason);
   }
 
+  @Post(':id/mfa/reset')
+  @AdminOnly()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Solo ADMIN: reiniciar la verificación en dos pasos (teléfono perdido)',
+    description: 'Borra el segundo factor y cierra sus sesiones. Nunca sobre la propia cuenta.',
+  })
+  @ApiOkResponse({ type: StaffUserDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
+  resetMfa(
+    @CurrentStaff() staff: StaffActor,
+    @Param('id', uuid) id: string,
+    @Body() dto: ReasonDto,
+  ): Promise<StaffUserView> {
+    return this.users.resetMfa(staff, id, dto.reason);
+  }
+
   @Post(':id/roles/:role')
   @AdminOnly()
   @HttpCode(HttpStatus.OK)

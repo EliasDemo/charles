@@ -219,7 +219,13 @@ export class AuthService {
         HttpStatus.UNAUTHORIZED,
       );
     }
-    return this.buildTokens(user, rotated.sessionId, rotated.refreshToken, rotated.expiresAt);
+    return this.buildTokens(
+      user,
+      rotated.sessionId,
+      rotated.refreshToken,
+      rotated.expiresAt,
+      rotated.mfa,
+    );
   }
 
   /** RF-AUT-003: dispositivo actual o todos los dispositivos. */
@@ -239,13 +245,14 @@ export class AuthService {
     });
   }
 
-  private buildTokens(
+  buildTokens(
     user: UserCredentials,
     sessionId: string,
     refreshToken: string,
     refreshTokenExpiresAt: Date,
+    mfa = false,
   ): AuthTokensDto {
-    const access = this.tokens.signAccessToken(user, sessionId);
+    const access = this.tokens.signAccessToken(user, sessionId, { mfa });
     return {
       tokenType: 'Bearer',
       accessToken: access.token,

@@ -16,6 +16,8 @@ interface AccessTokenClaims {
   roles: Role[];
   /** Fase 12: `support` = sesión restringida de una cuenta deshabilitada (solo tickets). */
   scp?: RestrictedScope;
+  /** `mfa` = sesión con segundo factor (personal). */
+  amr?: 'mfa';
 }
 
 export interface SignedAccessToken {
@@ -31,12 +33,12 @@ export class TokenService {
   signAccessToken(
     user: { id: string; roles: Role[] },
     sessionId: string,
-    options: { restricted?: RestrictedScope } = {},
+    options: { restricted?: RestrictedScope; mfa?: boolean } = {},
   ): SignedAccessToken {
     const { jwtKeys, issuer, audience, accessTokenTtlSeconds } = this.config.auth;
     const claims: Omit<AccessTokenClaims, 'sub'> = options.restricted
       ? { sid: sessionId, roles: [], scp: options.restricted }
-      : { sid: sessionId, roles: user.roles };
+      : { sid: sessionId, roles: user.roles, ...(options.mfa ? { amr: 'mfa' as const } : {}) };
     const token = sign(claims, jwtKeys.privateKey, {
       algorithm: ALGORITHM,
       subject: user.id,
@@ -58,7 +60,7 @@ export class TokenService {
         clockTolerance: CLOCK_TOLERANCE_SECONDS,
       });
       if (typeof payload === 'string') return undefined;
-      const { sub, sid, roles, scp } = payload as Partial<AccessTokenClaims>;
+      const { sub, sid, roles, scp, amr } = payload as Partial<AccessTokenClaims>;
       if (
         typeof sub !== 'string' ||
         !UUID.test(sub) ||
@@ -66,13 +68,14 @@ export class TokenService {
         !UUID.test(sid) ||
         !Array.isArray(roles) ||
         !roles.every((r) => VALID_ROLES.has(r)) ||
-        (scp !== undefined && scp !== 'support' && scp !== 'deletion')
+        (scp !== undefined && scp !== 'support' && scp !== 'deletion') ||
+        (amr !== undefined && amr !== 'mfa')
       ) {
         return undefined;
       }
       return scp
         ? { id: sub, sessionId: sid, roles: [], restricted: scp }
-        : { id: sub, sessionId: sid, roles };
+        : { id: sub, sessionId: sid, roles, ...(amr === 'mfa' ? { mfa: true } : {}) };
     } catch {
       return undefined;
     }

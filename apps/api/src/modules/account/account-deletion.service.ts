@@ -306,6 +306,8 @@ export class AccountDeletionService {
    */
   private async eraseRelated(tx: Prisma.TransactionClient, userId: string): Promise<void> {
     await tx.refreshToken.deleteMany({ where: { userId } });
+    await tx.mfaRecoveryCode.deleteMany({ where: { userId } });
+    await tx.userMfa.deleteMany({ where: { userId } });
     await tx.passwordResetToken.deleteMany({ where: { userId } });
     await tx.emailVerificationCode.deleteMany({ where: { userId } });
     await tx.deviceToken.deleteMany({ where: { userId } });

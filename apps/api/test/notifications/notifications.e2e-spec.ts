@@ -10,6 +10,7 @@ import { FakePushSender } from '../../src/modules/notifications/push-sender';
 import { REVIEW_RATE_LIMIT } from '../../src/modules/reviews/review-rate-limit';
 import { AuthClient, createAuthTestApp } from '../support/auth';
 import { API, bookingKit, type BookingKit, HOUR, lima, MONDAY } from '../support/bookings';
+import { staffToken } from '../support/mfa';
 
 const TUESDAY = '2030-01-08';
 const WEDNESDAY = '2030-01-09';
@@ -481,6 +482,7 @@ describe('RF-NOT-001…004 Notificaciones — Fase 10 (e2e)', () => {
       expect(await channelsOf(booking.person.userId, 'REFUND_FAILED')).toEqual(['EMAIL', 'IN_APP']);
       const admin = await kit.verified();
       await prisma.userRole.create({ data: { userId: admin.userId, role: 'SUPPORT' } });
+      admin.token = await staffToken(app, admin);
       const failed = await admin.client
         .get(`${API}/admin/refunds/failed?limit=100`, admin.token)
         .expect(200);
@@ -502,6 +504,7 @@ describe('RF-NOT-001…004 Notificaciones — Fase 10 (e2e)', () => {
         .expect(201);
       const agent = await kit.verified();
       await prisma.userRole.create({ data: { userId: agent.userId, role: 'SUPPORT' } });
+      agent.token = await staffToken(app, agent);
       await agent.client
         .post(
           `${API}/admin/tickets/${ticket.body.id}/messages`,
@@ -529,6 +532,7 @@ describe('RF-NOT-001…004 Notificaciones — Fase 10 (e2e)', () => {
       const target = await kit.verified();
       const agent = await kit.verified();
       await prisma.userRole.create({ data: { userId: agent.userId, role: 'SUPPORT' } });
+      agent.token = await staffToken(app, agent);
       await agent.client
         .post(`${API}/admin/users/${target.userId}/disable`, { reason: 'Fraude' }, agent.token)
         .expect(200);

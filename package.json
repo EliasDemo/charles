@@ -16,6 +16,7 @@
     "test:e2e": "pnpm -r run test:e2e",
     "verify": "node scripts/verify.mjs",
     "mobile:openapi": "pnpm --filter api openapi:export && node -e \"require('node:fs').copyFileSync('apps/api/openapi.json', 'docs/mobile/openapi.json')\"",
+    "web:openapi": "pnpm --filter api openapi:export && node -e \"require('node:fs').copyFileSync('apps/api/openapi.json', 'docs/web/openapi.json')\"",
     "prepare": "git config core.hooksPath .githooks || exit 0"
   },
   "devDependencies": {

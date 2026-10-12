@@ -224,6 +224,19 @@ export class EnvironmentVariables {
   @IsUrl({ require_tld: false, protocols: ['http', 'https'], require_protocol: true })
   MEDIA_PUBLIC_BASE_URL?: string;
 
+  // ───────────── Sesión web (charlesweb): cookies HttpOnly y CSRF ─────────────
+
+  /** Dominio de las cookies de la web (p. ej. `.charles.pe`). Vacío = solo el host de la API. */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\.?[a-z0-9.-]+$/)
+  COOKIE_DOMAIN?: string;
+
+  /** `Secure` en las cookies. En producción, siempre true. (localhost lo admite en http.) */
+  @Transform(toBoolean)
+  @IsBoolean()
+  COOKIE_SECURE = true;
+
   // ───────────── Fase 8B: pagos con Izipay (botón de pagos, developers.izipay.pe) ─────────────
 
   @IsEnum(PaymentsGateway)
@@ -323,6 +336,7 @@ export interface AppConfig {
   mail: { driver: MailerDriver };
   push: { driver: PushDriver; expoAccessToken: string | null };
   scheduledJobsEnabled: boolean;
+  web: { cookieDomain: string | null; cookieSecure: boolean };
   /** Nunca registrar este objeto en logs (lleva credenciales). */
   payments: {
     gateway: PaymentsGateway;
@@ -461,6 +475,9 @@ function productionErrors(env: EnvironmentVariables, corsOrigins: string[]): str
   if (corsOrigins.some((o) => !o.startsWith('https://'))) {
     errors.push('CORS_ORIGINS: en producción todos los orígenes deben usar https');
   }
+  if (!env.COOKIE_SECURE) {
+    errors.push('COOKIE_SECURE: en producción las cookies deben ser Secure');
+  }
   if (env.PAYMENTS_GATEWAY === PaymentsGateway.Fake) {
     errors.push('PAYMENTS_GATEWAY: la pasarela simulada no se permite en producción');
   }
@@ -589,6 +606,7 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
     },
     mail: { driver: env.MAILER_DRIVER },
     push: { driver: env.PUSH_DRIVER, expoAccessToken: env.EXPO_ACCESS_TOKEN || null },
+    web: { cookieDomain: env.COOKIE_DOMAIN || null, cookieSecure: env.COOKIE_SECURE },
     payments: {
       gateway: env.PAYMENTS_GATEWAY,
       publicApiUrl: env.PUBLIC_API_URL?.replace(/\/+$/, '') || null,
