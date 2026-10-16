@@ -159,7 +159,7 @@ describe('Recomendación por forma de cara (e2e)', () => {
       uploadedById: shop.owner.userId,
       styleIds: [fade],
       caption: 'Ejemplo: Degradado bajo',
-      source: { provider: 'pexels', id: 123, photographer: 'Ana' },
+      source: { provider: 'pixabay', id: 123, author: 'Ana' },
     });
     const row = await prisma.image.findUniqueOrThrow({ where: { id } });
     expect(row).toMatchObject({ isDemo: true, labelConfirmed: false, kind: 'GALLERY' });
