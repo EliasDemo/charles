@@ -44,6 +44,7 @@ import { CareerModule } from './modules/career/career.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { VideosModule } from './modules/videos/videos.module';
+import { RecommendationsModule } from './modules/recommendations/recommendations.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { VideosModule } from './modules/videos/videos.module';
     MessagingModule,
     JobsModule,
     VideosModule,
+    RecommendationsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

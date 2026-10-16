@@ -15,6 +15,12 @@ export const SettingKey = {
   BARBERSHOPS_REQUIRE_REVIEW: 'barbershops.require_review',
   BARBERSHOPS_REQUIRE_PHOTO: 'barbershops.require_photo',
   IMAGES_GALLERY_MAX: 'images.gallery_max_per_barber',
+  // Recomendación por forma de cara: pesos del ranking de barberos por corte (0 a 100).
+  RECOMMEND_WEIGHT_WORKS: 'recommend.weight_works',
+  RECOMMEND_WEIGHT_SAME_SHAPE: 'recommend.weight_same_shape',
+  RECOMMEND_WEIGHT_RATING: 'recommend.weight_rating',
+  RECOMMEND_WEIGHT_RECENCY: 'recommend.weight_recency',
+  RECOMMEND_WEIGHT_DISTANCE: 'recommend.weight_distance',
   IMAGES_PINNED_MAX: 'images.pinned_max_per_barber',
   IMAGES_REPORT_HIDE_THRESHOLD: 'images.report_hide_threshold',
   IMAGES_UPLOAD_RATE_LIMIT_PER_MINUTE: 'images.upload_rate_limit_per_minute',

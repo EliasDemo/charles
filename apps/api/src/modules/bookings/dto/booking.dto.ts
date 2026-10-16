@@ -59,6 +59,16 @@ export class CreateBookingDto {
   @IsString()
   @Length(1, 40)
   couponCode?: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Forma de cara: corte elegido (por ejemplo, al reservar desde una foto o una recomendación). ' +
+      'Sirve para medir las estrellas del barbero en ese corte.',
+  })
+  @IsOptional()
+  @IsUUID()
+  styleId?: string;
 }
 
 /** RF-RES-005. El motivo es obligatorio cuando cancela la barbería. */

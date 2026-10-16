@@ -29,6 +29,7 @@ describe('RF-CLI-001 / RF-CLI-002 Perfil del cliente (e2e)', () => {
       birthDate: null,
       gender: null,
       photoUrl: null,
+      faceShape: null,
       createdAt: expect.any(String),
     });
     const raw = JSON.stringify(res.body);

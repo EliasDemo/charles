@@ -155,6 +155,10 @@ export class ImageModerationService {
         categoryId: s.categoryId,
         categoryKey: s.category.key,
         sortOrder: s.sortOrder,
+        description: s.description,
+        maintenance: s.maintenance,
+        hairTypes: s.hairTypes,
+        vibe: s.vibe,
         isActive: s.isActive,
       }));
   }
@@ -181,6 +185,10 @@ export class ImageModerationService {
             name: dto.name,
             categoryId: dto.categoryId,
             sortOrder: dto.sortOrder ?? 0,
+            description: dto.description ?? null,
+            maintenance: dto.maintenance ?? null,
+            hairTypes: dto.hairTypes ?? [],
+            vibe: dto.vibe ?? null,
           },
           select: { id: true },
         });
@@ -221,7 +229,15 @@ export class ImageModerationService {
       }
       const after = await tx.serviceStyle.update({
         where: { id },
-        data: { name: dto.name, sortOrder: dto.sortOrder, isActive: dto.isActive },
+        data: {
+          name: dto.name,
+          sortOrder: dto.sortOrder,
+          isActive: dto.isActive,
+          description: dto.description,
+          maintenance: dto.maintenance,
+          hairTypes: dto.hairTypes,
+          vibe: dto.vibe,
+        },
       });
       await this.audit.record(
         {

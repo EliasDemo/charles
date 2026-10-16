@@ -301,6 +301,9 @@ model User {
   birthDateEnc          String?    @map("birth_date_enc")
   /// Perfil: opcional. Uso declarado: sugerir estilos. Nunca visible para las barberías.
   gender                Gender?
+  /// Forma de cara del cliente, solo si activó "recordar mi forma de cara" (dato biométrico).
+  faceShape             FaceShape? @map("face_shape")
+  faceShapeConsentAt    DateTime?  @map("face_shape_consent_at") @db.Timestamptz(3)
   /// Perfil: foto de la cuenta (variantes en el almacenamiento, como `images.variants`).
   photoVariants         Json?      @map("photo_variants")
   status                UserStatus @default(ACTIVE)
@@ -730,20 +733,28 @@ model ServiceCategory {
 
 /// Fase 14: estilos (degradado, barba candado…) por categoría; etiquetan fotos y especialidades.
 model ServiceStyle {
-  id         String   @id @default(uuid(7)) @db.Uuid
-  categoryId String   @map("category_id") @db.Uuid
-  key        String   @unique
-  name       String
-  sortOrder  Int      @default(0) @map("sort_order")
-  isActive   Boolean  @default(true) @map("is_active")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id          String            @id @default(uuid(7)) @db.Uuid
+  categoryId  String            @map("category_id") @db.Uuid
+  key         String            @unique
+  name        String
+  sortOrder   Int               @default(0) @map("sort_order")
+  isActive    Boolean           @default(true) @map("is_active")
+  /// Forma de cara: descripción, mantenimiento, tipos de cabello y estilo (clásico o moderno).
+  description String?
+  maintenance MaintenanceLevel?
+  hairTypes   HairType[]        @map("hair_types")
+  vibe        StyleVibe?
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   category    ServiceCategory   @relation(fields: [categoryId], references: [id])
   images      ImageStyle[]
   specialties BarberSpecialty[]
 
   profileSpecialties BarberProfileSpecialty[]
+
+  faceShapeRules FaceShapeRule[]
+  bookings       Booking[]
 
   @@index([categoryId])
   @@map("service_styles")
@@ -769,27 +780,35 @@ model BarberSpecialty {
 /// en el almacenamiento). La galería exige el consentimiento de la persona fotografiada, declarado
 /// por quien sube. Se oculta sola con N reportes abiertos (se calcula, no se guarda).
 model Image {
-  id               String    @id @default(uuid(7)) @db.Uuid
+  id               String     @id @default(uuid(7)) @db.Uuid
   /// null: foto del portafolio que el barbero subió desde su perfil (sin barbería).
-  barbershopId     String?   @map("barbershop_id") @db.Uuid
+  barbershopId     String?    @map("barbershop_id") @db.Uuid
   /// Carrera del barbero: portafolio (sus cortes). Es del barbero, no de la barbería.
-  barberProfileId  String?   @map("barber_profile_id") @db.Uuid
-  barberId         String?   @map("barber_id") @db.Uuid
+  barberProfileId  String?    @map("barber_profile_id") @db.Uuid
+  barberId         String?    @map("barber_id") @db.Uuid
   kind             ImageKind
   variants         Json
-  uploadedById     String    @map("uploaded_by") @db.Uuid
-  consentGiven     Boolean   @default(false) @map("consent_given")
-  consentByUserId  String?   @map("consent_by_user_id") @db.Uuid
-  consentTimestamp DateTime? @map("consent_timestamp") @db.Timestamptz(3)
+  uploadedById     String     @map("uploaded_by") @db.Uuid
+  consentGiven     Boolean    @default(false) @map("consent_given")
+  consentByUserId  String?    @map("consent_by_user_id") @db.Uuid
+  consentTimestamp DateTime?  @map("consent_timestamp") @db.Timestamptz(3)
   caption          String?
+  /// Forma de cara de la persona fotografiada (la marca el barbero). Solo en cortes (GALLERY).
+  faceShape        FaceShape? @map("face_shape")
+  /// Etiquetas (estilos y forma) confirmadas por el barbero: ejemplo válido para recomendar y entrenar.
+  labelConfirmed   Boolean    @default(false) @map("label_confirmed")
+  /// Foto de demostración (stock): nunca se presenta como trabajo real.
+  isDemo           Boolean    @default(false) @map("is_demo")
+  /// Atribución de la foto de demostración (fotógrafo y enlace en la fuente).
+  demoSource       Json?      @map("demo_source")
   /// Servicio para "reservar este estilo" desde la foto.
-  serviceId        String?   @map("service_id") @db.Uuid
-  pinnedAt         DateTime? @map("pinned_at") @db.Timestamptz(3)
+  serviceId        String?    @map("service_id") @db.Uuid
+  pinnedAt         DateTime?  @map("pinned_at") @db.Timestamptz(3)
   /// Retirada por soporte (moderación): no se muestra aunque no tenga reportes.
-  removedAt        DateTime? @map("removed_at") @db.Timestamptz(3)
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
+  removedAt        DateTime?  @map("removed_at") @db.Timestamptz(3)
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?  @map("deleted_at") @db.Timestamptz(3)
 
   barbershop Barbershop?   @relation(fields: [barbershopId], references: [id], onDelete: Restrict)
   barber     Barber?       @relation(fields: [barberId], references: [id])
@@ -928,6 +947,8 @@ model Booking {
   barberId                String           @map("barber_id") @db.Uuid
   /// Carrera del barbero: su perfil, para no cruzar citas entre barberías (restricción de exclusión).
   barberProfileId         String?          @map("barber_profile_id") @db.Uuid
+  /// Forma de cara: corte elegido al reservar (opcional), para medir las estrellas por corte.
+  styleId                 String?          @map("style_id") @db.Uuid
   serviceId               String           @map("service_id") @db.Uuid
   startAt                 DateTime         @map("start_at") @db.Timestamptz(3)
   endAt                   DateTime         @map("end_at") @db.Timestamptz(3)
@@ -966,7 +987,10 @@ model Booking {
 
   barberProfile BarberProfile? @relation(fields: [barberProfileId], references: [id])
 
+  style ServiceStyle? @relation(fields: [styleId], references: [id])
+
   @@unique([clientId, idempotencyKey])
+  @@index([styleId])
   @@index([barberProfileId, startAt])
   @@index([clientId, startAt])
   @@index([barbershopId, startAt])
@@ -1803,4 +1827,52 @@ model VideoReport {
   @@unique([videoId, reporterId])
   @@index([resolvedAt])
   @@map("video_reports")
+}
+
+// ───────────── Recomendación por forma de cara (Etapa 1) ─────────────
+
+enum FaceShape {
+  OVAL
+  ROUND
+  SQUARE
+  OBLONG
+  HEART
+  DIAMOND
+}
+
+enum MaintenanceLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum HairType {
+  STRAIGHT
+  WAVY
+  CURLY
+  COILY
+}
+
+enum StyleVibe {
+  CLASSIC
+  MODERN
+}
+
+/// Compatibilidad entre una forma de cara y un corte (0 a 100). Empieza con criterios generales de
+/// barbería (`validated = false`) y la ajusta un ADMIN con evidencia.
+model FaceShapeRule {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  faceShape FaceShape @map("face_shape")
+  styleId   String    @map("style_id") @db.Uuid
+  score     Int       @db.SmallInt
+  note      String?
+  validated Boolean   @default(false)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  style ServiceStyle @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@unique([faceShape, styleId])
+  @@index([styleId])
+  @@map("face_shape_rules")
 }

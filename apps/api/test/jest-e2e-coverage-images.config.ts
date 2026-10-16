@@ -17,6 +17,7 @@ const config: Config = {
     'test/career/(career|videos)\\.e2e-spec\\.ts$',
     'test/promotions/growth\\.e2e-spec\\.ts$',
     'test/users/profile-extended\\.e2e-spec\\.ts$',
+    'test/recommendations/.*\\.e2e-spec\\.ts$',
     'src/modules/images/.*\\.spec\\.ts$',
   ],
   transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/test/tsconfig.coverage.json' }] },

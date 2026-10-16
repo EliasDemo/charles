@@ -87,7 +87,7 @@ Cabecera en cada petición autenticada: `Authorization: Bearer <accessToken>`.
 7. **Recuperar la contraseña:**
    - pedir el código: `POST /auth/password-reset/request` con `{ email }` (respuesta idéntica exista o no la cuenta);
    - confirmar: `POST /auth/password-reset/confirm` con `{ email, code, newPassword }`, que **cierra todas las sesiones**.
-8. **Perfil:** `GET /users/me` y `PATCH /users/me`, para nombre, teléfono, preferencias, fecha de nacimiento y género; foto con `PUT`/`DELETE /users/me/photo`; contraseña con `POST /users/me/password`. El correo no se cambia en el MVP. Detalle en [`PERFIL.md`](PERFIL.md). Promociones, cupones y anuncios: [`PROMOCIONES.md`](PROMOCIONES.md). Perfil profesional del barbero, mensajes, bolsa de trabajo y videos: [`CARRERA.md`](CARRERA.md).
+8. **Perfil:** `GET /users/me` y `PATCH /users/me`, para nombre, teléfono, preferencias, fecha de nacimiento y género; foto con `PUT`/`DELETE /users/me/photo`; contraseña con `POST /users/me/password`. El correo no se cambia en el MVP. Detalle en [`PERFIL.md`](PERFIL.md). Promociones, cupones y anuncios: [`PROMOCIONES.md`](PROMOCIONES.md). Perfil profesional del barbero, mensajes, bolsa de trabajo y videos: [`CARRERA.md`](CARRERA.md). Recomendación por forma de cara: [`FORMA-DE-CARA.md`](FORMA-DE-CARA.md).
 
 ### Qué hacer ante un 401
 

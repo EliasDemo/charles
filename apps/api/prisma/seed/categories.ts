@@ -53,6 +53,12 @@ export const SERVICE_STYLES: { category: ServiceCategoryKey; key: string; name: 
   { category: 'haircut', key: 'classic_scissors', name: 'Clásico a tijera' },
   { category: 'haircut', key: 'mullet', name: 'Mullet' },
   { category: 'haircut', key: 'hair_design', name: 'Diseño y líneas' },
+  // Forma de cara (Etapa 1): catálogo de cortes completado a 15.
+  { category: 'haircut', key: 'quiff', name: 'Quiff' },
+  { category: 'haircut', key: 'undercut', name: 'Undercut' },
+  { category: 'haircut', key: 'side_part', name: 'Raya al costado' },
+  { category: 'haircut', key: 'slick_back', name: 'Peinado hacia atrás' },
+  { category: 'haircut', key: 'curly_top', name: 'Rizos con degradado' },
   { category: 'beard', key: 'beard_full', name: 'Barba completa' },
   { category: 'beard', key: 'beard_goatee', name: 'Candado' },
   { category: 'beard', key: 'beard_stubble', name: 'Barba corta' },

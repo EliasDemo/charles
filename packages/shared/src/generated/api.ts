@@ -3775,6 +3775,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/face-shape/classify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clasificar la forma de cara a partir de 4 medidas (nunca la foto)
+         * @description La app mide la cara en el teléfono y envía solo estas proporciones. No se guarda nada. Devuelve la forma, la confianza y las alternativas (caras mixtas).
+         */
+        post: operations["RecommendationsController_classify_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recommendations/haircuts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cortes recomendados para la forma de cara, con fotos y barberos cercanos
+         * @description Envía `faceShape` o `measurements` (si no, se usa la forma guardada de la cuenta). Nada se guarda. Muestra siempre `disclaimer`.
+         */
+        post: operations["RecommendationsController_recommend_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/face-shape-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Solo ADMIN: matriz de compatibilidad forma de cara ↔ corte */
+        get: operations["FaceShapeRulesAdminController_list_v1"];
+        /** Solo ADMIN: crear o cambiar una regla (con motivo, queda en la auditoría) */
+        put: operations["FaceShapeRulesAdminController_upsert_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3840,6 +3898,11 @@ export interface components {
             gender: components["schemas"]["Gender"] | null;
             /** @description Foto de perfil (cuadrado de 512 px, WebP). null si no tiene. */
             photoUrl: string | null;
+            /**
+             * @description Forma de cara guardada (solo si la persona lo autorizó).
+             * @enum {string|null}
+             */
+            faceShape: "OVAL" | "ROUND" | "SQUARE" | "OBLONG" | "HEART" | "DIAMOND" | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -3860,6 +3923,13 @@ export interface components {
             birthDate?: string | null;
             /** @description null lo elimina. Solo para sugerir estilos; nunca lo ven las barberías. */
             gender?: components["schemas"]["Gender"] | null;
+            /**
+             * @description Recordar mi forma de cara (dato biométrico): exige faceShapeConsent=true. null la borra.
+             * @enum {string|null}
+             */
+            faceShape?: "OVAL" | "ROUND" | "SQUARE" | "OBLONG" | "HEART" | "DIAMOND" | null;
+            /** @description Consentimiento expreso para guardar la forma de cara (obligatorio para guardarla). */
+            faceShapeConsent?: boolean;
         };
         TermsDto: {
             /** @example 2026-10 */
@@ -4736,6 +4806,11 @@ export interface components {
              * @description Servicio para "reservar este estilo" desde la foto (de la misma barbería).
              */
             serviceId?: string | null;
+            /**
+             * @description Forma de cara de la persona (la marca el barbero). Con estilos, la foto queda como etiqueta confirmada y sirve para recomendar cortes a caras parecidas.
+             * @enum {string|null}
+             */
+            faceShape?: "OVAL" | "ROUND" | "SQUARE" | "OBLONG" | "HEART" | "DIAMOND" | null;
         };
         GalleryServiceDto: {
             /** Format: uuid */
@@ -4764,6 +4839,12 @@ export interface components {
             service: components["schemas"]["GalleryServiceDto"] | null;
             /** @description Destacada (fijada arriba). */
             pinned: boolean;
+            /** @enum {string|null} */
+            faceShape: "OVAL" | "ROUND" | "SQUARE" | "OBLONG" | "HEART" | "DIAMOND" | null;
+            /** @description Estilos y forma confirmados por el barbero. */
+            labelConfirmed: boolean;
+            /** @description Foto de demostración (stock): muéstrala como "Ejemplo". */
+            isDemo: boolean;
             /** Format: date-time */
             createdAt: string;
             /** @description Reportes abiertos. */
@@ -4781,6 +4862,11 @@ export interface components {
             serviceId?: string | null;
             /** @description true la destaca (hasta 6 por barbero, images.pinned_max_per_barber). */
             pinned?: boolean;
+            /**
+             * @description Forma de cara de la persona (la marca el barbero). Con estilos, la foto queda como etiqueta confirmada y sirve para recomendar cortes a caras parecidas.
+             * @enum {string|null}
+             */
+            faceShape?: "OVAL" | "ROUND" | "SQUARE" | "OBLONG" | "HEART" | "DIAMOND" | null;
         };
         GalleryManagePageDto: {
             items: components["schemas"]["GalleryImageManageDto"][];
@@ -4810,6 +4896,12 @@ export interface components {
             service: components["schemas"]["GalleryServiceDto"] | null;
             /** @description Destacada (fijada arriba). */
             pinned: boolean;
+            /** @enum {string|null} */
+            faceShape: "OVAL" | "ROUND" | "SQUARE" | "OBLONG" | "HEART" | "DIAMOND" | null;
+            /** @description Estilos y forma confirmados por el barbero. */
+            labelConfirmed: boolean;
+            /** @description Foto de demostración (stock): muéstrala como "Ejemplo". */
+            isDemo: boolean;
             /** Format: date-time */
             createdAt: string;
         };
@@ -4820,6 +4912,8 @@ export interface components {
             items: components["schemas"]["GalleryImageDto"][];
             nextCursor: string | null;
         };
+        /** @enum {string} */
+        HairType: "STRAIGHT" | "WAVY" | "CURLY" | "COILY";
         ServiceStyleDto: {
             /** Format: uuid */
             id: string;
@@ -4832,6 +4926,12 @@ export interface components {
             /** @example haircut */
             categoryKey: string;
             sortOrder: number;
+            description: string | null;
+            /** @enum {string|null} */
+            maintenance: "LOW" | "MEDIUM" | "HIGH" | null;
+            hairTypes: components["schemas"]["HairType"][];
+            /** @enum {string|null} */
+            vibe: "CLASSIC" | "MODERN" | null;
         };
         /** @enum {string} */
         ImageReportReason: "NOT_MY_PHOTO" | "NO_CONSENT" | "INAPPROPRIATE" | "MISLEADING" | "OTHER";
@@ -4870,6 +4970,12 @@ export interface components {
             service: components["schemas"]["GalleryServiceDto"] | null;
             /** @description Destacada (fijada arriba). */
             pinned: boolean;
+            /** @enum {string|null} */
+            faceShape: "OVAL" | "ROUND" | "SQUARE" | "OBLONG" | "HEART" | "DIAMOND" | null;
+            /** @description Estilos y forma confirmados por el barbero. */
+            labelConfirmed: boolean;
+            /** @description Foto de demostración (stock): muéstrala como "Ejemplo". */
+            isDemo: boolean;
             /** Format: date-time */
             createdAt: string;
             /** @description Reportes abiertos. */
@@ -4905,6 +5011,12 @@ export interface components {
             /** @example haircut */
             categoryKey: string;
             sortOrder: number;
+            description: string | null;
+            /** @enum {string|null} */
+            maintenance: "LOW" | "MEDIUM" | "HIGH" | null;
+            hairTypes: components["schemas"]["HairType"][];
+            /** @enum {string|null} */
+            vibe: "CLASSIC" | "MODERN" | null;
             isActive: boolean;
         };
         CreateStyleDto: {
@@ -4915,12 +5027,24 @@ export interface components {
             /** Format: uuid */
             categoryId: string;
             sortOrder?: number;
+            description?: string | null;
+            /** @enum {string|null} */
+            maintenance?: "LOW" | "MEDIUM" | "HIGH" | null;
+            hairTypes?: components["schemas"]["HairType"][];
+            /** @enum {string|null} */
+            vibe?: "CLASSIC" | "MODERN" | null;
         };
         UpdateStyleDto: {
             name?: string;
             sortOrder?: number;
             /** @description false lo oculta de la app y de la búsqueda (no se borra). */
             isActive?: boolean;
+            description?: string | null;
+            /** @enum {string|null} */
+            maintenance?: "LOW" | "MEDIUM" | "HIGH" | null;
+            hairTypes?: components["schemas"]["HairType"][];
+            /** @enum {string|null} */
+            vibe?: "CLASSIC" | "MODERN" | null;
         };
         InviteMemberDto: {
             /**
@@ -5290,6 +5414,11 @@ export interface components {
              * @example BIENVENIDO10
              */
             couponCode?: string;
+            /**
+             * Format: uuid
+             * @description Forma de cara: corte elegido (por ejemplo, al reservar desde una foto o una recomendación). Sirve para medir las estrellas del barbero en ese corte.
+             */
+            styleId?: string;
         };
         /** @enum {string} */
         BookingStatus: "PENDING_PAYMENT" | "CONFIRMED" | "ATTENDED" | "CANCELLED" | "NO_SHOW" | "EXPIRED";
@@ -6639,6 +6768,11 @@ export interface components {
             styleIds?: string[];
             /** @description Confirma que la persona fotografiada aceptó que se publique (obligatorio). */
             consent: boolean;
+            /**
+             * @description Forma de cara de la persona (la marca el barbero). Con estilos, la foto queda como etiqueta confirmada y sirve para recomendar cortes a caras parecidas.
+             * @enum {string|null}
+             */
+            faceShape?: "OVAL" | "ROUND" | "SQUARE" | "OBLONG" | "HEART" | "DIAMOND" | null;
         };
         PortfolioItemDto: {
             /** Format: uuid */
@@ -6651,6 +6785,9 @@ export interface components {
             styles: components["schemas"]["StyleRefDto"][];
             /** @description Barbería donde se subió (null si la subió el barbero desde su perfil). */
             barbershopName: string | null;
+            /** @enum {string|null} */
+            faceShape: "OVAL" | "ROUND" | "SQUARE" | "OBLONG" | "HEART" | "DIAMOND" | null;
+            labelConfirmed: boolean;
             /** Format: date-time */
             createdAt: string;
         };
@@ -6996,6 +7133,160 @@ export interface components {
         VideoModerationDto: {
             /** @enum {string} */
             decision: "KEEP" | "REMOVE" | "RESTORE";
+            reason: string;
+        };
+        FaceMeasurementsDto: {
+            /** @description Largo: de la frente (línea del cabello) al mentón. */
+            faceLength: number;
+            /** @description Ancho de la frente. */
+            foreheadWidth: number;
+            /** @description Ancho entre pómulos (lo más ancho de la cara media). */
+            cheekboneWidth: number;
+            /** @description Ancho de la mandíbula a la altura de sus ángulos. */
+            jawWidth: number;
+        };
+        /** @enum {string} */
+        FaceShape: "OVAL" | "ROUND" | "SQUARE" | "OBLONG" | "HEART" | "DIAMOND";
+        FaceShapeAlternativeDto: {
+            shape: components["schemas"]["FaceShape"];
+            probability: number;
+        };
+        FaceShapeResultDto: {
+            shape: components["schemas"]["FaceShape"];
+            /** @description Probabilidad de la forma elegida (0 a 1). */
+            confidence: number;
+            /** @description Formas también posibles (caras mixtas). Muéstralas como "también podría ser". */
+            alternatives: components["schemas"]["FaceShapeAlternativeDto"][];
+        };
+        /**
+         * @description Clásico o moderno.
+         * @enum {string}
+         */
+        StyleVibe: "CLASSIC" | "MODERN";
+        /**
+         * @description Mantenimiento que prefiere (LOW: lo mínimo).
+         * @enum {string}
+         */
+        MaintenanceLevel: "LOW" | "MEDIUM" | "HIGH";
+        RecommendHaircutsDto: {
+            /** @description Forma ya conocida (por ejemplo, la guardada). Si no, envía `measurements`. */
+            faceShape?: components["schemas"]["FaceShape"];
+            /** @description Se clasifican y no se guardan. */
+            measurements?: components["schemas"]["FaceMeasurementsDto"];
+            hairType?: components["schemas"]["HairType"];
+            /** @description Clásico o moderno. */
+            vibe?: components["schemas"]["StyleVibe"];
+            /** @description Mantenimiento que prefiere (LOW: lo mínimo). */
+            maintenance?: components["schemas"]["MaintenanceLevel"];
+            /** @description Ubicación del cliente (solo para esta petición; no se guarda). */
+            lat: number;
+            lng: number;
+            /** @description Radio (km); por defecto el de la búsqueda. */
+            radiusKm?: number;
+        };
+        RecommendedPhotoDto: {
+            /** Format: uuid */
+            id: string;
+            thumbUrl: string;
+            largeUrl: string;
+            /** @enum {string|null} */
+            faceShape: "OVAL" | "ROUND" | "SQUARE" | "OBLONG" | "HEART" | "DIAMOND" | null;
+            /** @description De una cara de la misma forma que la del cliente. */
+            sameFaceShape: boolean;
+            /** @description Etiqueta confirmada por el barbero. */
+            confirmed: boolean;
+            /** @description Foto de demostración (stock): muéstrala como "Ejemplo". */
+            isDemo: boolean;
+            /** Format: uuid */
+            barbershopId: string;
+            barbershopName: string;
+            /** Format: uuid */
+            barberProfileId: string | null;
+            barberName: string | null;
+            /**
+             * Format: uuid
+             * @description Para "reservar este corte".
+             */
+            serviceId: string | null;
+            /** @description Metros hasta la barbería (redondeados). */
+            distanceMeters: number;
+        };
+        RankedStyleBarberDto: {
+            /** Format: uuid */
+            barberProfileId: string;
+            displayName: string;
+            photoUrl: string | null;
+            /** Format: uuid */
+            barbershopId: string;
+            barbershopName: string;
+            /**
+             * Format: uuid
+             * @description Vínculo en esa barbería (para reservar con él).
+             */
+            barberId: string;
+            distanceMeters: number;
+            /** @description Trabajos confirmados de este corte. */
+            confirmedWorks: number;
+            /** @description De ellos, en caras de la misma forma que la del cliente. */
+            sameShapeWorks: number;
+            /** @description Estrellas en este corte (null sin valoraciones). */
+            styleRatingAverage: number | null;
+            styleRatingCount: number;
+            /** @description Puntaje combinado (0 a 1). */
+            score: number;
+            /** @example 23 trabajos de este corte en caras ovaladas · 4,9 ★ · a 1,2 km */
+            summary: string;
+        };
+        RecommendedHaircutDto: {
+            style: components["schemas"]["StyleRefDto"];
+            description: string | null;
+            /** @enum {string|null} */
+            maintenance: "LOW" | "MEDIUM" | "HIGH" | null;
+            /** @description Compatibilidad con la forma de cara (0 a 100), ya ajustada a sus preferencias. */
+            compatibility: number;
+            /** @description Por qué se recomienda. */
+            reason: string | null;
+            /** @description false: la regla aún no fue validada por barberos. */
+            ruleValidated: boolean;
+            /** @description Fotos reales cerca, primero de caras parecidas. */
+            photos: components["schemas"]["RecommendedPhotoDto"][];
+            /** @description Mejores barberos de este corte cerca. */
+            barbers: components["schemas"]["RankedStyleBarberDto"][];
+        };
+        HaircutRecommendationDto: {
+            faceShape: components["schemas"]["FaceShapeResultDto"];
+            haircuts: components["schemas"]["RecommendedHaircutDto"][];
+            /**
+             * @description Texto obligatorio en la pantalla: es una recomendación, no una regla.
+             * @example La forma de cara es una aproximación y muchas caras son mixtas: tómalo como una sugerencia.
+             */
+            disclaimer: string;
+        };
+        FaceShapeRuleDto: {
+            /** Format: uuid */
+            id: string;
+            faceShape: components["schemas"]["FaceShape"];
+            /** Format: uuid */
+            styleId: string;
+            styleKey: string;
+            styleName: string;
+            score: number;
+            note: string | null;
+            /** @description false: criterio general, aún no validado por barberos. */
+            validated: boolean;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        UpsertFaceShapeRuleDto: {
+            faceShape: components["schemas"]["FaceShape"];
+            /** Format: uuid */
+            styleId: string;
+            score: number;
+            /** @description Por qué (se muestra al cliente). */
+            note?: string;
+            /** @description true: revisada con barberos o con evidencia. */
+            validated?: boolean;
+            /** @description Motivo del cambio (auditoría). */
             reason: string;
         };
     };
@@ -16356,6 +16647,110 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    RecommendationsController_classify_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FaceMeasurementsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaceShapeResultDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    RecommendationsController_recommend_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecommendHaircutsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HaircutRecommendationDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    FaceShapeRulesAdminController_list_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaceShapeRuleDto"][];
+                };
+            };
+        };
+    };
+    FaceShapeRulesAdminController_upsert_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertFaceShapeRuleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaceShapeRuleDto"];
+                };
             };
         };
     };

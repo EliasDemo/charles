@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   Length,
@@ -13,6 +14,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Gender, NotificationChannel, Role } from '../../../generated/prisma/enums';
+import { FACE_SHAPES, type FaceShape } from '../../recommendations/face-shape';
 
 /** Fecha de calendario `YYYY-MM-DD` (la validez real y la edad se comprueban en el servicio). */
 export const BIRTH_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -89,6 +91,26 @@ export class UpdateProfileDto {
   @ValidateIf((_o, value) => value !== null && value !== undefined)
   @IsEnum(Gender)
   gender?: Gender | null;
+
+  @ApiPropertyOptional({
+    enum: FACE_SHAPES,
+    enumName: 'FaceShape',
+    nullable: true,
+    type: String,
+    description:
+      'Recordar mi forma de cara (dato biométrico): exige faceShapeConsent=true. null la borra.',
+  })
+  @ValidateIf((_o, value) => value !== null && value !== undefined)
+  @IsIn(FACE_SHAPES)
+  faceShape?: FaceShape | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Consentimiento expreso para guardar la forma de cara (obligatorio para guardarla).',
+  })
+  @IsOptional()
+  @IsBoolean()
+  faceShapeConsent?: boolean;
 }
 
 export class ProfileDto {
@@ -125,6 +147,15 @@ export class ProfileDto {
     description: 'Foto de perfil (cuadrado de 512 px, WebP). null si no tiene.',
   })
   photoUrl!: string | null;
+
+  @ApiProperty({
+    enum: FACE_SHAPES,
+    enumName: 'FaceShape',
+    nullable: true,
+    type: String,
+    description: 'Forma de cara guardada (solo si la persona lo autorizó).',
+  })
+  faceShape!: FaceShape | null;
 
   @ApiProperty()
   createdAt!: Date;

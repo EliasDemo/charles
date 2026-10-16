@@ -17,6 +17,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { StyleRefDto } from '../../barbers/dto/barber.dto';
+import { FACE_SHAPES, type FaceShape } from '../../recommendations/face-shape';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -24,6 +25,7 @@ const bool = ({ value }: { value: unknown }): unknown =>
   value === 'true' ? true : value === 'false' ? false : value;
 
 const CURSOR = /^[A-Za-z0-9_-]+$/;
+const emptyNull = ({ value }: { value: unknown }): unknown => (value === '' ? null : value);
 
 // ───────────── Perfil profesional ─────────────
 
@@ -191,6 +193,12 @@ export class PortfolioItemDto {
   })
   barbershopName!: string | null;
 
+  @ApiProperty({ type: String, nullable: true, enum: FACE_SHAPES, enumName: 'FaceShape' })
+  faceShape!: FaceShape | null;
+
+  @ApiProperty()
+  labelConfirmed!: boolean;
+
   @ApiProperty()
   createdAt!: Date;
 }
@@ -263,6 +271,21 @@ export class PortfolioUploadDto {
   @Transform(bool)
   @IsBoolean()
   consent!: boolean;
+
+  @ApiPropertyOptional({
+    enum: FACE_SHAPES,
+    enumName: 'FaceShape',
+    nullable: true,
+    type: String,
+    description:
+      'Forma de cara de la persona (la marca el barbero). Con estilos, la foto queda como etiqueta ' +
+      'confirmada y sirve para recomendar cortes a caras parecidas.',
+  })
+  @IsOptional()
+  @Transform(emptyNull)
+  @ValidateIf((_o, v) => v !== null)
+  @IsIn(FACE_SHAPES)
+  faceShape?: FaceShape | null;
 }
 
 export class ProfileReviewDto {

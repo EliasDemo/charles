@@ -19,6 +19,12 @@ import {
 } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/pagination/pagination';
 import { StyleRefDto } from '../../barbers/dto/barber.dto';
+import { FACE_SHAPES, type FaceShape } from '../../recommendations/face-shape';
+import {
+  HAIR_TYPES,
+  MAINTENANCE as MAINTENANCE_LEVELS,
+  VIBES as STYLE_VIBES,
+} from '../../recommendations/dto/recommendation.dto';
 import { MoneyDto } from '../../barbershops/dto/barbershop.dto';
 import { ImageReportReason, ReportStatus } from '../../../generated/prisma/enums';
 import { IMAGE_DEFAULTS, STYLE_KEY_PATTERN } from '../image-policy';
@@ -94,6 +100,21 @@ export class GalleryUploadDto extends ImageUploadDto {
   @ValidateIf((_o, v) => v !== null)
   @IsUUID()
   serviceId?: string | null;
+
+  @ApiPropertyOptional({
+    enum: FACE_SHAPES,
+    enumName: 'FaceShape',
+    nullable: true,
+    type: String,
+    description:
+      'Forma de cara de la persona (la marca el barbero). Con estilos, la foto queda como etiqueta ' +
+      'confirmada y sirve para recomendar cortes a caras parecidas.',
+  })
+  @IsOptional()
+  @Transform(emptyToNull)
+  @ValidateIf((_o, v) => v !== null)
+  @IsIn(FACE_SHAPES)
+  faceShape?: FaceShape | null;
 }
 
 export class UpdateGalleryImageDto {
@@ -125,6 +146,21 @@ export class UpdateGalleryImageDto {
   @IsOptional()
   @IsBoolean()
   pinned?: boolean;
+
+  @ApiPropertyOptional({
+    enum: FACE_SHAPES,
+    enumName: 'FaceShape',
+    nullable: true,
+    type: String,
+    description:
+      'Forma de cara de la persona (la marca el barbero). Con estilos, la foto queda como etiqueta ' +
+      'confirmada y sirve para recomendar cortes a caras parecidas.',
+  })
+  @IsOptional()
+  @Transform(emptyToNull)
+  @ValidateIf((_o, v) => v !== null)
+  @IsIn(FACE_SHAPES)
+  faceShape?: FaceShape | null;
 }
 
 export class SetSpecialtiesDto {
@@ -219,6 +255,38 @@ export class CreateStyleDto {
   @Min(0)
   @Max(10_000)
   sortOrder?: number;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 300 })
+  @IsOptional()
+  @Transform(emptyToNull)
+  @ValidateIf((_o, v) => v !== null)
+  @IsString()
+  @MaxLength(300)
+  description?: string | null;
+
+  @ApiPropertyOptional({
+    enum: MAINTENANCE_LEVELS,
+    enumName: 'MaintenanceLevel',
+    nullable: true,
+    type: String,
+  })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsIn(MAINTENANCE_LEVELS)
+  maintenance?: (typeof MAINTENANCE_LEVELS)[number] | null;
+
+  @ApiPropertyOptional({ enum: HAIR_TYPES, enumName: 'HairType', isArray: true })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsIn(HAIR_TYPES, { each: true })
+  hairTypes?: (typeof HAIR_TYPES)[number][];
+
+  @ApiPropertyOptional({ enum: STYLE_VIBES, enumName: 'StyleVibe', nullable: true, type: String })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsIn(STYLE_VIBES)
+  vibe?: (typeof STYLE_VIBES)[number] | null;
 }
 
 export class UpdateStyleDto {
@@ -240,6 +308,38 @@ export class UpdateStyleDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 300 })
+  @IsOptional()
+  @Transform(emptyToNull)
+  @ValidateIf((_o, v) => v !== null)
+  @IsString()
+  @MaxLength(300)
+  description?: string | null;
+
+  @ApiPropertyOptional({
+    enum: MAINTENANCE_LEVELS,
+    enumName: 'MaintenanceLevel',
+    nullable: true,
+    type: String,
+  })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsIn(MAINTENANCE_LEVELS)
+  maintenance?: (typeof MAINTENANCE_LEVELS)[number] | null;
+
+  @ApiPropertyOptional({ enum: HAIR_TYPES, enumName: 'HairType', isArray: true })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsIn(HAIR_TYPES, { each: true })
+  hairTypes?: (typeof HAIR_TYPES)[number][];
+
+  @ApiPropertyOptional({ enum: STYLE_VIBES, enumName: 'StyleVibe', nullable: true, type: String })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsIn(STYLE_VIBES)
+  vibe?: (typeof STYLE_VIBES)[number] | null;
 }
 
 // ───────────── Respuestas ─────────────
@@ -253,6 +353,23 @@ export class ServiceStyleDto extends StyleRefDto {
 
   @ApiProperty()
   sortOrder!: number;
+
+  @ApiProperty({ type: String, nullable: true })
+  description!: string | null;
+
+  @ApiProperty({
+    enum: MAINTENANCE_LEVELS,
+    enumName: 'MaintenanceLevel',
+    nullable: true,
+    type: String,
+  })
+  maintenance!: (typeof MAINTENANCE_LEVELS)[number] | null;
+
+  @ApiProperty({ enum: HAIR_TYPES, enumName: 'HairType', isArray: true })
+  hairTypes!: (typeof HAIR_TYPES)[number][];
+
+  @ApiProperty({ enum: STYLE_VIBES, enumName: 'StyleVibe', nullable: true, type: String })
+  vibe!: (typeof STYLE_VIBES)[number] | null;
 }
 
 export class AdminServiceStyleDto extends ServiceStyleDto {
@@ -332,6 +449,15 @@ export class GalleryImageDto {
 
   @ApiProperty({ description: 'Destacada (fijada arriba).' })
   pinned!: boolean;
+
+  @ApiProperty({ type: String, nullable: true, enum: FACE_SHAPES, enumName: 'FaceShape' })
+  faceShape!: FaceShape | null;
+
+  @ApiProperty({ description: 'Estilos y forma confirmados por el barbero.' })
+  labelConfirmed!: boolean;
+
+  @ApiProperty({ description: 'Foto de demostración (stock): muéstrala como "Ejemplo".' })
+  isDemo!: boolean;
 
   @ApiProperty()
   createdAt!: Date;

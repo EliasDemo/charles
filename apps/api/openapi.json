@@ -15129,6 +15129,157 @@
           "admin"
         ]
       }
+    },
+    "/api/v1/face-shape/classify": {
+      "post": {
+        "description": "La app mide la cara en el teléfono y envía solo estas proporciones. No se guarda nada. Devuelve la forma, la confianza y las alternativas (caras mixtas).",
+        "operationId": "RecommendationsController_classify_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FaceMeasurementsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceShapeResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Clasificar la forma de cara a partir de 4 medidas (nunca la foto)",
+        "tags": [
+          "recommendations"
+        ]
+      }
+    },
+    "/api/v1/recommendations/haircuts": {
+      "post": {
+        "description": "Envía `faceShape` o `measurements` (si no, se usa la forma guardada de la cuenta). Nada se guarda. Muestra siempre `disclaimer`.",
+        "operationId": "RecommendationsController_recommend_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendHaircutsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HaircutRecommendationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Cortes recomendados para la forma de cara, con fotos y barberos cercanos",
+        "tags": [
+          "recommendations"
+        ]
+      }
+    },
+    "/api/v1/admin/face-shape-rules": {
+      "get": {
+        "operationId": "FaceShapeRulesAdminController_list_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FaceShapeRuleDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: matriz de compatibilidad forma de cara ↔ corte",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "FaceShapeRulesAdminController_upsert_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertFaceShapeRuleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceShapeRuleDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: crear o cambiar una regla (con motivo, queda en la auditoría)",
+        "tags": [
+          "admin"
+        ]
+      }
     }
   },
   "info": {
@@ -15322,6 +15473,19 @@
             "nullable": true,
             "description": "Foto de perfil (cuadrado de 512 px, WebP). null si no tiene."
           },
+          "faceShape": {
+            "type": "string",
+            "enum": [
+              "OVAL",
+              "ROUND",
+              "SQUARE",
+              "OBLONG",
+              "HEART",
+              "DIAMOND"
+            ],
+            "nullable": true,
+            "description": "Forma de cara guardada (solo si la persona lo autorizó)."
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -15338,6 +15502,7 @@
           "birthDate",
           "gender",
           "photoUrl",
+          "faceShape",
           "createdAt"
         ]
       },
@@ -15374,6 +15539,23 @@
                 "$ref": "#/components/schemas/Gender"
               }
             ]
+          },
+          "faceShape": {
+            "type": "string",
+            "enum": [
+              "OVAL",
+              "ROUND",
+              "SQUARE",
+              "OBLONG",
+              "HEART",
+              "DIAMOND"
+            ],
+            "nullable": true,
+            "description": "Recordar mi forma de cara (dato biométrico): exige faceShapeConsent=true. null la borra."
+          },
+          "faceShapeConsent": {
+            "type": "boolean",
+            "description": "Consentimiento expreso para guardar la forma de cara (obligatorio para guardarla)."
           }
         }
       },
@@ -18134,6 +18316,19 @@
             "format": "uuid",
             "nullable": true,
             "description": "Servicio para \"reservar este estilo\" desde la foto (de la misma barbería)."
+          },
+          "faceShape": {
+            "type": "string",
+            "enum": [
+              "OVAL",
+              "ROUND",
+              "SQUARE",
+              "OBLONG",
+              "HEART",
+              "DIAMOND"
+            ],
+            "nullable": true,
+            "description": "Forma de cara de la persona (la marca el barbero). Con estilos, la foto queda como etiqueta confirmada y sirve para recomendar cortes a caras parecidas."
           }
         },
         "required": [
@@ -18223,6 +18418,26 @@
             "type": "boolean",
             "description": "Destacada (fijada arriba)."
           },
+          "faceShape": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "OVAL",
+              "ROUND",
+              "SQUARE",
+              "OBLONG",
+              "HEART",
+              "DIAMOND"
+            ]
+          },
+          "labelConfirmed": {
+            "type": "boolean",
+            "description": "Estilos y forma confirmados por el barbero."
+          },
+          "isDemo": {
+            "type": "boolean",
+            "description": "Foto de demostración (stock): muéstrala como \"Ejemplo\"."
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -18253,6 +18468,9 @@
           "styles",
           "service",
           "pinned",
+          "faceShape",
+          "labelConfirmed",
+          "isDemo",
           "createdAt",
           "openReports",
           "hidden",
@@ -18282,6 +18500,19 @@
           "pinned": {
             "type": "boolean",
             "description": "true la destaca (hasta 6 por barbero, images.pinned_max_per_barber)."
+          },
+          "faceShape": {
+            "type": "string",
+            "enum": [
+              "OVAL",
+              "ROUND",
+              "SQUARE",
+              "OBLONG",
+              "HEART",
+              "DIAMOND"
+            ],
+            "nullable": true,
+            "description": "Forma de cara de la persona (la marca el barbero). Con estilos, la foto queda como etiqueta confirmada y sirve para recomendar cortes a caras parecidas."
           }
         }
       },
@@ -18377,6 +18608,26 @@
             "type": "boolean",
             "description": "Destacada (fijada arriba)."
           },
+          "faceShape": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "OVAL",
+              "ROUND",
+              "SQUARE",
+              "OBLONG",
+              "HEART",
+              "DIAMOND"
+            ]
+          },
+          "labelConfirmed": {
+            "type": "boolean",
+            "description": "Estilos y forma confirmados por el barbero."
+          },
+          "isDemo": {
+            "type": "boolean",
+            "description": "Foto de demostración (stock): muéstrala como \"Ejemplo\"."
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -18395,6 +18646,9 @@
           "styles",
           "service",
           "pinned",
+          "faceShape",
+          "labelConfirmed",
+          "isDemo",
           "createdAt"
         ]
       },
@@ -18426,6 +18680,15 @@
           "nextCursor"
         ]
       },
+      "HairType": {
+        "type": "string",
+        "enum": [
+          "STRAIGHT",
+          "WAVY",
+          "CURLY",
+          "COILY"
+        ]
+      },
       "ServiceStyleDto": {
         "type": "object",
         "properties": {
@@ -18451,6 +18714,33 @@
           },
           "sortOrder": {
             "type": "number"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "maintenance": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH"
+            ],
+            "nullable": true
+          },
+          "hairTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HairType"
+            }
+          },
+          "vibe": {
+            "type": "string",
+            "enum": [
+              "CLASSIC",
+              "MODERN"
+            ],
+            "nullable": true
           }
         },
         "required": [
@@ -18459,7 +18749,11 @@
           "name",
           "categoryId",
           "categoryKey",
-          "sortOrder"
+          "sortOrder",
+          "description",
+          "maintenance",
+          "hairTypes",
+          "vibe"
         ]
       },
       "ImageReportReason": {
@@ -18596,6 +18890,26 @@
             "type": "boolean",
             "description": "Destacada (fijada arriba)."
           },
+          "faceShape": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "OVAL",
+              "ROUND",
+              "SQUARE",
+              "OBLONG",
+              "HEART",
+              "DIAMOND"
+            ]
+          },
+          "labelConfirmed": {
+            "type": "boolean",
+            "description": "Estilos y forma confirmados por el barbero."
+          },
+          "isDemo": {
+            "type": "boolean",
+            "description": "Foto de demostración (stock): muéstrala como \"Ejemplo\"."
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -18632,6 +18946,9 @@
           "styles",
           "service",
           "pinned",
+          "faceShape",
+          "labelConfirmed",
+          "isDemo",
           "createdAt",
           "openReports",
           "hidden",
@@ -18708,6 +19025,33 @@
           "sortOrder": {
             "type": "number"
           },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "maintenance": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH"
+            ],
+            "nullable": true
+          },
+          "hairTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HairType"
+            }
+          },
+          "vibe": {
+            "type": "string",
+            "enum": [
+              "CLASSIC",
+              "MODERN"
+            ],
+            "nullable": true
+          },
           "isActive": {
             "type": "boolean"
           }
@@ -18719,6 +19063,10 @@
           "categoryId",
           "categoryKey",
           "sortOrder",
+          "description",
+          "maintenance",
+          "hairTypes",
+          "vibe",
           "isActive"
         ]
       },
@@ -18741,6 +19089,34 @@
           },
           "sortOrder": {
             "type": "number"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "maintenance": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH"
+            ],
+            "nullable": true
+          },
+          "hairTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HairType"
+            }
+          },
+          "vibe": {
+            "type": "string",
+            "enum": [
+              "CLASSIC",
+              "MODERN"
+            ],
+            "nullable": true
           }
         },
         "required": [
@@ -18763,6 +19139,34 @@
           "isActive": {
             "type": "boolean",
             "description": "false lo oculta de la app y de la búsqueda (no se borra)."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "maintenance": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH"
+            ],
+            "nullable": true
+          },
+          "hairTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HairType"
+            }
+          },
+          "vibe": {
+            "type": "string",
+            "enum": [
+              "CLASSIC",
+              "MODERN"
+            ],
+            "nullable": true
           }
         }
       },
@@ -19851,6 +20255,11 @@
             "description": "Fase 13: cupón. Si no se puede usar: 409 COUPON_NOT_VALID (details[0].reason). Cotiza antes con POST /bookings/quote. Un solo descuento por reserva: el mayor.",
             "minLength": 1,
             "maxLength": 40
+          },
+          "styleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Forma de cara: corte elegido (por ejemplo, al reservar desde una foto o una recomendación). Sirve para medir las estrellas del barbero en ese corte."
           }
         },
         "required": [
@@ -24362,6 +24771,19 @@
           "consent": {
             "type": "boolean",
             "description": "Confirma que la persona fotografiada aceptó que se publique (obligatorio)."
+          },
+          "faceShape": {
+            "type": "string",
+            "enum": [
+              "OVAL",
+              "ROUND",
+              "SQUARE",
+              "OBLONG",
+              "HEART",
+              "DIAMOND"
+            ],
+            "nullable": true,
+            "description": "Forma de cara de la persona (la marca el barbero). Con estilos, la foto queda como etiqueta confirmada y sirve para recomendar cortes a caras parecidas."
           }
         },
         "required": [
@@ -24403,6 +24825,21 @@
             "nullable": true,
             "description": "Barbería donde se subió (null si la subió el barbero desde su perfil)."
           },
+          "faceShape": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "OVAL",
+              "ROUND",
+              "SQUARE",
+              "OBLONG",
+              "HEART",
+              "DIAMOND"
+            ]
+          },
+          "labelConfirmed": {
+            "type": "boolean"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -24417,6 +24854,8 @@
           "caption",
           "styles",
           "barbershopName",
+          "faceShape",
+          "labelConfirmed",
           "createdAt"
         ]
       },
@@ -25548,6 +25987,498 @@
         },
         "required": [
           "decision",
+          "reason"
+        ]
+      },
+      "FaceMeasurementsDto": {
+        "type": "object",
+        "properties": {
+          "faceLength": {
+            "type": "number",
+            "description": "Largo: de la frente (línea del cabello) al mentón."
+          },
+          "foreheadWidth": {
+            "type": "number",
+            "description": "Ancho de la frente."
+          },
+          "cheekboneWidth": {
+            "type": "number",
+            "description": "Ancho entre pómulos (lo más ancho de la cara media)."
+          },
+          "jawWidth": {
+            "type": "number",
+            "description": "Ancho de la mandíbula a la altura de sus ángulos."
+          }
+        },
+        "required": [
+          "faceLength",
+          "foreheadWidth",
+          "cheekboneWidth",
+          "jawWidth"
+        ]
+      },
+      "FaceShape": {
+        "type": "string",
+        "enum": [
+          "OVAL",
+          "ROUND",
+          "SQUARE",
+          "OBLONG",
+          "HEART",
+          "DIAMOND"
+        ]
+      },
+      "FaceShapeAlternativeDto": {
+        "type": "object",
+        "properties": {
+          "shape": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FaceShape"
+              }
+            ]
+          },
+          "probability": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "shape",
+          "probability"
+        ]
+      },
+      "FaceShapeResultDto": {
+        "type": "object",
+        "properties": {
+          "shape": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FaceShape"
+              }
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "description": "Probabilidad de la forma elegida (0 a 1)."
+          },
+          "alternatives": {
+            "description": "Formas también posibles (caras mixtas). Muéstralas como \"también podría ser\".",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FaceShapeAlternativeDto"
+            }
+          }
+        },
+        "required": [
+          "shape",
+          "confidence",
+          "alternatives"
+        ]
+      },
+      "StyleVibe": {
+        "type": "string",
+        "enum": [
+          "CLASSIC",
+          "MODERN"
+        ],
+        "description": "Clásico o moderno."
+      },
+      "MaintenanceLevel": {
+        "type": "string",
+        "enum": [
+          "LOW",
+          "MEDIUM",
+          "HIGH"
+        ],
+        "description": "Mantenimiento que prefiere (LOW: lo mínimo)."
+      },
+      "RecommendHaircutsDto": {
+        "type": "object",
+        "properties": {
+          "faceShape": {
+            "description": "Forma ya conocida (por ejemplo, la guardada). Si no, envía `measurements`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FaceShape"
+              }
+            ]
+          },
+          "measurements": {
+            "description": "Se clasifican y no se guardan.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FaceMeasurementsDto"
+              }
+            ]
+          },
+          "hairType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HairType"
+              }
+            ]
+          },
+          "vibe": {
+            "description": "Clásico o moderno.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StyleVibe"
+              }
+            ]
+          },
+          "maintenance": {
+            "description": "Mantenimiento que prefiere (LOW: lo mínimo).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MaintenanceLevel"
+              }
+            ]
+          },
+          "lat": {
+            "type": "number",
+            "description": "Ubicación del cliente (solo para esta petición; no se guarda)."
+          },
+          "lng": {
+            "type": "number"
+          },
+          "radiusKm": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "description": "Radio (km); por defecto el de la búsqueda."
+          }
+        },
+        "required": [
+          "lat",
+          "lng"
+        ]
+      },
+      "RecommendedPhotoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "thumbUrl": {
+            "type": "string"
+          },
+          "largeUrl": {
+            "type": "string"
+          },
+          "faceShape": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "OVAL",
+              "ROUND",
+              "SQUARE",
+              "OBLONG",
+              "HEART",
+              "DIAMOND"
+            ]
+          },
+          "sameFaceShape": {
+            "type": "boolean",
+            "description": "De una cara de la misma forma que la del cliente."
+          },
+          "confirmed": {
+            "type": "boolean",
+            "description": "Etiqueta confirmada por el barbero."
+          },
+          "isDemo": {
+            "type": "boolean",
+            "description": "Foto de demostración (stock): muéstrala como \"Ejemplo\"."
+          },
+          "barbershopId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barbershopName": {
+            "type": "string"
+          },
+          "barberProfileId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "barberName": {
+            "type": "string",
+            "nullable": true
+          },
+          "serviceId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid",
+            "description": "Para \"reservar este corte\"."
+          },
+          "distanceMeters": {
+            "type": "number",
+            "description": "Metros hasta la barbería (redondeados)."
+          }
+        },
+        "required": [
+          "id",
+          "thumbUrl",
+          "largeUrl",
+          "faceShape",
+          "sameFaceShape",
+          "confirmed",
+          "isDemo",
+          "barbershopId",
+          "barbershopName",
+          "barberProfileId",
+          "barberName",
+          "serviceId",
+          "distanceMeters"
+        ]
+      },
+      "RankedStyleBarberDto": {
+        "type": "object",
+        "properties": {
+          "barberProfileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "photoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "barbershopId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barbershopName": {
+            "type": "string"
+          },
+          "barberId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Vínculo en esa barbería (para reservar con él)."
+          },
+          "distanceMeters": {
+            "type": "number"
+          },
+          "confirmedWorks": {
+            "type": "number",
+            "description": "Trabajos confirmados de este corte."
+          },
+          "sameShapeWorks": {
+            "type": "number",
+            "description": "De ellos, en caras de la misma forma que la del cliente."
+          },
+          "styleRatingAverage": {
+            "type": "number",
+            "nullable": true,
+            "description": "Estrellas en este corte (null sin valoraciones)."
+          },
+          "styleRatingCount": {
+            "type": "number"
+          },
+          "score": {
+            "type": "number",
+            "description": "Puntaje combinado (0 a 1)."
+          },
+          "summary": {
+            "type": "string",
+            "example": "23 trabajos de este corte en caras ovaladas · 4,9 ★ · a 1,2 km"
+          }
+        },
+        "required": [
+          "barberProfileId",
+          "displayName",
+          "photoUrl",
+          "barbershopId",
+          "barbershopName",
+          "barberId",
+          "distanceMeters",
+          "confirmedWorks",
+          "sameShapeWorks",
+          "styleRatingAverage",
+          "styleRatingCount",
+          "score",
+          "summary"
+        ]
+      },
+      "RecommendedHaircutDto": {
+        "type": "object",
+        "properties": {
+          "style": {
+            "$ref": "#/components/schemas/StyleRefDto"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "maintenance": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH"
+            ]
+          },
+          "compatibility": {
+            "type": "number",
+            "description": "Compatibilidad con la forma de cara (0 a 100), ya ajustada a sus preferencias."
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Por qué se recomienda."
+          },
+          "ruleValidated": {
+            "type": "boolean",
+            "description": "false: la regla aún no fue validada por barberos."
+          },
+          "photos": {
+            "description": "Fotos reales cerca, primero de caras parecidas.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecommendedPhotoDto"
+            }
+          },
+          "barbers": {
+            "description": "Mejores barberos de este corte cerca.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RankedStyleBarberDto"
+            }
+          }
+        },
+        "required": [
+          "style",
+          "description",
+          "maintenance",
+          "compatibility",
+          "reason",
+          "ruleValidated",
+          "photos",
+          "barbers"
+        ]
+      },
+      "HaircutRecommendationDto": {
+        "type": "object",
+        "properties": {
+          "faceShape": {
+            "$ref": "#/components/schemas/FaceShapeResultDto"
+          },
+          "haircuts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecommendedHaircutDto"
+            }
+          },
+          "disclaimer": {
+            "type": "string",
+            "description": "Texto obligatorio en la pantalla: es una recomendación, no una regla.",
+            "example": "La forma de cara es una aproximación y muchas caras son mixtas: tómalo como una sugerencia."
+          }
+        },
+        "required": [
+          "faceShape",
+          "haircuts",
+          "disclaimer"
+        ]
+      },
+      "FaceShapeRuleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "faceShape": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FaceShape"
+              }
+            ]
+          },
+          "styleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "styleKey": {
+            "type": "string"
+          },
+          "styleName": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "validated": {
+            "type": "boolean",
+            "description": "false: criterio general, aún no validado por barberos."
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "faceShape",
+          "styleId",
+          "styleKey",
+          "styleName",
+          "score",
+          "note",
+          "validated",
+          "updatedAt"
+        ]
+      },
+      "UpsertFaceShapeRuleDto": {
+        "type": "object",
+        "properties": {
+          "faceShape": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FaceShape"
+              }
+            ]
+          },
+          "styleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Por qué (se muestra al cliente).",
+            "minLength": 1
+          },
+          "validated": {
+            "type": "boolean",
+            "description": "true: revisada con barberos o con evidencia."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 300,
+            "description": "Motivo del cambio (auditoría)."
+          }
+        },
+        "required": [
+          "faceShape",
+          "styleId",
+          "score",
           "reason"
         ]
       }

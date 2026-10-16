@@ -232,6 +232,32 @@ export const SEED_SETTINGS: {
     description: 'Máximo de fotos destacadas (fijadas) por barbero.',
   },
   {
+    key: 'recommend.weight_works',
+    value: 30,
+    description:
+      'Forma de cara: peso (0–100) de los trabajos confirmados del barbero en ese corte.',
+  },
+  {
+    key: 'recommend.weight_same_shape',
+    value: 25,
+    description: 'Forma de cara: peso de los trabajos de ese corte en caras de la misma forma.',
+  },
+  {
+    key: 'recommend.weight_rating',
+    value: 25,
+    description: 'Forma de cara: peso de las estrellas del barbero en ese corte.',
+  },
+  {
+    key: 'recommend.weight_recency',
+    value: 10,
+    description: 'Forma de cara: peso de qué tan recientes son sus trabajos de ese corte.',
+  },
+  {
+    key: 'recommend.weight_distance',
+    value: 10,
+    description: 'Forma de cara: peso de la cercanía (más lejos, menos puntaje).',
+  },
+  {
     key: 'images.report_hide_threshold',
     value: 3,
     description:

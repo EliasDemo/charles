@@ -87,6 +87,7 @@ function fingerprint(clientId: string, dto: CreateBookingDto): Prisma.InputJsonO
     barberId: dto.barberId ?? null,
     // Fase 13: solo si hay cupón (las reservas anteriores no lo guardaban).
     ...(dto.couponCode ? { couponCode: dto.couponCode } : {}),
+    ...(dto.styleId ? { styleId: dto.styleId } : {}),
   };
 }
 
@@ -194,6 +195,19 @@ export class BookingsService {
       ),
       this.commissionSettings(),
     ]);
+    if (dto.styleId) {
+      const style = await this.prisma.serviceStyle.count({
+        where: { id: dto.styleId, isActive: true },
+      });
+      if (!style) {
+        throw new AppException(
+          ErrorCode.VALIDATION_ERROR,
+          'Los datos enviados no son válidos.',
+          HttpStatus.BAD_REQUEST,
+          [{ field: 'styleId', constraints: ['activeStyle'] }],
+        );
+      }
+    }
     const timezone = await this.access.timezoneOf(dto.barbershopId);
     // Carrera del barbero: el perfil de cada candidato (no puede tener dos citas a la vez, aunque
     // sean en barberías distintas).
@@ -531,6 +545,7 @@ export class BookingsService {
             barbershopId: input.dto.barbershopId,
             barberId,
             barberProfileId: input.profiles.get(barberId) ?? null,
+            styleId: input.dto.styleId ?? null,
             serviceId: input.dto.serviceId,
             startAt: new Date(input.startAt),
             endAt: new Date(input.endAt),

@@ -27,7 +27,8 @@
     "test:cov:reviews": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e-coverage-reviews.config.ts --runInBand",
     "test:cov:admin": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e-coverage-admin.config.ts --runInBand",
     "test:cov:notifications": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e-coverage-notifications.config.ts --runInBand",
-    "test:cov:images": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e-coverage-images.config.ts --runInBand"
+    "test:cov:images": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e-coverage-images.config.ts --runInBand",
+    "dev:demo-photos": "ts-node --transpile-only -P tsconfig.build.json src/scripts/demo-photos.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1149.0",

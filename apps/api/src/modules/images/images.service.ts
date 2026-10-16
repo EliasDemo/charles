@@ -35,6 +35,7 @@ import { type StoredVariants, variantKeys, variantUrl } from './image-variants';
 import { SettingKey, SettingsService } from '../settings/settings.service';
 import { SERVICE_CURRENCY } from '../services/dto/service.dto';
 import type { PortfolioItemDto } from '../career/dto/career.dto';
+import type { FaceShape } from '../recommendations/face-shape';
 
 const imageNotFound = (): AppException =>
   new AppException(ErrorCode.NOT_FOUND, 'La imagen no existe.', HttpStatus.NOT_FOUND);
@@ -225,7 +226,7 @@ export class ImagesService {
   async uploadPortfolio(
     userId: string,
     file: Buffer | undefined,
-    dto: { caption?: string; styleIds?: string[]; consent: boolean },
+    dto: { caption?: string; styleIds?: string[]; consent: boolean; faceShape?: FaceShape | null },
     ip: string | null,
   ): Promise<PortfolioItemDto> {
     const profile = await this.requireOwnProfile(userId);
@@ -256,6 +257,8 @@ export class ImagesService {
             consentTimestamp: now,
             caption: dto.caption ?? null,
             styles: { create: styleIds.map((styleId) => ({ styleId })) },
+            faceShape: dto.faceShape ?? null,
+            labelConfirmed: styleIds.length > 0,
           },
           select: { id: true },
         });
@@ -366,6 +369,8 @@ export class ImagesService {
         .sort((a, b) => a.sortOrder - b.sortOrder)
         .map(({ id, key, name }) => ({ id, key, name })),
       barbershopName: row.barbershop?.name ?? null,
+      faceShape: row.faceShape,
+      labelConfirmed: row.labelConfirmed,
       createdAt: row.createdAt,
     };
   }
@@ -389,6 +394,62 @@ export class ImagesService {
       );
     }
     return profile;
+  }
+
+  // ───────────── Fotos de demostración (solo desarrollo) ─────────────
+
+  /**
+   * Guarda una foto de demostración (stock con licencia libre) en la galería de una barbería. Pasa
+   * por el mismo procesamiento que cualquier subida: se valida que sea una imagen real, se vuelve
+   * a codificar a WebP y se eliminan sus metadatos. Queda marcada `isDemo` y nunca confirmada.
+   */
+  async createDemoImage(input: {
+    file: Buffer;
+    barbershopId: string;
+    uploadedById: string;
+    styleIds: string[];
+    caption: string | null;
+    source: Prisma.InputJsonObject;
+  }): Promise<string> {
+    const variants = await this.store(input.file, 'GALLERY');
+    try {
+      const image = await this.prisma.image.create({
+        data: {
+          barbershopId: input.barbershopId,
+          kind: 'GALLERY',
+          variants,
+          uploadedById: input.uploadedById,
+          // Foto de stock con licencia libre (ver demoSource): la registra quien carga la demo.
+          consentGiven: true,
+          consentByUserId: input.uploadedById,
+          consentTimestamp: new Date(this.clock.now()),
+          caption: input.caption,
+          isDemo: true,
+          labelConfirmed: false,
+          demoSource: input.source,
+          styles: { create: input.styleIds.map((styleId) => ({ styleId })) },
+        },
+        select: { id: true },
+      });
+      return image.id;
+    } catch (error) {
+      await this.deleteFiles(variantKeys(variants));
+      throw error;
+    }
+  }
+
+  /** Borra todas las fotos de demostración y sus archivos. Devuelve cuántas. */
+  async deleteDemoImages(): Promise<number> {
+    const rows = await this.prisma.image.findMany({
+      where: { isDemo: true, deletedAt: null },
+      select: { id: true, variants: true },
+    });
+    await this.prisma.image.updateMany({
+      where: { id: { in: rows.map((r) => r.id) } },
+      data: { deletedAt: new Date(this.clock.now()) },
+    });
+    await this.deleteFiles(rows.flatMap((r) => variantKeys(r.variants)));
+    return rows.length;
   }
 
   // ───────────── Logo, portada y foto del barbero ─────────────
@@ -491,6 +552,10 @@ export class ImagesService {
             caption: dto.caption ?? null,
             serviceId: dto.serviceId ?? null,
             styles: { create: styleIds.map((styleId) => ({ styleId })) },
+            // Forma de cara: quien sube es la barbería o el barbero (el experto): sus etiquetas
+            // quedan confirmadas si eligió al menos un estilo.
+            faceShape: dto.faceShape ?? null,
+            labelConfirmed: styleIds.length > 0,
           },
           select: { id: true },
         });
@@ -554,6 +619,7 @@ export class ImagesService {
         data: {
           caption: dto.caption,
           serviceId: dto.serviceId,
+          faceShape: dto.faceShape,
           pinnedAt:
             dto.pinned === undefined
               ? undefined
@@ -570,6 +636,14 @@ export class ImagesService {
             : {}),
         },
       });
+      // Editar los estilos o la forma es una confirmación del barbero (nunca en fotos de demo).
+      if (dto.styleIds !== undefined || dto.faceShape !== undefined) {
+        const styles = await tx.imageStyle.count({ where: { imageId } });
+        await tx.image.updateMany({
+          where: { id: imageId, isDemo: false },
+          data: { labelConfirmed: styles > 0 },
+        });
+      }
       await this.audit.record(
         {
           actorId: userId,
@@ -691,6 +765,10 @@ export class ImagesService {
         categoryId: s.categoryId,
         categoryKey: s.category.key,
         sortOrder: s.sortOrder,
+        description: s.description,
+        maintenance: s.maintenance,
+        hairTypes: s.hairTypes,
+        vibe: s.vibe,
       }));
   }
 
@@ -1083,6 +1161,9 @@ export class ImagesService {
         .map(({ id, key, name }) => ({ id, key, name })),
       service,
       pinned: row.pinnedAt !== null,
+      faceShape: row.faceShape,
+      labelConfirmed: row.labelConfirmed,
+      isDemo: row.isDemo,
       createdAt: row.createdAt,
     };
   }

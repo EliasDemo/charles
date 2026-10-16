@@ -240,6 +240,8 @@ export class UsersService {
         documentHash: null,
         birthDateEnc: null,
         gender: null,
+        faceShape: null,
+        faceShapeConsentAt: null,
         photoVariants: Prisma.DbNull,
         emailVerifiedAt: null,
         preferences: {},
@@ -376,6 +378,7 @@ export class UsersService {
       birthDate: this.encryption.decryptNullable(user.birthDateEnc, EncryptedField.USER_BIRTH_DATE),
       gender: user.gender,
       photoUrl: variantUrl(this.storage, user.photoVariants, 'square'),
+      faceShape: user.faceShape,
       createdAt: user.createdAt,
     };
   }
@@ -425,6 +428,20 @@ export class UsersService {
     if (dto.gender !== undefined) {
       data.gender = dto.gender;
       changed.push('gender');
+    }
+    if (dto.faceShape !== undefined) {
+      // Dato biométrico: solo con consentimiento expreso; null lo borra junto con el consentimiento.
+      if (dto.faceShape !== null && dto.faceShapeConsent !== true) {
+        throw new AppException(
+          ErrorCode.VALIDATION_ERROR,
+          'Para recordar tu forma de cara necesitamos tu autorización.',
+          HttpStatus.BAD_REQUEST,
+          [{ field: 'faceShapeConsent', constraints: ['isTrue'] }],
+        );
+      }
+      data.faceShape = dto.faceShape;
+      data.faceShapeConsentAt = dto.faceShape === null ? null : new Date(this.clock.now());
+      changed.push('faceShape');
     }
 
     if (changed.length > 0) {
