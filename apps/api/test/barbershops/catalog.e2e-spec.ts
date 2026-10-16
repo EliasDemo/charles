@@ -313,7 +313,7 @@ describe('RF-SER-001…003 Servicios y RF-BRB-001…002 Barberos (e2e)', () => {
       ]);
     });
 
-    it('RF-BRB-001 el responsable se registra a sí mismo como barbero (sin invitación), solo en una barbería', async () => {
+    it('RF-BRB-001 el responsable se registra a sí mismo como barbero (sin invitación); una vez por barbería', async () => {
       const client = new AuthClient(app);
       const owner = await ownerWithShop(client);
       const res = await client
@@ -344,7 +344,8 @@ describe('RF-SER-001…003 Servicios y RF-BRB-001…002 Barberos (e2e)', () => {
           owner.token,
         )
         .expect(201);
-      await client.post(`${SHOPS}/${second.body.id}/barbers/me`, {}, owner.token).expect(409);
+      // Carrera del barbero: puede trabajar también en su otra sede.
+      await client.post(`${SHOPS}/${second.body.id}/barbers/me`, {}, owner.token).expect(201);
     });
 
     it('RF-BRB-001 invitación: la cuenta del barbero se vincula al aceptar el código', async () => {

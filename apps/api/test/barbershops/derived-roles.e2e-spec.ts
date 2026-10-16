@@ -114,14 +114,29 @@ describe('Roles globales derivados: OWNER y BARBER (e2e)', () => {
     });
   });
 
-  describe('BARBER: se pierde al dejar de estar vinculado como barbero activo', () => {
-    it('al desactivarlo pierde BARBER; al reactivarlo lo recupera', async () => {
+  // Carrera del barbero: el rol BARBER sigue mientras exista su perfil profesional (sigue siendo
+  // barbero: puede postular a empleos), aunque deje de estar activo en una barbería.
+  describe('BARBER: depende de su perfil profesional, no de una barbería', () => {
+    it('al desactivarlo conserva BARBER por su perfil; sin perfil, lo pierde', async () => {
       const { owner, barberId, account } = await linkedBarber();
       expect(await rolesOf(account.userId)).toEqual(['BARBER', 'CLIENT']);
+      expect(await prisma.barberProfile.count({ where: { userId: account.userId } })).toBe(1);
 
       await owner.client
         .patch(`${SHOPS}/${owner.shopId}/barbers/${barberId}`, { isActive: false }, owner.token)
         .expect(200);
+      expect(await rolesOf(account.userId)).toEqual(['BARBER', 'CLIENT']);
+
+      // Sin perfil profesional (por ejemplo, eliminado) y sin vínculo activo, ya no es BARBER.
+      await prisma.barberProfile.update({
+        where: { userId: account.userId },
+        data: { deletedAt: new Date() },
+      });
+      for (const isActive of [true, false]) {
+        await owner.client
+          .patch(`${SHOPS}/${owner.shopId}/barbers/${barberId}`, { isActive }, owner.token)
+          .expect(200);
+      }
       expect(await rolesOf(account.userId)).toEqual(['CLIENT']);
       const relogged = await account.client.login(account.email, account.password).expect(200);
       expect(relogged.body.user.roles).toEqual(['CLIENT']);
@@ -132,10 +147,10 @@ describe('Roles globales derivados: OWNER y BARBER (e2e)', () => {
       expect(await rolesOf(account.userId)).toEqual(['BARBER', 'CLIENT']);
     });
 
-    it('al eliminarse la barbería pierde BARBER y queda libre para ser barbero en otra', async () => {
+    it('al eliminarse la barbería conserva BARBER (su perfil) y puede ser barbero en otra', async () => {
       const { owner, account } = await linkedBarber();
       await owner.client.delete(`${SHOPS}/${owner.shopId}`, owner.token).expect(204);
-      expect(await rolesOf(account.userId)).toEqual(['CLIENT']);
+      expect(await rolesOf(account.userId)).toEqual(['BARBER', 'CLIENT']);
 
       // Ya no está activo en ninguna barbería: puede registrarse como barbero en la suya.
       const own = await account.client
@@ -147,7 +162,7 @@ describe('Roles globales derivados: OWNER y BARBER (e2e)', () => {
       expect(await rolesOf(account.userId)).toEqual(['BARBER', 'CLIENT', 'OWNER']);
     });
 
-    it('el responsable que se desactiva como barbero pierde BARBER pero conserva OWNER', async () => {
+    it('el responsable que se desactiva como barbero conserva BARBER (su perfil) y OWNER', async () => {
       const client = new AuthClient(app);
       const owner = await ownerWithShop(client);
       const me = await client
@@ -158,7 +173,7 @@ describe('Roles globales derivados: OWNER y BARBER (e2e)', () => {
       await client
         .patch(`${SHOPS}/${owner.shopId}/barbers/${me.body.id}`, { isActive: false }, owner.token)
         .expect(200);
-      expect(await rolesOf(owner.userId)).toEqual(['CLIENT', 'OWNER']);
+      expect(await rolesOf(owner.userId)).toEqual(['BARBER', 'CLIENT', 'OWNER']);
     });
 
     it('desactivar un barbero sin cuenta vinculada no toca roles de nadie', async () => {

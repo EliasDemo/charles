@@ -22,21 +22,45 @@ export class BookingsReadService {
     range: { from: Date; to: Date },
     now: Date,
   ): Promise<Map<string, { start: number; end: number }[]>> {
+    // Carrera del barbero: quien trabaja en varias barberías tampoco está libre cuando tiene una
+    // cita en otra. Se suman las reservas de su perfil, atribuidas a cada vínculo pedido.
+    const links = await this.prisma.barber.findMany({
+      where: { id: { in: barberIds }, barberProfileId: { not: null } },
+      select: { id: true, barberProfileId: true },
+    });
+    const linksByProfile = new Map<string, string[]>();
+    for (const l of links) {
+      linksByProfile.set(l.barberProfileId!, [
+        ...(linksByProfile.get(l.barberProfileId!) ?? []),
+        l.id,
+      ]);
+    }
     const rows = await this.prisma.booking.findMany({
       where: {
-        barberId: { in: barberIds },
+        OR: [
+          { barberId: { in: barberIds } },
+          ...(linksByProfile.size > 0
+            ? [{ barberProfileId: { in: [...linksByProfile.keys()] } }]
+            : []),
+        ],
         startAt: { lt: range.to },
         endAt: { gt: range.from },
-        OR: [{ status: 'CONFIRMED' }, { status: 'PENDING_PAYMENT', expiresAt: { gt: now } }],
+        AND: [
+          { OR: [{ status: 'CONFIRMED' }, { status: 'PENDING_PAYMENT', expiresAt: { gt: now } }] },
+        ],
       },
-      select: { barberId: true, startAt: true, endAt: true },
+      select: { id: true, barberId: true, barberProfileId: true, startAt: true, endAt: true },
     });
     const result = new Map<string, { start: number; end: number }[]>();
+    const requested = new Set(barberIds);
     for (const r of rows) {
-      result.set(r.barberId, [
-        ...(result.get(r.barberId) ?? []),
-        { start: r.startAt.getTime(), end: r.endAt.getTime() },
-      ]);
+      const interval = { start: r.startAt.getTime(), end: r.endAt.getTime() };
+      const owners = new Set<string>();
+      if (requested.has(r.barberId)) owners.add(r.barberId);
+      for (const id of (r.barberProfileId && linksByProfile.get(r.barberProfileId)) || []) {
+        owners.add(id);
+      }
+      for (const id of owners) result.set(id, [...(result.get(id) ?? []), interval]);
     }
     return result;
   }

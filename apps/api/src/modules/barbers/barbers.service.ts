@@ -34,10 +34,11 @@ const PERSONAL_FIELDS = ['displayName', 'bio', 'phone'] as const;
 const barberNotFound = (): AppException =>
   new AppException(ErrorCode.NOT_FOUND, 'El barbero no existe.', HttpStatus.NOT_FOUND);
 
-const activeElsewhere = (): AppException =>
+/** Carrera del barbero: puede trabajar en varias barberías, pero tiene un solo vínculo en cada una. */
+const alreadyInThisShop = (): AppException =>
   new AppException(
     ErrorCode.BARBER_ALREADY_ACTIVE_ELSEWHERE,
-    'Esta cuenta ya es barbero en una barbería. En esta etapa, un barbero trabaja en una sola barbería.',
+    'Esta cuenta ya es barbero en esta barbería.',
     HttpStatus.CONFLICT,
   );
 
@@ -141,7 +142,7 @@ export class BarbersService {
     try {
       return await this.createProfile(userId, barbershopId, userId, displayName, dto, ip);
     } catch (error) {
-      if (isUniqueViolation(error)) throw activeElsewhere();
+      if (isUniqueViolation(error)) throw alreadyInThisShop();
       throw error;
     }
   }
@@ -291,11 +292,15 @@ export class BarbersService {
 
   /**
    * Rol global BARBER: lo tiene quien está vinculado a al menos un perfil de barbero activo y no
-   * eliminado; si deja de estarlo (desactivado o eliminado), se retira.
+   * eliminado, o quien tiene su perfil profesional (Carrera del barbero: puede postular a ofertas
+   * sin trabajar en ninguna barbería). Si deja de cumplirlo, se retira.
    */
   async syncBarberRole(userId: string, tx: Prisma.TransactionClient = this.prisma): Promise<void> {
-    const active = await tx.barber.count({ where: { userId, isActive: true, deletedAt: null } });
-    if (active > 0) await this.users.addRole(userId, 'BARBER', tx);
+    const [active, profile] = await Promise.all([
+      tx.barber.count({ where: { userId, isActive: true, deletedAt: null } }),
+      tx.barberProfile.count({ where: { userId, deletedAt: null } }),
+    ]);
+    if (active > 0 || profile > 0) await this.users.addRole(userId, 'BARBER', tx);
     else await this.users.removeRole(userId, 'BARBER', tx);
   }
 
@@ -429,10 +434,13 @@ export class BarbersService {
         HttpStatus.CONFLICT,
       );
     }
-    if ((await tx.barber.count({ where: { userId, deletedAt: null } })) > 0)
-      throw activeElsewhere();
+    if ((await tx.barber.count({ where: { userId, barbershopId, deletedAt: null } })) > 0) {
+      throw alreadyInThisShop();
+    }
 
     await tx.barber.update({ where: { id: barberId }, data: { userId } });
+    // Carrera del barbero: el vínculo se enlaza a su perfil y su historial en la barbería pasa a él.
+    await this.attachProfile(tx, barberId, userId);
     await this.users.addRole(userId, 'BARBER', tx);
     await this.audit.record(
       {
@@ -457,9 +465,11 @@ export class BarbersService {
     const barber = await this.prisma.$transaction(async (tx) => {
       if (
         linkedUserId &&
-        (await tx.barber.count({ where: { userId: linkedUserId, deletedAt: null } })) > 0
+        (await tx.barber.count({
+          where: { userId: linkedUserId, barbershopId, deletedAt: null },
+        })) > 0
       ) {
-        throw activeElsewhere();
+        throw alreadyInThisShop();
       }
       await this.assertIndependentAllowsActive(tx, barbershopId);
       if (dto.serviceIds?.length)
@@ -477,7 +487,10 @@ export class BarbersService {
         },
         include: barberWithServices,
       });
-      if (linkedUserId) await this.users.addRole(linkedUserId, 'BARBER', tx);
+      if (linkedUserId) {
+        await this.attachProfile(tx, created.id, linkedUserId);
+        await this.users.addRole(linkedUserId, 'BARBER', tx);
+      }
       await this.audit.record(
         {
           actorId,
@@ -509,8 +522,6 @@ export class BarbersService {
       ip: string | null;
     },
   ): Promise<{ barberId: string }> {
-    if ((await tx.barber.count({ where: { userId: input.userId, deletedAt: null } })) > 0)
-      throw activeElsewhere();
     const created = await tx.barber.create({
       data: {
         barbershopId: input.barbershopId,
@@ -520,6 +531,8 @@ export class BarbersService {
       },
       select: { id: true },
     });
+    // Pasar a independiente: el barbero conserva su perfil (valoraciones, portafolio, ranking).
+    await this.attachProfile(tx, created.id, input.userId);
     await this.users.addRole(input.userId, 'BARBER', tx);
     await this.audit.record(
       {
@@ -536,6 +549,103 @@ export class BarbersService {
       tx,
     );
     return { barberId: created.id };
+  }
+
+  /**
+   * Carrera del barbero: enlaza el vínculo `barberId` al perfil profesional de la cuenta (lo crea con
+   * los datos del vínculo si no existe) y pasa a ese perfil el historial que el vínculo acumuló sin
+   * cuenta: reservas, valoraciones y cortes de la galería. Dentro de la transacción que vincula.
+   */
+  async attachProfile(
+    tx: Prisma.TransactionClient,
+    barberId: string,
+    userId: string,
+  ): Promise<string> {
+    const link = await tx.barber.findUniqueOrThrow({
+      where: { id: barberId },
+      select: { displayName: true, bio: true, yearsExperience: true },
+    });
+    const profile = await tx.barberProfile.upsert({
+      where: { userId },
+      update: { deletedAt: null },
+      create: {
+        userId,
+        displayName: link.displayName,
+        bio: link.bio,
+        yearsExperience: link.yearsExperience,
+      },
+      select: { id: true },
+    });
+    await tx.barber.update({ where: { id: barberId }, data: { barberProfileId: profile.id } });
+    await tx.booking.updateMany({
+      where: { barberId, barberProfileId: null },
+      data: { barberProfileId: profile.id },
+    });
+    await tx.review.updateMany({
+      where: { barberId, barberProfileId: null },
+      data: { barberProfileId: profile.id },
+    });
+    await tx.image.updateMany({
+      where: { barberId, kind: 'GALLERY', barberProfileId: null },
+      data: { barberProfileId: profile.id },
+    });
+    await tx.$executeRaw`
+      UPDATE barber_profiles p SET rating_avg = s.avg, rating_count = s.cnt
+        FROM (SELECT COALESCE(ROUND(AVG(rating)::numeric, 2), 0) AS avg, COUNT(*)::int AS cnt
+                FROM reviews
+               WHERE barber_profile_id = ${profile.id}::uuid
+                 AND deleted_at IS NULL AND status <> 'HIDDEN') s
+       WHERE p.id = ${profile.id}::uuid`;
+    return profile.id;
+  }
+
+  /**
+   * Bolsa de trabajo: la barbería contrata a un barbero que postuló. Crea su vínculo activo
+   * (enlazado a su perfil, sin servicios: la barbería se los asigna después), en la transacción
+   * de la decisión. Si ya trabaja ahí, 409.
+   */
+  async hireInTx(
+    tx: Prisma.TransactionClient,
+    input: { barbershopId: string; userId: string; displayName: string; actorId: string },
+  ): Promise<string> {
+    if (
+      (await tx.barber.count({
+        where: { userId: input.userId, barbershopId: input.barbershopId, deletedAt: null },
+      })) > 0
+    ) {
+      throw alreadyInThisShop();
+    }
+    await this.assertIndependentAllowsActive(tx, input.barbershopId);
+    const created = await tx.barber.create({
+      data: {
+        barbershopId: input.barbershopId,
+        userId: input.userId,
+        displayName: input.displayName,
+      },
+      select: { id: true },
+    });
+    await this.attachProfile(tx, created.id, input.userId);
+    await this.users.addRole(input.userId, 'BARBER', tx);
+    await this.audit.record(
+      {
+        actorId: input.actorId,
+        action: 'barber.hired',
+        entityType: 'barber',
+        entityId: created.id,
+        changes: { barbershopId: input.barbershopId, userId: input.userId },
+      },
+      tx,
+    );
+    return created.id;
+  }
+
+  /** Perfil profesional del vínculo (para fijarlo en cada reserva nueva). */
+  async profileIdsOf(barberIds: string[]): Promise<Map<string, string>> {
+    const rows = await this.prisma.barber.findMany({
+      where: { id: { in: barberIds }, barberProfileId: { not: null } },
+      select: { id: true, barberProfileId: true },
+    });
+    return new Map(rows.map((r) => [r.id, r.barberProfileId!]));
   }
 
   /**
@@ -573,6 +683,7 @@ export class BarbersService {
   private toPublic(barber: BarberRow, onlyAvailableServices: boolean): BarberPublicDto {
     return {
       id: barber.id,
+      profileId: barber.barberProfileId,
       displayName: barber.displayName,
       bio: barber.bio,
       photoUrl: barber.images[0]

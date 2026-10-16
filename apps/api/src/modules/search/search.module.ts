@@ -5,7 +5,9 @@ import { BarbershopAccessModule } from '../barbershops/barbershop-access.module'
 import { ImageStorageModule } from '../images/image-storage.module';
 import { ServicesModule } from '../services/services.module';
 import { SettingsModule } from '../settings/settings.module';
-import { OrganicRankingStrategy, RANKING_STRATEGY } from './ranking/ranking';
+import { FeaturedModule } from '../featured/featured.module';
+import { FeaturedService } from '../featured/featured.service';
+import { FeaturedRankingStrategy, RANKING_STRATEGY } from './ranking/ranking';
 import { SearchCursor } from './search-cursor';
 import { SearchRateLimitRefresher } from './search-rate-limit';
 import { SearchController } from './search.controller';
@@ -14,7 +16,7 @@ import { SearchService } from './search.service';
 
 /**
  * Búsqueda, cercanía, filtros y alternativas (Fase 6). El ranking es intercambiable vía
- * `RANKING_STRATEGY`: en la Fase 13 se reemplaza por una estrategia con destacados.
+ * `RANKING_STRATEGY`: desde la Fase 13, orden orgánico con destacados (`featured_listings`).
  */
 @Module({
   imports: [
@@ -24,6 +26,7 @@ import { SearchService } from './search.service';
     SettingsModule,
     ReviewsModule,
     ImageStorageModule,
+    FeaturedModule,
   ],
   controllers: [SearchController],
   providers: [
@@ -31,7 +34,12 @@ import { SearchService } from './search.service';
     SearchRepository,
     SearchCursor,
     SearchRateLimitRefresher,
-    { provide: RANKING_STRATEGY, useClass: OrganicRankingStrategy },
+    {
+      provide: RANKING_STRATEGY,
+      inject: [FeaturedService],
+      useFactory: (featured: FeaturedService) =>
+        new FeaturedRankingStrategy((ids) => featured.activeAmong(ids)),
+    },
   ],
 })
 export class SearchModule {}

@@ -90,3 +90,40 @@ export class OrganicRankingStrategy implements RankingStrategy {
     return Promise.resolve(page.map((candidate) => ({ candidate, featured: false })));
   }
 }
+
+/** Destacados por página (Fase 13). */
+export const MAX_FEATURED_PER_PAGE = 3;
+
+/**
+ * Fase 13: orden orgánico más destacados. En la **primera página**, hasta `MAX_FEATURED_PER_PAGE`
+ * barberías con un destacado vigente (de las que ya cumplen los filtros y están en la página) suben
+ * al inicio, por prioridad, con `featured: true`. El resto conserva el orden orgánico. Como solo
+ * reordena la página, un destacado nunca rompe los filtros ni se repite al paginar.
+ */
+export class FeaturedRankingStrategy implements RankingStrategy {
+  private readonly organic = new OrganicRankingStrategy();
+
+  constructor(private readonly activeFeatured: (ids: string[]) => Promise<string[]>) {}
+
+  orderKeys(sort: SearchSort): OrderKey[] {
+    return this.organic.orderKeys(sort);
+  }
+
+  async arrange<T extends Candidate>(page: T[], context: RankingContext): Promise<Ranked<T>[]> {
+    if (!context.firstPage || page.length === 0) return this.organic.arrange(page);
+    const featuredIds = (await this.activeFeatured(page.map((c) => c.id))).slice(
+      0,
+      MAX_FEATURED_PER_PAGE,
+    );
+    const byId = new Map(page.map((c) => [c.id, c]));
+    const top = featuredIds.flatMap((id) => {
+      const candidate = byId.get(id);
+      return candidate ? [{ candidate, featured: true }] : [];
+    });
+    const chosen = new Set(featuredIds);
+    const rest = page
+      .filter((c) => !chosen.has(c.id))
+      .map((candidate) => ({ candidate, featured: false }));
+    return [...top, ...rest];
+  }
+}

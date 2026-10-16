@@ -47,4 +47,32 @@ export class MediaController {
       .setHeader('X-Content-Type-Options', 'nosniff')
       .send(object.body);
   }
+
+  /** Carrera del barbero: videos procesados y su miniatura (solo desarrollo y pruebas). */
+  @Public()
+  @Get('vid/:prefix/:file')
+  async serveVideo(
+    @Param('prefix') prefix: string,
+    @Param('file') file: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    if (this.config.isProduction || this.config.storage.publicBaseUrl || !this.storage.enabled) {
+      throw notFound();
+    }
+    const type = VIDEO_FILES[file];
+    if (!KEY_PATTERN.test(prefix) || !type) throw notFound();
+    const object = await this.storage.get(`vid/${prefix}/${file}`);
+    if (!object) throw notFound();
+    res
+      .status(HttpStatus.OK)
+      .setHeader('Content-Type', type)
+      .setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+      .setHeader('X-Content-Type-Options', 'nosniff')
+      .send(object.body);
+  }
 }
+
+const VIDEO_FILES: Record<string, string> = {
+  'video.mp4': 'video/mp4',
+  'poster.webp': 'image/webp',
+};

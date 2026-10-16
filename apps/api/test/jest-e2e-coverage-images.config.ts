@@ -11,7 +11,14 @@ const config: Config = {
   rootDir: '..',
   testEnvironment: 'node',
   moduleFileExtensions: ['ts', 'js', 'json'],
-  testRegex: ['test/images/.*\\.e2e-spec\\.ts$', 'src/modules/images/.*\\.spec\\.ts$'],
+  testRegex: [
+    'test/images/.*\\.e2e-spec\\.ts$',
+    // Portafolio y foto del perfil profesional, imágenes de auspiciadores y foto de la cuenta.
+    'test/career/(career|videos)\\.e2e-spec\\.ts$',
+    'test/promotions/growth\\.e2e-spec\\.ts$',
+    'test/users/profile-extended\\.e2e-spec\\.ts$',
+    'src/modules/images/.*\\.spec\\.ts$',
+  ],
   transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/test/tsconfig.coverage.json' }] },
   setupFiles: ['<rootDir>/test/support/load-test-env.ts'],
   globalSetup: '<rootDir>/test/support/global-setup.ts',

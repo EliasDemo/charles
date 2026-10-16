@@ -27,6 +27,6 @@ import { MediaController } from './media.controller';
     ImageUploadRateLimitGuard,
     ImageRateLimitRefresher,
   ],
-  exports: [ImagesService],
+  exports: [ImagesService, ImageUploadRateLimitGuard],
 })
 export class ImagesModule {}

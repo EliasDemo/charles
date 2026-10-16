@@ -30,6 +30,7 @@ import { type AuthUser, CurrentUser } from '../../common/auth/auth-user';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
 import { BookingCreationRateLimitGuard } from './booking-rate-limit';
 import { BookingAttendanceService } from './booking-attendance.service';
+import { BookingQuoteDto, QuoteBookingDto } from '../promotions/dto/promotion.dto';
 import { BookingsService } from './bookings.service';
 import {
   AgendaDto,
@@ -85,6 +86,19 @@ export class BookingsController {
     const { booking, replayed } = await this.bookings.create(user.id, idempotencyKey, dto);
     res.status(replayed ? HttpStatus.OK : HttpStatus.CREATED);
     return booking;
+  }
+
+  @Post('bookings/quote')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Fase 13: cotizar una reserva (descuento, comisión y total) antes de crearla',
+    description:
+      'No reserva el turno ni el cupo de la promoción. Con couponCode, `coupon` dice si se aplicó ' +
+      'o por qué no (sin error).',
+  })
+  @ApiOkResponse({ type: BookingQuoteDto })
+  quote(@CurrentUser() user: AuthUser, @Body() dto: QuoteBookingDto): Promise<BookingQuoteDto> {
+    return this.bookings.quote(user.id, dto);
   }
 
   @Get('bookings/:id')

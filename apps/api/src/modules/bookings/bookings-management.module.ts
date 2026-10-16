@@ -1,5 +1,6 @@
 import { BullModule } from '@nestjs/bullmq';
 import { ReviewsModule } from '../reviews/reviews.module';
+import { PromotionsModule } from '../promotions/promotions.module';
 import { Module } from '@nestjs/common';
 import { AvailabilityModule } from '../availability/availability.module';
 import { BarbersModule } from '../barbers/barbers.module';
@@ -34,6 +35,7 @@ import { BookingsService } from './bookings.service';
     UsersModule,
     SettingsModule,
     ReviewsModule,
+    PromotionsModule,
     BullModule.registerQueue({ name: BOOKINGS_QUEUE }),
   ],
   controllers: [BookingsController],

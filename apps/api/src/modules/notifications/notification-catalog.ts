@@ -34,9 +34,13 @@ export type NotificationType =
   | 'ACCOUNT_DELETION_REMINDER'
   | 'ACCOUNT_DELETION_CANCELLED'
   | 'BARBERSHOP_APPROVED'
-  | 'BARBERSHOP_CHANGES_REQUESTED';
+  | 'BARBERSHOP_CHANGES_REQUESTED'
+  | 'NEW_MESSAGE'
+  | 'JOB_APPLICATION_RECEIVED'
+  | 'JOB_APPLICATION_UPDATED';
 
-export type ResourceType = 'booking' | 'review' | 'ticket' | 'barbershop' | 'account';
+export type ResourceType =
+  'booking' | 'review' | 'ticket' | 'barbershop' | 'account' | 'conversation' | 'job_application';
 
 export interface Text {
   title: string;
@@ -499,4 +503,95 @@ function dedupeByUser(plans: PlannedNotification[]): PlannedNotification[] {
     seen.add(p.userId);
     return true;
   });
+}
+
+// ───────────── Carrera del barbero: correo interno y bolsa de trabajo ─────────────
+
+/**
+ * Mensaje nuevo en el correo interno. Nunca lleva el contenido (solo quién escribe). El correo
+ * electrónico se envía solo con el primer mensaje sin leer de la conversación, para no saturar.
+ */
+export function planNewMessage(input: {
+  recipientIds: string[];
+  conversationId: string;
+  from: string;
+  withEmail: boolean;
+}): PlannedNotification[] {
+  return input.recipientIds.map((userId) => ({
+    userId,
+    type: 'NEW_MESSAGE' as const,
+    channels: input.withEmail ? ALL : PUSH_APP,
+    mandatory: false,
+    urgent: true,
+    push: { title: 'Mensaje nuevo', body: 'Toca para leerlo en Charles.' },
+    detail: { title: 'Mensaje nuevo', body: `${input.from} te escribió.` },
+    email: {
+      subject: `Tienes un mensaje nuevo de ${input.from}`,
+      text:
+        `${input.from} te escribió en Charles. Por tu privacidad, el mensaje no va en este correo: ` +
+        'ábrelo en la app, en «Mensajes».',
+    },
+    resource: { type: 'conversation' as const, id: input.conversationId },
+  }));
+}
+
+export function planJobApplication(input: {
+  staffIds: string[];
+  applicationId: string;
+  barberName: string;
+  postingTitle: string;
+}): PlannedNotification[] {
+  return input.staffIds.map((userId) => ({
+    userId,
+    type: 'JOB_APPLICATION_RECEIVED' as const,
+    channels: ALL,
+    mandatory: false,
+    urgent: false,
+    push: { title: 'Nueva postulación', body: 'Un barbero postuló a tu oferta.' },
+    detail: {
+      title: 'Nueva postulación',
+      body: `${input.barberName} postuló a «${input.postingTitle}».`,
+    },
+    email: {
+      subject: `Nueva postulación a «${input.postingTitle}»`,
+      text: `${input.barberName} postuló a tu oferta «${input.postingTitle}». Revísala en la app.`,
+    },
+    resource: { type: 'job_application' as const, id: input.applicationId },
+  }));
+}
+
+const APPLICATION_TEXT: Record<string, string> = {
+  SHORTLISTED: 'te preseleccionó',
+  REJECTED: 'no continuará con tu postulación',
+  HIRED: '¡te contrató! Ya apareces en su equipo',
+};
+
+export function planApplicationUpdate(input: {
+  userId: string;
+  applicationId: string;
+  status: string;
+  barbershopName: string;
+  postingTitle: string;
+}): PlannedNotification[] {
+  const text = APPLICATION_TEXT[input.status];
+  if (!text) return [];
+  return [
+    {
+      userId: input.userId,
+      type: 'JOB_APPLICATION_UPDATED',
+      channels: ALL,
+      mandatory: false,
+      urgent: false,
+      push: { title: 'Tu postulación', body: 'Hay novedades en tu postulación.' },
+      detail: {
+        title: 'Tu postulación',
+        body: `${input.barbershopName} ${text} («${input.postingTitle}»).`,
+      },
+      email: {
+        subject: `Novedades de tu postulación a «${input.postingTitle}»`,
+        text: `${input.barbershopName} ${text} («${input.postingTitle}»).`,
+      },
+      resource: { type: 'job_application', id: input.applicationId },
+    },
+  ];
 }

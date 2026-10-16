@@ -90,27 +90,27 @@ describe('Barbero independiente (RF-BAR-001, RF-BRB-001) (e2e)', () => {
     expect(barber.displayName.length).toBeGreaterThan(1);
   });
 
-  it('RF-BRB-001: una cuenta que ya es barbero activo en otra barbería recibe 409 y no se crea nada', async () => {
+  it('Carrera del barbero: quien ya es barbero en otra barbería puede pasar a independiente', async () => {
     const client = new AuthClient(app);
     const owner = await ownerWithShop(client);
     await client.post(`${SHOPS}/${owner.shopId}/barbers/me`, {}, owner.token).expect(201);
-    const before = await prisma.barbershopMember.count({ where: { userId: owner.userId } });
-
-    const res = await client
-      .post(INDEPENDENT, shopPayload({ name: 'Mi negocio' }), owner.token)
-      .expect(409);
-    expect(res.body.code).toBe('BARBER_ALREADY_ACTIVE_ELSEWHERE');
-    expect(await prisma.barbershopMember.count({ where: { userId: owner.userId } })).toBe(before);
-    expect(await prisma.barbershop.count({ where: { name: 'Mi negocio' } })).toBe(0);
+    await client.post(INDEPENDENT, shopPayload({ name: 'Mi negocio' }), owner.token).expect(201);
+    // Los dos vínculos quedan en el mismo perfil profesional.
+    const links = await prisma.barber.findMany({
+      where: { userId: owner.userId, deletedAt: null },
+    });
+    expect(links).toHaveLength(2);
+    expect(new Set(links.map((l) => l.barberProfileId)).size).toBe(1);
   });
 
-  it('el barbero independiente no puede vincularse además a otra barbería', async () => {
+  it('el barbero independiente puede trabajar además en otra barbería (una vez por barbería)', async () => {
     const ind = await independent();
     const other = await ind.client.post(SHOPS, shopPayload(), ind.token).expect(201);
-    const res = await ind.client
+    await ind.client.post(`${SHOPS}/${other.body.id}/barbers/me`, {}, ind.token).expect(201);
+    const again = await ind.client
       .post(`${SHOPS}/${other.body.id}/barbers/me`, {}, ind.token)
       .expect(409);
-    expect(res.body.code).toBe('BARBER_ALREADY_ACTIVE_ELSEWHERE');
+    expect(again.body.code).toBe('BARBER_ALREADY_ACTIVE_ELSEWHERE');
   });
 
   it('RF-BRB-001: una barbería INDEPENDENT rechaza un segundo barbero activo', async () => {

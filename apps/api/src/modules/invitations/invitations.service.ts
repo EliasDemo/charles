@@ -254,11 +254,11 @@ export class InvitationsService {
         );
       });
     } catch (error) {
-      // Red de seguridad: el índice único impide ser barbero activo en dos barberías.
+      // Red de seguridad: el índice único impide dos vínculos de la misma cuenta en una barbería.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new AppException(
           ErrorCode.BARBER_ALREADY_ACTIVE_ELSEWHERE,
-          'Esta cuenta ya es barbero en una barbería. En esta etapa, un barbero trabaja en una sola barbería.',
+          'Esta cuenta ya es barbero en esta barbería.',
           HttpStatus.CONFLICT,
         );
       }

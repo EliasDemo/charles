@@ -37,6 +37,13 @@ import { AdminModule } from './modules/admin/admin.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AccountModule } from './modules/account/account.module';
 import { ImagesModule } from './modules/images/images.module';
+import { PromotionsModule } from './modules/promotions/promotions.module';
+import { FeaturedModule } from './modules/featured/featured.module';
+import { SponsorsModule } from './modules/sponsors/sponsors.module';
+import { CareerModule } from './modules/career/career.module';
+import { MessagingModule } from './modules/messaging/messaging.module';
+import { JobsModule } from './modules/jobs/jobs.module';
+import { VideosModule } from './modules/videos/videos.module';
 
 @Module({
   imports: [
@@ -78,6 +85,13 @@ import { ImagesModule } from './modules/images/images.module';
     NotificationsModule,
     AccountModule,
     ImagesModule,
+    PromotionsModule,
+    FeaturedModule,
+    SponsorsModule,
+    CareerModule,
+    MessagingModule,
+    JobsModule,
+    VideosModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

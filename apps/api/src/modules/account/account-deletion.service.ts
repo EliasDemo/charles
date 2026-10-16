@@ -7,11 +7,12 @@ import { ErrorCode } from '../../common/errors/error-codes';
 import { MAILER, type Mailer } from '../../common/mail/mailer';
 import { OutboxService } from '../../common/outbox/outbox.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import type { Prisma } from '../../generated/prisma/client';
+import { Prisma } from '../../generated/prisma/client';
 import { SessionsService } from '../auth/sessions.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { SettingKey, SettingsService } from '../settings/settings.service';
-import { UsersService } from '../users/users.service';
+import { ANONYMIZED_NAME, UsersService } from '../users/users.service';
+import { variantKeys } from '../images/image-variants';
 import { ImagesService } from '../images/images.service';
 import type {
   AccountDeletionPreviewDto,
@@ -279,6 +280,36 @@ export class AccountDeletionService {
           barberIds: barbers.map((b) => b.id),
           kinds: ['BARBER_PHOTO'],
         });
+        // Carrera del barbero: el perfil profesional se anonimiza; su foto y los cortes que subió
+        // desde su perfil se borran (los subidos en una barbería quedan sin perfil público).
+        const profile = await tx.barberProfile.findUnique({
+          where: { userId },
+          select: { id: true, photoVariants: true },
+        });
+        if (profile) {
+          imageKeys = [...imageKeys, ...variantKeys(profile.photoVariants)];
+          const own = await tx.image.findMany({
+            where: { barberProfileId: profile.id, barbershopId: null, deletedAt: null },
+            select: { id: true, variants: true },
+          });
+          await tx.image.updateMany({
+            where: { id: { in: own.map((i) => i.id) } },
+            data: { deletedAt: now },
+          });
+          imageKeys = [...imageKeys, ...own.flatMap((i) => variantKeys(i.variants))];
+          await tx.barberProfile.update({
+            where: { id: profile.id },
+            data: {
+              displayName: ANONYMIZED_NAME,
+              headline: null,
+              bio: null,
+              district: null,
+              availableForWork: false,
+              photoVariants: Prisma.DbNull,
+              deletedAt: now,
+            },
+          });
+        }
         await this.eraseRelated(tx, userId);
         imageKeys = [...imageKeys, ...(await this.users.anonymize(userId, now, tx))];
         await this.outbox.publish(tx, DELETION_EVENTS.DELETED, { userId });

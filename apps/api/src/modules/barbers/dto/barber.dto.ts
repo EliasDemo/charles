@@ -154,6 +154,15 @@ export class BarberPublicDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    format: 'uuid',
+    description:
+      'Carrera del barbero: su perfil profesional (GET /barber-profiles/{id}). null si no tiene cuenta.',
+  })
+  profileId!: string | null;
+
   @ApiProperty()
   displayName!: string;
 

@@ -17,6 +17,9 @@ import type { NotificationDto, NotificationQueryDto } from './dto/notification.d
 import {
   type BookingContext,
   planAccountDeletion,
+  planApplicationUpdate,
+  planJobApplication,
+  planNewMessage,
   planAccountDisabled,
   planBarbershopReview,
   planBarbershopSuspended,
@@ -54,6 +57,9 @@ export const NOTIFICATION_EVENTS = [
   'user.deletion_cancelled',
   'barbershop.review_approved',
   'barbershop.review_changes_requested',
+  'message.sent',
+  'job.application_created',
+  'job.application_updated',
 ] as const;
 
 /** Avisos que recibe una cuenta aunque no esté activa (seguridad de la propia cuenta). */
@@ -232,6 +238,80 @@ export class NotificationsService implements OnModuleInit {
           outcome: message.type === 'barbershop.review_approved' ? 'APPROVED' : 'CHANGES_REQUESTED',
           reason: shop.reviewNotes,
         });
+      }
+      case 'message.sent': {
+        const message = await this.prisma.message.findUnique({
+          where: { id: id('messageId') ?? '' },
+          select: {
+            side: true,
+            createdAt: true,
+            conversation: {
+              select: {
+                id: true,
+                userId: true,
+                barbershopId: true,
+                barbershopReadAt: true,
+                userReadAt: true,
+                barbershop: { select: { name: true } },
+                user: { select: { fullName: true } },
+              },
+            },
+          },
+        });
+        if (!message || (message.side === 'SYSTEM' && !p.notify)) return [];
+        const c = message.conversation;
+        const toShop = message.side !== 'BARBERSHOP';
+        const recipients = toShop ? await this.staffOf(c.barbershopId) : [c.userId];
+        const readAt = toShop ? c.barbershopReadAt : c.userReadAt;
+        // Correo solo si no había otro mensaje sin leer de este lado antes que este.
+        const earlierUnread = await this.prisma.message.count({
+          where: {
+            conversationId: c.id,
+            side: message.side,
+            createdAt: { lt: message.createdAt, ...(readAt ? { gt: readAt } : {}) },
+          },
+        });
+        const from =
+          message.side === 'SYSTEM'
+            ? 'Charles'
+            : toShop
+              ? (c.user.fullName.split(/\s+/)[0] ?? 'Un usuario')
+              : c.barbershop.name;
+        return planNewMessage({
+          recipientIds: recipients,
+          conversationId: c.id,
+          from,
+          withEmail: earlierUnread === 0,
+        });
+      }
+      case 'job.application_created':
+      case 'job.application_updated': {
+        const application = await this.prisma.jobApplication.findUnique({
+          where: { id: id('applicationId') ?? '' },
+          select: {
+            id: true,
+            status: true,
+            barberProfile: { select: { userId: true, displayName: true } },
+            posting: {
+              select: { title: true, barbershopId: true, barbershop: { select: { name: true } } },
+            },
+          },
+        });
+        if (!application) return [];
+        return message.type === 'job.application_created'
+          ? planJobApplication({
+              staffIds: await this.staffOf(application.posting.barbershopId),
+              applicationId: application.id,
+              barberName: application.barberProfile.displayName,
+              postingTitle: application.posting.title,
+            })
+          : planApplicationUpdate({
+              userId: application.barberProfile.userId,
+              applicationId: application.id,
+              status: application.status,
+              barbershopName: application.posting.barbershop.name,
+              postingTitle: application.posting.title,
+            });
       }
       case 'barbershop.suspended': {
         const barbershopId = id('barbershopId');

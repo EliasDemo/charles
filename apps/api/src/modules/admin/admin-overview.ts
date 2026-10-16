@@ -25,8 +25,9 @@ export const ADMIN_SECTIONS = {
     'cancellation-reviews',
     'moderation',
     'tickets',
+    'message-reports',
   ],
-  ADMIN_ONLY: ['roles', 'settings', 'catalog'],
+  ADMIN_ONLY: ['roles', 'settings', 'catalog', 'promotions', 'featured', 'sponsors'],
 } as const;
 
 const DEFAULT_ZONE = 'America/Lima';

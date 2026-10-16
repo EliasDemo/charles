@@ -79,9 +79,16 @@ export class ReviewsService {
       reviewId = await this.prisma.$transaction(async (tx) => {
         // Bloquea la reserva: dos valoraciones simultáneas de la misma reserva se serializan.
         const [booking] = await tx.$queryRaw<
-          { client_id: string; status: string; barbershop_id: string; barber_id: string }[]
+          {
+            client_id: string;
+            status: string;
+            barbershop_id: string;
+            barber_id: string;
+            barber_profile_id: string | null;
+          }[]
         >`SELECT client_id::text AS client_id, status::text AS status,
-                 barbershop_id::text AS barbershop_id, barber_id::text AS barber_id
+                 barbershop_id::text AS barbershop_id, barber_id::text AS barber_id,
+                 barber_profile_id::text AS barber_profile_id
             FROM bookings WHERE id = ${bookingId}::uuid FOR UPDATE`;
         if (!booking || booking.client_id !== userId) throw bookingNotFound();
         if (booking.status !== 'ATTENDED') {
@@ -106,6 +113,8 @@ export class ReviewsService {
             clientId: userId,
             barbershopId: booking.barbershop_id,
             barberId: booking.barber_id,
+            // Carrera del barbero: cuenta para su perfil aunque después deje la barbería.
+            barberProfileId: booking.barber_profile_id,
             rating: dto.rating,
             comment: dto.comment ?? null,
             createdAt: new Date(this.clock.now()),

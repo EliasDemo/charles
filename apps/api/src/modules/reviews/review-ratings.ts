@@ -41,6 +41,27 @@ export class ReviewRatings {
   ): Promise<void> {
     await this.recalculateBarbershop(tx, barbershopId);
     await this.recalculateBarber(tx, barberId);
+    await this.recalculateProfileOf(tx, barberId);
+  }
+
+  /**
+   * Carrera del barbero: promedio del perfil profesional (todas sus barberías), bloqueando después
+   * de la barbería y del vínculo (mismo orden siempre). Sin perfil (barbero sin cuenta), nada.
+   */
+  async recalculateProfileOf(tx: Prisma.TransactionClient, barberId: string): Promise<void> {
+    const [link] = await tx.$queryRaw<{ profile_id: string | null }[]>`
+      SELECT barber_profile_id::text AS profile_id FROM barbers WHERE id = ${barberId}::uuid`;
+    if (!link?.profile_id) return;
+    await tx.$queryRaw`
+      SELECT id FROM barber_profiles WHERE id = ${link.profile_id}::uuid FOR NO KEY UPDATE`;
+    await tx.$executeRaw`
+      UPDATE barber_profiles p
+         SET rating_avg = s.avg, rating_count = s.cnt
+        FROM (SELECT COALESCE(ROUND(AVG(rating)::numeric, 2), 0) AS avg, COUNT(*)::int AS cnt
+                FROM reviews
+               WHERE barber_profile_id = ${link.profile_id}::uuid
+                 AND deleted_at IS NULL AND status <> 'HIDDEN') s
+       WHERE p.id = ${link.profile_id}::uuid`;
   }
 
   async recalculateBarbershop(

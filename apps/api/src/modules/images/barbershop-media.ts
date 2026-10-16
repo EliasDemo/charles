@@ -28,6 +28,7 @@ export async function barbershopMedia(
     select: { barbershopId: true, kind: true, variants: true },
   });
   for (const image of images) {
+    if (!image.barbershopId) continue;
     const media = result.get(image.barbershopId) ?? { ...NO_MEDIA };
     if (image.kind === 'BARBERSHOP_LOGO') {
       media.logoUrl = variantUrl(storage, image.variants, 'square');

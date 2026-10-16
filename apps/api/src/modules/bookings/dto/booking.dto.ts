@@ -45,6 +45,20 @@ export class CreateBookingDto {
   @IsOptional()
   @IsUUID()
   barberId?: string;
+
+  @ApiPropertyOptional({
+    example: 'BIENVENIDO10',
+    description:
+      'Fase 13: cupón. Si no se puede usar: 409 COUPON_NOT_VALID (details[0].reason). Cotiza ' +
+      'antes con POST /bookings/quote. Un solo descuento por reserva: el mayor.',
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @IsString()
+  @Length(1, 40)
+  couponCode?: string;
 }
 
 /** RF-RES-005. El motivo es obligatorio cuando cancela la barbería. */

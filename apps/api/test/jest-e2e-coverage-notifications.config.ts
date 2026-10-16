@@ -13,6 +13,8 @@ const config: Config = {
   moduleFileExtensions: ['ts', 'js', 'json'],
   testRegex: [
     'test/notifications/.*\\.e2e-spec\\.ts$',
+    // Carrera del barbero: avisos de mensajes y de la bolsa de trabajo.
+    'test/career/(messaging|career)\\.e2e-spec\\.ts$',
     'src/modules/notifications/.*\\.spec\\.ts$',
   ],
   transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/test/tsconfig.coverage.json' }] },

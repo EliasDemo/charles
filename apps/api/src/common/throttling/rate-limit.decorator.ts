@@ -33,6 +33,8 @@ export const RATE_LIMIT_PROFILES = {
   search: { limit: (): number => SEARCH_RATE_LIMIT.value, ttl: ONE_MINUTE_MS },
   /** Consultas públicas sin sesión (barberías, servicios, barberos). */
   public: { limit: 60, ttl: ONE_MINUTE_MS },
+  /** Carrera del barbero: envío de mensajes y postulaciones (anti-spam). */
+  messages: { limit: 30, ttl: ONE_MINUTE_MS },
 } as const;
 
 export type RateLimitProfile = keyof typeof RATE_LIMIT_PROFILES;

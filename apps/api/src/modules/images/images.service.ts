@@ -34,6 +34,7 @@ import { IMAGE_DEFAULTS, isHiddenByReports } from './image-policy';
 import { type StoredVariants, variantKeys, variantUrl } from './image-variants';
 import { SettingKey, SettingsService } from '../settings/settings.service';
 import { SERVICE_CURRENCY } from '../services/dto/service.dto';
+import type { PortfolioItemDto } from '../career/dto/career.dto';
 
 const imageNotFound = (): AppException =>
   new AppException(ErrorCode.NOT_FOUND, 'La imagen no existe.', HttpStatus.NOT_FOUND);
@@ -82,6 +83,14 @@ const galleryInclude = {
 
 type GalleryRow = Prisma.ImageGetPayload<{ include: typeof galleryInclude }>;
 
+const portfolioInclude = {
+  barbershop: { select: { name: true } },
+  styles: { select: { style: { select: { id: true, key: true, name: true, sortOrder: true } } } },
+  _count: { select: { reports: { where: { status: { not: 'RESOLVED' as const } } } } },
+} satisfies Prisma.ImageInclude;
+
+type PortfolioRow = Prisma.ImageGetPayload<{ include: typeof portfolioInclude }>;
+
 type SingleKind = Exclude<ImageKind, 'GALLERY'>;
 
 /**
@@ -128,12 +137,258 @@ export class ImagesService {
     return { photoUrl: result.photoUrl };
   }
 
+  /**
+   * Fase 13: imagen de un auspiciador (logo, banner o producto). Solo ADMIN. Devuelve las URL
+   * públicas; la imagen no queda registrada en `images` (no es contenido de una barbería).
+   */
+  async uploadSponsorAsset(file: Buffer | undefined): Promise<{ url: string; thumbUrl: string }> {
+    const variants = await this.store(file, 'SPONSOR_ASSET');
+    return {
+      url: variantUrl(this.storage, variants, 'large')!,
+      thumbUrl: variantUrl(this.storage, variants, 'thumb')!,
+    };
+  }
+
   /** Quita la foto de perfil (idempotente). */
   async deleteUserPhoto(userId: string, ip: string | null): Promise<{ photoUrl: null }> {
     const result = await this.users.replacePhoto(userId, null, ip);
     if (!result) throw notFound();
     await this.deleteFiles(result.oldKeys);
     return { photoUrl: null };
+  }
+
+  // ───────────── Carrera del barbero: foto del perfil y portafolio ─────────────
+
+  /** Foto del perfil profesional (cuadrado de 512 px). `null` si la cuenta no tiene perfil. */
+  async setProfilePhoto(
+    userId: string,
+    file: Buffer | undefined,
+    ip: string | null,
+  ): Promise<{ photoUrl: string | null }> {
+    const profile = await this.requireOwnProfile(userId);
+    const variants = await this.store(file, 'USER_PHOTO');
+    let oldKeys: string[];
+    try {
+      oldKeys = await this.prisma.$transaction(async (tx) => {
+        const [row] = await tx.$queryRaw<{ photo_variants: unknown }[]>`
+          SELECT photo_variants FROM barber_profiles WHERE id = ${profile.id}::uuid FOR UPDATE`;
+        await tx.barberProfile.update({
+          where: { id: profile.id },
+          data: { photoVariants: variants },
+        });
+        await this.audit.record(
+          {
+            actorId: userId,
+            action: 'barber_profile.photo_updated',
+            entityType: 'barber_profile',
+            entityId: profile.id,
+            ip,
+          },
+          tx,
+        );
+        return variantKeys(row?.photo_variants);
+      });
+    } catch (error) {
+      await this.deleteFiles(variantKeys(variants));
+      throw error;
+    }
+    await this.deleteFiles(oldKeys);
+    return { photoUrl: variantUrl(this.storage, variants, 'square') };
+  }
+
+  async deleteProfilePhoto(userId: string, ip: string | null): Promise<{ photoUrl: null }> {
+    const profile = await this.requireOwnProfile(userId);
+    const oldKeys = await this.prisma.$transaction(async (tx) => {
+      const [row] = await tx.$queryRaw<{ photo_variants: unknown }[]>`
+        SELECT photo_variants FROM barber_profiles WHERE id = ${profile.id}::uuid FOR UPDATE`;
+      await tx.barberProfile.update({
+        where: { id: profile.id },
+        data: { photoVariants: Prisma.DbNull },
+      });
+      await this.audit.record(
+        {
+          actorId: userId,
+          action: 'barber_profile.photo_removed',
+          entityType: 'barber_profile',
+          entityId: profile.id,
+          ip,
+        },
+        tx,
+      );
+      return variantKeys(row?.photo_variants);
+    });
+    await this.deleteFiles(oldKeys);
+    return { photoUrl: null };
+  }
+
+  /** El barbero sube un corte a su portafolio desde su perfil (sin barbería). */
+  async uploadPortfolio(
+    userId: string,
+    file: Buffer | undefined,
+    dto: { caption?: string; styleIds?: string[]; consent: boolean },
+    ip: string | null,
+  ): Promise<PortfolioItemDto> {
+    const profile = await this.requireOwnProfile(userId);
+    if (!dto.consent) throw invalidField('consent', 'isTrue');
+    const styleIds = dto.styleIds ?? [];
+    await this.assertStyles(styleIds);
+    const max = await this.settings.positiveInt(
+      SettingKey.IMAGES_GALLERY_MAX,
+      IMAGE_DEFAULTS.galleryMaxPerBarber,
+    );
+    if ((await this.countPortfolio(this.prisma, profile.id)) >= max) throw galleryFull(max);
+    const variants = await this.store(file, 'GALLERY');
+    const now = new Date(this.clock.now());
+    let id: string;
+    try {
+      id = await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM barber_profiles WHERE id = ${profile.id}::uuid FOR UPDATE`;
+        if ((await this.countPortfolio(tx, profile.id)) >= max) throw galleryFull(max);
+        const image = await tx.image.create({
+          data: {
+            barbershopId: null,
+            barberProfileId: profile.id,
+            kind: 'GALLERY',
+            variants,
+            uploadedById: userId,
+            consentGiven: true,
+            consentByUserId: userId,
+            consentTimestamp: now,
+            caption: dto.caption ?? null,
+            styles: { create: styleIds.map((styleId) => ({ styleId })) },
+          },
+          select: { id: true },
+        });
+        await this.audit.record(
+          {
+            actorId: userId,
+            action: 'image.uploaded',
+            entityType: 'image',
+            entityId: image.id,
+            changes: { kind: 'PORTFOLIO', barberProfileId: profile.id, consent: true },
+            ip,
+          },
+          tx,
+        );
+        return image.id;
+      });
+    } catch (error) {
+      await this.deleteFiles(variantKeys(variants));
+      throw error;
+    }
+    const row = await this.prisma.image.findUniqueOrThrow({
+      where: { id },
+      include: portfolioInclude,
+    });
+    return this.toPortfolio(row);
+  }
+
+  /** El barbero quita un corte de su portafolio (también los que subió en una barbería). */
+  async deletePortfolio(userId: string, imageId: string, ip: string | null): Promise<void> {
+    const profile = await this.requireOwnProfile(userId);
+    const keys = await this.prisma.$transaction(async (tx) => {
+      const image = await tx.image.findFirst({
+        where: { id: imageId, barberProfileId: profile.id, kind: 'GALLERY', deletedAt: null },
+        select: { variants: true },
+      });
+      if (!image) throw imageNotFound();
+      await tx.image.update({
+        where: { id: imageId },
+        data: { deletedAt: new Date(this.clock.now()) },
+      });
+      await this.audit.record(
+        {
+          actorId: userId,
+          action: 'image.deleted',
+          entityType: 'image',
+          entityId: imageId,
+          changes: { kind: 'PORTFOLIO' },
+          ip,
+        },
+        tx,
+      );
+      return variantKeys(image.variants);
+    });
+    await this.deleteFiles(keys);
+  }
+
+  /** Portafolio público de un perfil: sus cortes en todas las barberías y los suyos propios. */
+  async portfolio(
+    profileId: string,
+    query: { cursor?: string; limit?: number; style?: string },
+  ): Promise<{ items: PortfolioItemDto[]; nextCursor: string | null }> {
+    const threshold = await this.hideThreshold();
+    const limit = query.limit ?? DEFAULT_PAGE_SIZE;
+    const where: Prisma.ImageWhereInput = {
+      barberProfileId: profileId,
+      kind: 'GALLERY',
+      deletedAt: null,
+      removedAt: null,
+      ...(query.style ? { styles: { some: { style: { key: query.style, isActive: true } } } } : {}),
+    };
+    const items: PortfolioRow[] = [];
+    let cursor = query.cursor;
+    let more = false;
+    for (;;) {
+      const batch = await this.prisma.image.findMany({
+        where: { ...where, ...(cursor ? { id: { lt: cursor } } : {}) },
+        include: portfolioInclude,
+        orderBy: { id: 'desc' },
+        take: limit + 1,
+      });
+      items.push(...batch.filter((r) => !isHiddenByReports(r._count.reports, threshold)));
+      if (items.length > limit) {
+        more = true;
+        break;
+      }
+      if (batch.length <= limit) break;
+      cursor = batch[batch.length - 1]!.id;
+    }
+    const page = items.slice(0, limit);
+    return {
+      items: page.map((r) => this.toPortfolio(r)),
+      nextCursor: more ? page[page.length - 1]!.id : null,
+    };
+  }
+
+  private toPortfolio(row: PortfolioRow): PortfolioItemDto {
+    const v = row.variants as StoredVariants;
+    const large = v.large ?? v.thumb!;
+    return {
+      id: row.id,
+      thumbUrl: this.storage.publicUrl((v.thumb ?? large).key),
+      largeUrl: this.storage.publicUrl(large.key),
+      width: large.width,
+      height: large.height,
+      caption: row.caption,
+      styles: row.styles
+        .map((s) => s.style)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map(({ id, key, name }) => ({ id, key, name })),
+      barbershopName: row.barbershop?.name ?? null,
+      createdAt: row.createdAt,
+    };
+  }
+
+  private countPortfolio(db: Prisma.TransactionClient, profileId: string): Promise<number> {
+    return db.image.count({
+      where: { barberProfileId: profileId, kind: 'GALLERY', deletedAt: null },
+    });
+  }
+
+  private async requireOwnProfile(userId: string): Promise<{ id: string }> {
+    const profile = await this.prisma.barberProfile.findFirst({
+      where: { userId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!profile) {
+      throw new AppException(
+        ErrorCode.NOT_FOUND,
+        'Aún no tienes perfil profesional. Créalo en PUT /me/barber-profile.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return profile;
   }
 
   // ───────────── Logo, portada y foto del barbero ─────────────
@@ -217,12 +472,16 @@ export class ImagesService {
     let id: string;
     try {
       id = await this.prisma.$transaction(async (tx) => {
-        await tx.$queryRaw`SELECT id FROM barbers WHERE id = ${barberId}::uuid FOR UPDATE`;
+        const [link] = await tx.$queryRaw<{ profile_id: string | null }[]>`
+          SELECT barber_profile_id::text AS profile_id FROM barbers
+           WHERE id = ${barberId}::uuid FOR UPDATE`;
         if ((await this.countGallery(tx, barberId)) >= max) throw galleryFull(max);
         const image = await tx.image.create({
           data: {
             barbershopId,
             barberId,
+            // Carrera del barbero: el corte también va a su portafolio (se lo lleva si se va).
+            barberProfileId: link?.profile_id ?? null,
             kind: 'GALLERY',
             variants: variants,
             uploadedById: userId,
@@ -471,11 +730,18 @@ export class ImagesService {
   async report(userId: string, imageId: string, dto: CreateImageReportDto): Promise<void> {
     const image = await this.prisma.image.findFirst({
       where: { id: imageId, kind: 'GALLERY', deletedAt: null, removedAt: null },
-      select: { barbershopId: true, barbershop: { select: { status: true, deletedAt: true } } },
+      select: {
+        barbershopId: true,
+        barbershop: { select: { status: true, deletedAt: true } },
+        barberProfile: { select: { userId: true } },
+      },
     });
-    if (!image || image.barbershop.deletedAt) throw imageNotFound();
-    // La barbería no reporta sus propias fotos.
-    if (await this.access.isMember(image.barbershopId, userId)) throw forbidden();
+    if (!image || image.barbershop?.deletedAt) throw imageNotFound();
+    // Nadie reporta sus propias fotos (la barbería, las de su local; el barbero, su portafolio).
+    if (image.barberProfile?.userId === userId) throw forbidden();
+    if (image.barbershopId && (await this.access.isMember(image.barbershopId, userId))) {
+      throw forbidden();
+    }
     try {
       await this.prisma.imageReport.create({
         data: { imageId, reportedById: userId, reason: dto.reason, details: dto.details ?? null },
@@ -742,6 +1008,8 @@ export class ImagesService {
       barbershopId,
       kind: 'GALLERY',
       deletedAt: null,
+      // Carrera del barbero: los cortes de un barbero que dejó la barbería son suyos (portafolio).
+      OR: [{ barberProfileId: null }, { barber: { endedAt: null, deletedAt: null } }],
       ...(query.barberId ? { barberId: query.barberId } : {}),
       ...(query.style ? { styles: { some: { style: { key: query.style, isActive: true } } } } : {}),
     };
@@ -800,7 +1068,8 @@ export class ImagesService {
         : null;
     return {
       id: row.id,
-      barbershopId: row.barbershopId,
+      // Las galerías de barbería siempre filtran por barbería: aquí nunca es null.
+      barbershopId: row.barbershopId!,
       barberId: row.barberId,
       barberName: row.barber?.displayName ?? null,
       thumbUrl: this.storage.publicUrl((v.thumb ?? large).key),

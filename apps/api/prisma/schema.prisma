@@ -255,11 +255,22 @@ enum PromotionType {
   FIXED_AMOUNT
 }
 
+enum DiscountFunder {
+  CHARLES
+  BARBERSHOP
+}
+
 enum SponsorCampaignStatus {
   DRAFT
   ACTIVE
   PAUSED
   ENDED
+}
+
+enum SponsorAudience {
+  CLIENTS
+  BARBERSHOPS
+  ALL
 }
 
 enum SponsorEventType {
@@ -344,11 +355,21 @@ model User {
   imagesConsented           Image[]                        @relation("ImageConsent")
   imageReports              ImageReport[]                  @relation("ImageReportReporter")
   imageReportsResolved      ImageReport[]                  @relation("ImageReportResolver")
-  couponRedemptions         CouponRedemption[]
+  promotionRedemptions      PromotionRedemption[]
+  promotionsCreated         Promotion[]                    @relation("PromotionCreator")
   sponsorEvents             SponsorEvent[]
 
   mfa              UserMfa?
   mfaRecoveryCodes MfaRecoveryCode[]
+
+  barberProfile          BarberProfile?
+  conversations          Conversation[]    @relation("ConversationUser")
+  messagesSent           Message[]         @relation("MessageSender")
+  messageReports         MessageReport[]   @relation("MessageReporter")
+  messageReportsResolved MessageReport[]   @relation("MessageReportResolver")
+  jobPostingsCreated     JobPosting[]      @relation("JobPostingCreator")
+  videosUploaded         Video[]           @relation("VideoUploader")
+  featuredCreated        FeaturedListing[] @relation("FeaturedCreator")
 
   @@index([phoneHash])
   @@map("users")
@@ -536,10 +557,15 @@ model Barbershop {
   reviews             Review[]
   reports             BarbershopReport[]
   featuredListings    FeaturedListing[]
+  promotions          Promotion[]
   invitations         BarbershopInvitation[]
   cancellationReviews BarbershopCancellationReview[]
   reviewSubmissions   BarbershopReviewSubmission[]
   images              Image[]
+
+  conversations Conversation[]
+  jobPostings   JobPosting[]
+  videos        Video[]
 
   @@index([location], type: Gist)
   @@map("barbershops")
@@ -631,6 +657,10 @@ model Barber {
   ratingCount     Int       @default(0) @map("rating_count")
   /// Fase 14: años de experiencia (0–60), opcional.
   yearsExperience Int?      @map("years_experience") @db.SmallInt
+  /// Carrera del barbero: perfil profesional de la persona (null si el barbero no tiene cuenta).
+  barberProfileId String?   @map("barber_profile_id") @db.Uuid
+  /// Fin del vínculo (el barbero se fue o lo desvincularon). El progreso queda en su perfil.
+  endedAt         DateTime? @map("ended_at") @db.Timestamptz(3)
   metadata        Json      @default("{}")
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -647,6 +677,9 @@ model Barber {
   images      Image[]
   specialties BarberSpecialty[]
 
+  barberProfile BarberProfile? @relation(fields: [barberProfileId], references: [id])
+
+  @@index([barberProfileId])
   @@index([barbershopId])
   @@index([userId])
   @@map("barbers")
@@ -710,6 +743,8 @@ model ServiceStyle {
   images      ImageStyle[]
   specialties BarberSpecialty[]
 
+  profileSpecialties BarberProfileSpecialty[]
+
   @@index([categoryId])
   @@map("service_styles")
 }
@@ -735,7 +770,10 @@ model BarberSpecialty {
 /// por quien sube. Se oculta sola con N reportes abiertos (se calcula, no se guarda).
 model Image {
   id               String    @id @default(uuid(7)) @db.Uuid
-  barbershopId     String    @map("barbershop_id") @db.Uuid
+  /// null: foto del portafolio que el barbero subió desde su perfil (sin barbería).
+  barbershopId     String?   @map("barbershop_id") @db.Uuid
+  /// Carrera del barbero: portafolio (sus cortes). Es del barbero, no de la barbería.
+  barberProfileId  String?   @map("barber_profile_id") @db.Uuid
   barberId         String?   @map("barber_id") @db.Uuid
   kind             ImageKind
   variants         Json
@@ -753,7 +791,7 @@ model Image {
   updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  barbershop Barbershop    @relation(fields: [barbershopId], references: [id])
+  barbershop Barbershop?   @relation(fields: [barbershopId], references: [id], onDelete: Restrict)
   barber     Barber?       @relation(fields: [barberId], references: [id])
   uploadedBy User          @relation("ImageUploader", fields: [uploadedById], references: [id])
   consentBy  User?         @relation("ImageConsent", fields: [consentByUserId], references: [id])
@@ -761,6 +799,9 @@ model Image {
   styles     ImageStyle[]
   reports    ImageReport[]
 
+  barberProfile BarberProfile? @relation(fields: [barberProfileId], references: [id])
+
+  @@index([barberProfileId])
   @@index([barbershopId, kind])
   @@index([barberId, kind])
   @@index([uploadedById])
@@ -885,6 +926,8 @@ model Booking {
   clientId                String           @map("client_id") @db.Uuid
   barbershopId            String           @map("barbershop_id") @db.Uuid
   barberId                String           @map("barber_id") @db.Uuid
+  /// Carrera del barbero: su perfil, para no cruzar citas entre barberías (restricción de exclusión).
+  barberProfileId         String?          @map("barber_profile_id") @db.Uuid
   serviceId               String           @map("service_id") @db.Uuid
   startAt                 DateTime         @map("start_at") @db.Timestamptz(3)
   endAt                   DateTime         @map("end_at") @db.Timestamptz(3)
@@ -909,19 +952,22 @@ model Booking {
   createdAt               DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt               DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  client             User                          @relation("BookingClient", fields: [clientId], references: [id])
-  barbershop         Barbershop                    @relation(fields: [barbershopId], references: [id])
-  barber             Barber                        @relation(fields: [barberId], references: [id])
-  service            Service                       @relation(fields: [serviceId], references: [id])
-  cancelledBy        User?                         @relation("BookingCancelledBy", fields: [cancelledById], references: [id])
-  priceLines         BookingPriceLine[]
-  statusHistory      BookingStatusHistory[]
-  payments           Payment[]
-  review             Review?
-  couponRedemptions  CouponRedemption[]
-  cancellationReview BarbershopCancellationReview?
+  client              User                          @relation("BookingClient", fields: [clientId], references: [id])
+  barbershop          Barbershop                    @relation(fields: [barbershopId], references: [id])
+  barber              Barber                        @relation(fields: [barberId], references: [id])
+  service             Service                       @relation(fields: [serviceId], references: [id])
+  cancelledBy         User?                         @relation("BookingCancelledBy", fields: [cancelledById], references: [id])
+  priceLines          BookingPriceLine[]
+  statusHistory       BookingStatusHistory[]
+  payments            Payment[]
+  review              Review?
+  promotionRedemption PromotionRedemption?
+  cancellationReview  BarbershopCancellationReview?
+
+  barberProfile BarberProfile? @relation(fields: [barberProfileId], references: [id])
 
   @@unique([clientId, idempotencyKey])
+  @@index([barberProfileId, startAt])
   @@index([clientId, startAt])
   @@index([barbershopId, startAt])
   @@index([barberId, startAt])
@@ -1084,26 +1130,28 @@ model Favorite {
 }
 
 model Review {
-  id             String        @id @default(uuid(7)) @db.Uuid
-  bookingId      String        @unique @map("booking_id") @db.Uuid
-  clientId       String        @map("client_id") @db.Uuid
-  barbershopId   String        @map("barbershop_id") @db.Uuid
-  barberId       String        @map("barber_id") @db.Uuid
-  rating         Int           @db.SmallInt
-  comment        String?
-  status         ReviewStatus  @default(VISIBLE)
+  id              String        @id @default(uuid(7)) @db.Uuid
+  bookingId       String        @unique @map("booking_id") @db.Uuid
+  clientId        String        @map("client_id") @db.Uuid
+  barbershopId    String        @map("barbershop_id") @db.Uuid
+  barberId        String        @map("barber_id") @db.Uuid
+  /// Carrera del barbero: la valoración cuenta para su perfil, también si después se va.
+  barberProfileId String?       @map("barber_profile_id") @db.Uuid
+  rating          Int           @db.SmallInt
+  comment         String?
+  status          ReviewStatus  @default(VISIBLE)
   /// Por qué está oculta: `attendance_corrected` (se restaura sola) o `moderation` (soporte).
-  hiddenReason   String?       @map("hidden_reason")
+  hiddenReason    String?       @map("hidden_reason")
   /// Única edición permitida (Fase 11); la fecha original no cambia.
-  editedAt       DateTime?     @map("edited_at") @db.Timestamptz(3)
+  editedAt        DateTime?     @map("edited_at") @db.Timestamptz(3)
   /// Respuesta de la barbería (una por valoración, editable). Las cuatro columnas van juntas (CHECK).
-  responseText   String?       @map("response_text")
-  responseById   String?       @map("response_by") @db.Uuid
-  responseAt     DateTime?     @map("response_at") @db.Timestamptz(3)
-  responseStatus ReviewStatus? @map("response_status")
-  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt      DateTime?     @map("deleted_at") @db.Timestamptz(3)
+  responseText    String?       @map("response_text")
+  responseById    String?       @map("response_by") @db.Uuid
+  responseAt      DateTime?     @map("response_at") @db.Timestamptz(3)
+  responseStatus  ReviewStatus? @map("response_status")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt       DateTime?     @map("deleted_at") @db.Timestamptz(3)
 
   booking    Booking        @relation(fields: [bookingId], references: [id])
   client     User           @relation("ReviewClient", fields: [clientId], references: [id])
@@ -1112,6 +1160,9 @@ model Review {
   barber     Barber         @relation(fields: [barberId], references: [id])
   reports    ReviewReport[]
 
+  barberProfile BarberProfile? @relation(fields: [barberProfileId], references: [id])
+
+  @@index([barberProfileId])
   @@index([clientId])
   @@index([barbershopId, createdAt])
   @@index([barberId])
@@ -1279,13 +1330,23 @@ model Promotion {
   maxPerUser     Int?           @map("max_per_user")
   rules          Json           @default("{}")
   isActive       Boolean        @default(true) @map("is_active")
+  /// Fase 13: barbería dueña (también en las de un servicio); null en las de Charles.
+  barbershopId   String?        @map("barbershop_id") @db.Uuid
+  /// true: solo con cupón. false: se aplica sola.
+  requiresCoupon Boolean        @default(false) @map("requires_coupon")
+  createdById    String?        @map("created_by") @db.Uuid
   createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(3)
 
-  coupons Coupon[]
+  coupons     Coupon[]
+  redemptions PromotionRedemption[]
+  barbershop  Barbershop?           @relation(fields: [barbershopId], references: [id])
+  createdBy   User?                 @relation("PromotionCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([scope, scopeId])
+  @@index([barbershopId])
+  @@index([createdById])
   @@map("promotions")
 }
 
@@ -1297,29 +1358,36 @@ model Coupon {
   updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  promotion   Promotion          @relation(fields: [promotionId], references: [id])
-  redemptions CouponRedemption[]
+  promotion   Promotion             @relation(fields: [promotionId], references: [id])
+  redemptions PromotionRedemption[]
 
   @@index([promotionId])
   @@map("coupons")
 }
 
-model CouponRedemption {
-  id        String   @id @default(uuid(7)) @db.Uuid
-  couponId  String   @map("coupon_id") @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  bookingId String   @map("booking_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+model PromotionRedemption {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  promotionId    String         @map("promotion_id") @db.Uuid
+  couponId       String?        @map("coupon_id") @db.Uuid
+  userId         String         @map("user_id") @db.Uuid
+  bookingId      String         @unique @map("booking_id") @db.Uuid
+  discountAmount Int            @map("discount_amount")
+  currency       String         @db.Char(3)
+  fundedBy       DiscountFunder @map("funded_by")
+  /// Reserva cancelada o vencida: el cupo vuelve a estar disponible.
+  releasedAt     DateTime?      @map("released_at") @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  coupon  Coupon  @relation(fields: [couponId], references: [id])
-  user    User    @relation(fields: [userId], references: [id])
-  booking Booking @relation(fields: [bookingId], references: [id])
+  promotion Promotion @relation(fields: [promotionId], references: [id])
+  coupon    Coupon?   @relation(fields: [couponId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+  booking   Booking   @relation(fields: [bookingId], references: [id])
 
-  @@unique([couponId, bookingId])
-  @@index([userId])
-  @@index([bookingId])
-  @@map("coupon_redemptions")
+  @@index([promotionId, releasedAt])
+  @@index([userId, promotionId])
+  @@index([couponId])
+  @@map("promotion_redemptions")
 }
 
 model Sponsor {
@@ -1333,6 +1401,7 @@ model Sponsor {
   deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   campaigns SponsorCampaign[]
+  products  SponsorProduct[]
 
   @@map("sponsors")
 }
@@ -1344,6 +1413,8 @@ model SponsorCampaign {
   startsAt  DateTime              @map("starts_at") @db.Timestamptz(3)
   endsAt    DateTime              @map("ends_at") @db.Timestamptz(3)
   target    Json                  @default("{}")
+  /// Fase 13: a quién se muestra (clientes, barberías o ambos).
+  audience  SponsorAudience       @default(ALL)
   status    SponsorCampaignStatus @default(DRAFT)
   createdAt DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -1381,30 +1452,61 @@ model SponsorEvent {
   placementId String           @map("placement_id") @db.Uuid
   userId      String?          @map("user_id") @db.Uuid
   type        SponsorEventType
+  /// Fase 13: una impresión o clic por persona (o dispositivo anónimo) por hora. Sin IP.
+  viewerHash  Bytes            @map("viewer_hash")
+  hourBucket  DateTime         @map("hour_bucket") @db.Timestamptz(3)
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   placement SponsorPlacement @relation(fields: [placementId], references: [id])
   user      User?            @relation(fields: [userId], references: [id])
 
+  @@unique([placementId, type, viewerHash, hourBucket])
   @@index([placementId, createdAt])
   @@index([userId])
   @@map("sponsor_events")
 }
 
+/// Fase 13: catálogo de productos del auspiciador, con enlace externo. Charles no vende ni cobra.
+model SponsorProduct {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  sponsorId   String    @map("sponsor_id") @db.Uuid
+  name        String
+  description String?
+  imageUrl    String?   @map("image_url")
+  actionUrl   String    @map("action_url")
+  priceText   String?   @map("price_text")
+  sortOrder   Int       @default(0) @map("sort_order")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  sponsor Sponsor @relation(fields: [sponsorId], references: [id])
+
+  @@index([sponsorId])
+  @@map("sponsor_products")
+}
+
 model FeaturedListing {
-  id           String   @id @default(uuid(7)) @db.Uuid
-  barbershopId String   @map("barbershop_id") @db.Uuid
-  startsAt     DateTime @map("starts_at") @db.Timestamptz(3)
-  endsAt       DateTime @map("ends_at") @db.Timestamptz(3)
-  priority     Int      @default(0)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id           String    @id @default(uuid(7)) @db.Uuid
+  barbershopId String    @map("barbershop_id") @db.Uuid
+  startsAt     DateTime  @map("starts_at") @db.Timestamptz(3)
+  endsAt       DateTime  @map("ends_at") @db.Timestamptz(3)
+  priority     Int       @default(0)
+  /// Fase 13: quién lo asignó (ADMIN) y si se retiró antes de tiempo.
+  createdById  String?   @map("created_by") @db.Uuid
+  note         String?
+  cancelledAt  DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   barbershop Barbershop @relation(fields: [barbershopId], references: [id])
+  createdBy  User?      @relation("FeaturedCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([barbershopId])
   @@index([startsAt, endsAt])
+  @@index([createdById])
   @@map("featured_listings")
 }
 
@@ -1444,4 +1546,261 @@ model OutboxEvent {
 
   @@index([status, availableAt])
   @@map("outbox_events")
+}
+
+// ───────────── Carrera del barbero ─────────────
+
+/// Perfil profesional del barbero: es de la persona, no de la barbería. Acumula sus valoraciones,
+/// su portafolio y sus especialidades en todas las barberías donde trabaje (y como independiente).
+model BarberProfile {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  userId           String    @unique @map("user_id") @db.Uuid
+  displayName      String    @map("display_name")
+  headline         String?
+  bio              String?
+  photoVariants    Json?     @map("photo_variants")
+  yearsExperience  Int?      @map("years_experience") @db.SmallInt
+  /// Distrito o zona donde trabaja (texto libre corto, por ejemplo "Miraflores").
+  district         String?
+  /// "Disponible para trabajar": aparece en la búsqueda de barberos para las barberías.
+  availableForWork Boolean   @default(false) @map("available_for_work")
+  ratingAvg        Decimal   @default(0) @map("rating_avg") @db.Decimal(3, 2)
+  ratingCount      Int       @default(0) @map("rating_count")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  user         User                     @relation(fields: [userId], references: [id])
+  links        Barber[]
+  reviews      Review[]
+  images       Image[]
+  bookings     Booking[]
+  specialties  BarberProfileSpecialty[]
+  applications JobApplication[]
+  videos       Video[]
+
+  @@index([availableForWork])
+  @@map("barber_profiles")
+}
+
+model BarberProfileSpecialty {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  profileId String   @map("profile_id") @db.Uuid
+  styleId   String   @map("style_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  profile BarberProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  style   ServiceStyle  @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, styleId])
+  @@index([styleId])
+  @@map("barber_profile_specialties")
+}
+
+enum ConversationKind {
+  /// Cliente y barbería (consultas).
+  CLIENT
+  /// Barbería y barbero (invitaciones, postulaciones, trabajo).
+  PROFESSIONAL
+}
+
+enum MessageSide {
+  BARBERSHOP
+  USER
+  /// Mensaje automático de Charles (por ejemplo, "postuló a tu oferta").
+  SYSTEM
+}
+
+/// Correo interno: una conversación entre una barbería (sus OWNER y MANAGER) y una persona.
+model Conversation {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  barbershopId     String           @map("barbershop_id") @db.Uuid
+  userId           String           @map("user_id") @db.Uuid
+  kind             ConversationKind
+  lastMessageAt    DateTime         @default(now()) @map("last_message_at") @db.Timestamptz(3)
+  barbershopReadAt DateTime?        @map("barbershop_read_at") @db.Timestamptz(3)
+  userReadAt       DateTime?        @map("user_read_at") @db.Timestamptz(3)
+  /// Quién bloqueó la conversación (nadie puede escribir hasta que se desbloquee).
+  blockedBy        MessageSide?     @map("blocked_by")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop Barbershop @relation(fields: [barbershopId], references: [id])
+  user       User       @relation("ConversationUser", fields: [userId], references: [id])
+  messages   Message[]
+
+  @@unique([barbershopId, userId, kind])
+  @@index([userId, lastMessageAt])
+  @@index([barbershopId, lastMessageAt])
+  @@map("conversations")
+}
+
+model Message {
+  id             String      @id @default(uuid(7)) @db.Uuid
+  conversationId String      @map("conversation_id") @db.Uuid
+  side           MessageSide
+  senderId       String?     @map("sender_id") @db.Uuid
+  /// Cuerpo cifrado (como los tickets de soporte).
+  bodyEnc        String      @map("body_enc")
+  /// Retirado por soporte tras un reporte: ya no se muestra.
+  removedAt      DateTime?   @map("removed_at") @db.Timestamptz(3)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  conversation Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User?           @relation("MessageSender", fields: [senderId], references: [id], onDelete: SetNull)
+  reports      MessageReport[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("messages")
+}
+
+enum MessageReportReason {
+  SPAM
+  HARASSMENT
+  INAPPROPRIATE
+  SCAM
+  OTHER
+}
+
+model MessageReport {
+  id           String              @id @default(uuid(7)) @db.Uuid
+  messageId    String              @map("message_id") @db.Uuid
+  reporterId   String              @map("reporter_id") @db.Uuid
+  reason       MessageReportReason
+  details      String?
+  resolvedAt   DateTime?           @map("resolved_at") @db.Timestamptz(3)
+  resolvedById String?             @map("resolved_by") @db.Uuid
+  resolution   String?
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  message    Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporter   User    @relation("MessageReporter", fields: [reporterId], references: [id])
+  resolvedBy User?   @relation("MessageReportResolver", fields: [resolvedById], references: [id])
+
+  @@unique([messageId, reporterId])
+  @@index([resolvedAt])
+  @@index([reporterId])
+  @@index([resolvedById])
+  @@map("message_reports")
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  WEEKENDS
+  COMMISSION
+  FREELANCE
+}
+
+enum JobPostingStatus {
+  OPEN
+  CLOSED
+}
+
+enum JobApplicationStatus {
+  APPLIED
+  SHORTLISTED
+  REJECTED
+  HIRED
+  WITHDRAWN
+}
+
+/// Bolsa de trabajo: oferta publicada por una barbería.
+model JobPosting {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  barbershopId     String           @map("barbershop_id") @db.Uuid
+  title            String
+  description      String
+  employmentType   EmploymentType   @map("employment_type")
+  compensationText String?          @map("compensation_text")
+  /// Especialidades buscadas (ids de service_styles).
+  styleIds         String[]         @map("style_ids") @db.Uuid
+  status           JobPostingStatus @default(OPEN)
+  closesAt         DateTime?        @map("closes_at") @db.Timestamptz(3)
+  createdById      String?          @map("created_by") @db.Uuid
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop   Barbershop       @relation(fields: [barbershopId], references: [id])
+  createdBy    User?            @relation("JobPostingCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  applications JobApplication[]
+
+  @@index([barbershopId, status])
+  @@index([status, createdAt])
+  @@index([createdById])
+  @@map("job_postings")
+}
+
+model JobApplication {
+  id              String               @id @default(uuid(7)) @db.Uuid
+  postingId       String               @map("posting_id") @db.Uuid
+  barberProfileId String               @map("barber_profile_id") @db.Uuid
+  message         String?
+  status          JobApplicationStatus @default(APPLIED)
+  decidedAt       DateTime?            @map("decided_at") @db.Timestamptz(3)
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  posting       JobPosting    @relation(fields: [postingId], references: [id])
+  barberProfile BarberProfile @relation(fields: [barberProfileId], references: [id])
+
+  @@unique([postingId, barberProfileId])
+  @@index([barberProfileId])
+  @@map("job_applications")
+}
+
+enum VideoStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+/// Videos de 30 s: publicidad del local (barbería) o cortes del barbero (perfil).
+model Video {
+  id              String      @id @default(uuid(7)) @db.Uuid
+  barbershopId    String?     @map("barbershop_id") @db.Uuid
+  barberProfileId String?     @map("barber_profile_id") @db.Uuid
+  uploadedById    String      @map("uploaded_by") @db.Uuid
+  status          VideoStatus @default(PROCESSING)
+  caption         String?
+  /// Claves en el almacenamiento: { video, poster } y, mientras se procesa, { original }.
+  variants        Json        @default("{}")
+  durationMs      Int?        @map("duration_ms")
+  failureReason   String?     @map("failure_reason")
+  /// Retirado por soporte (moderación).
+  removedAt       DateTime?   @map("removed_at") @db.Timestamptz(3)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt       DateTime?   @map("deleted_at") @db.Timestamptz(3)
+
+  barbershop    Barbershop?    @relation(fields: [barbershopId], references: [id])
+  barberProfile BarberProfile? @relation(fields: [barberProfileId], references: [id])
+  uploadedBy    User           @relation("VideoUploader", fields: [uploadedById], references: [id])
+  reports       VideoReport[]
+
+  @@index([barbershopId, createdAt])
+  @@index([barberProfileId, createdAt])
+  @@index([uploadedById])
+  @@map("videos")
+}
+
+model VideoReport {
+  id         String            @id @default(uuid(7)) @db.Uuid
+  videoId    String            @map("video_id") @db.Uuid
+  reporterId String            @map("reporter_id") @db.Uuid
+  reason     ImageReportReason
+  details    String?
+  resolvedAt DateTime?         @map("resolved_at") @db.Timestamptz(3)
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, reporterId])
+  @@index([resolvedAt])
+  @@map("video_reports")
 }

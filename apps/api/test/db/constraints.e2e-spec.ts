@@ -294,14 +294,15 @@ describe('Restricciones de la base de datos (integración, charles_test)', () =>
       );
     });
 
-    it('MVP: un usuario es barbero activo en una sola barbería', async () => {
+    it('Carrera del barbero: varias barberías sí, dos vínculos en la misma no', async () => {
       const f = fixtures(prisma);
       const user = await f.user();
       const [shopA, shopB] = [await f.barbershop(), await f.barbershop()];
       const barber = await f.barber(shopA.id, user.id);
-      await expectConstraintViolation(f.barber(shopB.id, user.id), 'barbers_user_id_active_key');
-      await prisma.barber.update({ where: { id: barber.id }, data: { deletedAt: new Date() } });
       await expect(f.barber(shopB.id, user.id)).resolves.toBeDefined();
+      await expectConstraintViolation(f.barber(shopA.id, user.id), 'barbers_shop_user_active_key');
+      await prisma.barber.update({ where: { id: barber.id }, data: { deletedAt: new Date() } });
+      await expect(f.barber(shopA.id, user.id)).resolves.toBeDefined();
     });
 
     it('servicio con precio no negativo y duración positiva', async () => {
@@ -422,12 +423,25 @@ describe('Restricciones de la base de datos (integración, charles_test)', () =>
       );
     });
 
-    it('scope_id nulo solo con alcance PLATFORM', async () => {
+    it('scope_id nulo solo con alcance PLATFORM; barbería solo fuera de PLATFORM', async () => {
+      const shop = await fixtures(prisma).barbershop();
       await expectConstraintViolation(
         prisma.promotion.create({
-          data: { ...base, scope: 'BARBERSHOP', type: 'PERCENTAGE', value: 10 },
+          data: {
+            ...base,
+            scope: 'BARBERSHOP',
+            barbershopId: shop.id,
+            type: 'PERCENTAGE',
+            value: 10,
+          },
         }),
         'promotions_scope_check',
+      );
+      await expectConstraintViolation(
+        prisma.promotion.create({
+          data: { ...base, scope: 'BARBERSHOP', scopeId: shop.id, type: 'PERCENTAGE', value: 10 },
+        }),
+        'promotions_barbershop_check',
       );
       await expectConstraintViolation(
         prisma.promotion.create({

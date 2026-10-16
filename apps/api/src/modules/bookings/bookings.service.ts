@@ -26,6 +26,9 @@ import { ReconciliationService } from '../payments/reconciliation';
 import { ServicesService } from '../services/services.service';
 import { SettingKey, SettingsService } from '../settings/settings.service';
 import { type ClientCard, UsersService } from '../users/users.service';
+import type { ChosenDiscount } from '../promotions/discount-policy';
+import type { BookingQuoteDto, QuoteBookingDto } from '../promotions/dto/promotion.dto';
+import { couponNotValid, PromotionsService } from '../promotions/promotions.service';
 import { cancellationDecision, NO_SHOW_DEFAULTS, noShowAllowed } from './booking-policy';
 import { type BookingActor, BookingStateMachine, SYSTEM_ACTOR } from './booking-state-machine';
 import type { BookingStatus } from '../../generated/prisma/enums';
@@ -82,6 +85,8 @@ function fingerprint(clientId: string, dto: CreateBookingDto): Prisma.InputJsonO
     serviceId: dto.serviceId,
     startAt: dto.startAt.toISOString(),
     barberId: dto.barberId ?? null,
+    // Fase 13: solo si hay cupón (las reservas anteriores no lo guardaban).
+    ...(dto.couponCode ? { couponCode: dto.couponCode } : {}),
   };
 }
 
@@ -95,7 +100,7 @@ function sameRequest(stored: unknown, current: Prisma.InputJsonObject): boolean 
 function isOverlapViolation(error: unknown): boolean {
   if (isExclusionViolation(dbErrorInfo(error))) return true;
   const text = `${error instanceof Error ? error.message : ''} ${JSON.stringify(error) ?? ''}`;
-  return text.includes('bookings_no_overlap');
+  return text.includes('bookings_no_overlap') || text.includes('bookings_profile_no_overlap');
 }
 
 /**
@@ -144,6 +149,7 @@ export class BookingsService {
     private readonly reconciliation: ReconciliationService,
     @Inject(CLOCK) private readonly clock: Clock,
     private readonly reviewEligibility: ReviewEligibilityService,
+    private readonly promotions: PromotionsService,
   ) {}
 
   // ───────────── Crear (RF-RES-001/002, RF-RES-007) ─────────────
@@ -188,7 +194,10 @@ export class BookingsService {
       ),
       this.commissionSettings(),
     ]);
-    const commission = computeCommission(service.priceAmount, commissionSettings);
+    const timezone = await this.access.timezoneOf(dto.barbershopId);
+    // Carrera del barbero: el perfil de cada candidato (no puede tener dos citas a la vez, aunque
+    // sean en barberías distintas).
+    const profiles = await this.barbers.profileIdsOf(candidates);
     const endAt = startAt + service.durationMinutes * 60_000;
     // Ajuste C: antes de vencer una PENDING_PAYMENT con pago iniciado, se consulta la pasarela
     // (fuera de la transacción). Si estaba pagada, se confirma en lugar de vencer.
@@ -228,6 +237,30 @@ export class BookingsService {
           // restricción de exclusión hasta marcarse EXPIRED. Se expira aquí, en esta transacción.
           await this.expireOverlapping(tx, candidates, startAt, endAt, now);
 
+          // Fase 13: descuento (un solo, el mayor) con los topes bloqueados en esta transacción.
+          const promo = await this.promotions.resolve(
+            tx,
+            {
+              clientId,
+              barbershopId: dto.barbershopId,
+              serviceId: dto.serviceId,
+              subtotal: service.priceAmount,
+              currency: service.currency,
+              startAt,
+              timezone,
+              couponCode: dto.couponCode,
+            },
+            { lock: true },
+          );
+          if (promo.coupon && promo.coupon.reason && promo.coupon.reason !== 'BETTER_PROMOTION') {
+            throw couponNotValid(promo.coupon.reason);
+          }
+          const discount = promo.discount;
+          const commission = computeCommission(
+            service.priceAmount - (discount?.amount ?? 0),
+            commissionSettings,
+          );
+
           const bookingId = await this.insertWithFirstFreeBarber(tx, candidates, {
             clientId,
             dto,
@@ -236,8 +269,19 @@ export class BookingsService {
             endAt,
             service,
             commission,
+            discount,
+            profiles,
             expiresAt: now + ttlMinutes * 60_000,
           });
+          if (discount) {
+            await this.promotions.recordRedemption(tx, {
+              bookingId: bookingId.id,
+              userId: clientId,
+              discount,
+              couponId: promo.couponId,
+              currency: service.currency,
+            });
+          }
           await this.stateMachine.recordCreation(
             tx,
             {
@@ -286,6 +330,62 @@ export class BookingsService {
     const payment = await this.payments.startAfterCreation(created.paymentId, service.name);
     const booking = await this.loadOne(created.bookingId);
     return { booking: { ...(await this.toDto(booking, 'CLIENT')), payment }, replayed: false };
+  }
+
+  /**
+   * Fase 13: precio de una reserva antes de crearla (descuento, comisión y total). No bloquea ni
+   * reserva cupos: el descuento definitivo se decide al crear la reserva.
+   */
+  async quote(clientId: string, dto: QuoteBookingDto): Promise<BookingQuoteDto> {
+    const service = (await this.services.bookableSummaries([dto.serviceId])).get(dto.serviceId);
+    if (!service || service.barbershopId !== dto.barbershopId) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'El servicio no existe.', HttpStatus.NOT_FOUND);
+    }
+    await this.access.requirePublic(dto.barbershopId);
+    const [timezone, commissionSettings] = await Promise.all([
+      this.access.timezoneOf(dto.barbershopId),
+      this.commissionSettings(),
+    ]);
+    const promo = await this.promotions.resolve(
+      this.prisma,
+      {
+        clientId,
+        barbershopId: dto.barbershopId,
+        serviceId: dto.serviceId,
+        subtotal: service.priceAmount,
+        currency: service.currency,
+        startAt: dto.startAt.getTime(),
+        timezone,
+        couponCode: dto.couponCode,
+      },
+      { lock: false },
+    );
+    const discount = promo.discount?.amount ?? 0;
+    const commission = computeCommission(service.priceAmount - discount, commissionSettings);
+    const money = (amount: number) => ({ amount, currency: service.currency });
+    return {
+      subtotal: money(service.priceAmount),
+      discountTotal: money(discount),
+      feeTotal: money(commission.clientFee),
+      total: money(commission.total),
+      lines: [
+        { type: 'SERVICE', description: service.name, amount: money(service.priceAmount) },
+        ...(promo.discount
+          ? [
+              {
+                type: 'DISCOUNT' as const,
+                description: promo.discount.promotion.name,
+                amount: money(discount),
+              },
+            ]
+          : []),
+        { type: 'FEE', description: 'Comisión de Charles', amount: money(commission.clientFee) },
+      ],
+      promotion: promo.discount
+        ? { id: promo.discount.promotion.id, name: promo.discount.promotion.name }
+        : null,
+      coupon: promo.coupon,
+    };
   }
 
   /**
@@ -417,6 +517,8 @@ export class BookingsService {
       endAt: number;
       service: { name: string; durationMinutes: number; priceAmount: number; currency: string };
       commission: CommissionBreakdown;
+      discount: ChosenDiscount | null;
+      profiles: Map<string, string>;
       expiresAt: number;
     },
   ): Promise<{ id: string; barberId: string }> {
@@ -428,6 +530,7 @@ export class BookingsService {
             clientId: input.clientId,
             barbershopId: input.dto.barbershopId,
             barberId,
+            barberProfileId: input.profiles.get(barberId) ?? null,
             serviceId: input.dto.serviceId,
             startAt: new Date(input.startAt),
             endAt: new Date(input.endAt),
@@ -436,6 +539,7 @@ export class BookingsService {
             serviceNameSnapshot: input.service.name,
             durationMinutesSnapshot: input.service.durationMinutes,
             subtotalAmount: input.service.priceAmount,
+            discountTotalAmount: input.discount?.amount ?? 0,
             feeTotalAmount: input.commission.clientFee,
             totalAmount: input.commission.total,
             commissionAmount: input.commission.commissionAmount,
@@ -454,6 +558,18 @@ export class BookingsService {
                   sourceType: 'service',
                   sourceId: input.dto.serviceId,
                 },
+                // Fase 13: descuento (positivo; se resta del subtotal).
+                ...(input.discount
+                  ? [
+                      {
+                        type: 'DISCOUNT' as const,
+                        description: input.discount.promotion.name,
+                        amount: input.discount.amount,
+                        sourceType: 'promotion',
+                        sourceId: input.discount.promotion.id,
+                      },
+                    ]
+                  : []),
                 // Comisión de Charles (Fase 8B): lo que paga el cliente; 0 si la asume la barbería
                 // (entonces queda en commission_amount).
                 {

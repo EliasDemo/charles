@@ -2,7 +2,7 @@
 
 Punto de partida para retomar el trabajo en una conversación nueva. **Léelo antes de hacer nada**, junto con `CLAUDE.md` y `docs/pendientes-produccion.md`. Se actualiza al cerrar cada fase (CLAUDE.md §1).
 
-Última actualización: perfil de la cuenta ampliado (foto, fecha de nacimiento, género y cambio de contraseña); charlesweb completa (etapas 1–5).
+Última actualización: Fase 13 (promociones, cupones, destacados y auspiciadores) y Carrera del barbero (perfil profesional, correo interno, bolsa de trabajo y videos).
 
 ## Resumen
 
@@ -10,7 +10,7 @@ Punto de partida para retomar el trabajo en una conversación nueva. **Léelo an
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Fase cerrada más reciente | **8B** (pagos con Izipay, probado con simulador)                                                                                         |
 | En espera                 | credenciales de prueba de Mercado Pago para la prueba real (guía en `docs/pendientes-produccion.md`); cuenta de Izipay (sin negocio aún) |
-| Siguiente a implementar   | **Fase 13** (promociones, cupones, destacados y auspiciadores): plan presentado, pendiente de aprobación                                 |
+| Siguiente a implementar   | Fases 15 y 16 (planes y suscripciones): decisiones pendientes en `docs/pendientes-produccion.md`                                         |
 | Pruebas al cierre         | 488 unitarias y 569 e2e, todas en verde; `pnpm verify` pasa                                                                              |
 | Repositorio               | solo commits locales: **sin remoto y sin push** hasta que el usuario lo indique                                                          |
 
@@ -37,6 +37,8 @@ Punto de partida para retomar el trabajo en una conversación nueva. **Léelo an
 | 8B   | Pagos con Izipay: formulario web (tarjeta y Yape), IPN firmada, consulta, devoluciones; comisión configurable                                                | (ver `git log`)                                                                                |
 | —    | Mercado Pago (Checkout Pro): pasarela activa para pruebas reales; Izipay se mantiene                                                                         | (ver `git log`)                                                                                |
 | —    | charlesweb (web de administración, `D:\barberia\charlesweb`): etapas 1–5 con pruebas Playwright                                                              | (commits en ese repositorio)                                                                   |
+| 13   | Promociones y cupones (un solo descuento, el mayor), destacados en la búsqueda, auspiciadores con campañas, anuncios, productos y métricas                   | (ver `git log`)                                                                                |
+| —    | Carrera del barbero: perfil profesional propio (varias barberías, se lleva su progreso), ranking, correo interno, bolsa de trabajo, videos de 30 s           | (ver `git log`)                                                                                |
 | —    | Perfil ampliado: foto de perfil, fecha de nacimiento, género, cambio de contraseña; foto del cliente en la agenda                                            | (ver `git log`)                                                                                |
 | —    | Preparación de charlesweb: 2FA obligatorio del personal, sesión de personal (12 h / 30 min), sesión web con cookies y CSRF, `/admin/me` y `/admin/dashboard` | (ver `git log`)                                                                                |
 
@@ -51,6 +53,28 @@ Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Pagos con Izipa
 - **Decisiones del usuario:** tarjeta y Yape; formulario web en la app; comisión configurable por ADMIN (por defecto la barbería, en 0); la comisión de Izipay en devoluciones la asume la barbería; la barbería usa DNI o RUC (el RUC de Izipay es el de Charles).
 - **Hallazgo:** un rechazo de la pasarela cancelaba la reserva. Con Izipay se registra como intento fallido y el cliente puede reintentar hasta que venza.
 - **Por validar con cuenta real:** ver `docs/izipay/referencia.md` §8.
+
+### Fase 13: cerrada
+
+Plan aprobado con las recomendaciones: un solo descuento por reserva (el mayor), las barberías crean sus promociones, destacados sin cobro asignados por ADMIN, anuncios para barberías visibles en modo barbería. Migración `20261020000000_growth` (en `charles` falló a mitad por un nombre de restricción repetido; se completó a mano con autorización del usuario).
+
+- Canjes en `promotion_redemptions` (reemplaza a `coupon_redemptions`, que nunca se usó): topes controlados bloqueando la promoción en la transacción de la reserva; la cancelación o el vencimiento liberan el cupo (máquina de estados).
+- La comisión se calcula sobre el precio con descuento. Quién asume el descuento queda en el canje (`funded_by`) para la liquidación futura.
+- `FeaturedRankingStrategy`: hasta 3 destacadas suben en la primera página, solo entre las que ya cumplen los filtros.
+- Eventos de anuncios: uno por persona o instalación (`viewerKey`) por hora, sin IP.
+- Guía para la app: `docs/mobile/PROMOCIONES.md`. Web: Promociones, Destacados y Auspiciadores.
+
+### Carrera del barbero: cerrada
+
+Pedido del usuario ("el progreso es del barbero, no de la barbería"), propuesta aprobada completa. Migración `20261021000000_barber_career` (crea los perfiles de los barberos existentes y les pasa sus reservas, valoraciones y cortes).
+
+- `barber_profiles`: perfil de la persona. Los vínculos (`barbers`) se enlazan a él; un barbero puede trabajar en varias barberías (se eliminó `barbers_user_id_active_key`) y la restricción `bookings_profile_no_overlap` impide citas cruzadas entre barberías.
+- Valoraciones y cortes cuentan para el perfil; al dejar una barbería, se los lleva y la galería de la barbería deja de mostrarlos.
+- Ranking por promedio bayesiano (peso 5, media 4), con 3 valoraciones mínimas.
+- Correo interno cifrado (barbería ↔ persona), sin que la barbería escriba primero a clientes; avisos por push, bandeja y correo sin contenido; reportes moderados por soporte.
+- Bolsa de trabajo: ofertas, postulaciones, contratar crea el vínculo; invitar desde el perfil.
+- Videos de 30 s con `ffmpeg-static` (cola `videos`): 720p, sin metadatos, miniatura; moderación por reportes.
+- Guía para la app: `docs/mobile/CARRERA.md`. Web: Mensajes reportados y la pestaña Videos de Moderación.
 
 ### Perfil ampliado de la cuenta: cerrado
 

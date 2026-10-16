@@ -13,6 +13,8 @@ export const EncryptedField = {
   USER_BIRTH_DATE: 'charles/user.birth-date/v1',
   BARBER_PHONE: 'charles/barber.phone/v1',
   TICKET_MESSAGE_BODY: 'charles/ticket-message.body/v1',
+  /** Carrera del barbero: cuerpo de un mensaje del correo interno. */
+  MESSAGE_BODY: 'charles/message.body/v1',
   /** Documento (RUC o DNI) del responsable de una barbería. */
   BARBERSHOP_OWNER_DOCUMENT: 'charles/barbershop.owner-document/v1',
   /** Fase 10: token push del dispositivo. */
@@ -35,6 +37,8 @@ export const BlindIndexKind = {
   DOCUMENT: 'charles/blind-index/document/v1',
   /** Fase 10: token push de Expo (unicidad sin guardarlo en claro). */
   PUSH_TOKEN: 'charles/blind-index/push-token/v1',
+  /** Fase 13: quien ve un anuncio (cuenta o instalación anónima), para no contarlo dos veces. */
+  SPONSOR_VIEWER: 'charles/blind-index/sponsor-viewer/v1',
 } as const;
 
 export type BlindIndexKind = (typeof BlindIndexKind)[keyof typeof BlindIndexKind];

@@ -1,3 +1,4 @@
+import type { PromotionRedemptions } from '../promotions/promotion-redemptions';
 import { AppException } from '../../common/errors/app.exception';
 import type { OutboxService } from '../../common/outbox/outbox.service';
 import type { Prisma } from '../../generated/prisma/client';
@@ -80,7 +81,14 @@ describe('BookingStateMachine (RF-RES-006, CLAUDE.md §8)', () => {
           return Promise.resolve('event-id');
         },
       } as unknown as OutboxService;
-      return { machine: new BookingStateMachine(outbox, { now: () => now }), tx, writes };
+      const redemptions = {
+        releaseForBooking: () => Promise.resolve(),
+      } as unknown as PromotionRedemptions;
+      return {
+        machine: new BookingStateMachine(outbox, { now: () => now }, redemptions),
+        tx,
+        writes,
+      };
     }
 
     const codeOf = async (promise: Promise<unknown>) => {

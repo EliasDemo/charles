@@ -193,11 +193,11 @@ export class BarbershopsService {
         barberRoleGranted: !roles.includes('BARBER'),
       };
     } catch (error) {
-      // Carrera con otra vinculación de la misma cuenta: índice único de barberos activos.
+      // Carrera con otra vinculación de la misma cuenta en la misma barbería (índice único).
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new AppException(
           ErrorCode.BARBER_ALREADY_ACTIVE_ELSEWHERE,
-          'Esta cuenta ya es barbero en una barbería. En esta etapa, un barbero trabaja en una sola barbería.',
+          'Esta cuenta ya es barbero en esta barbería.',
           HttpStatus.CONFLICT,
         );
       }

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PromotionRedemptionsModule } from '../promotions/promotion-redemptions';
 import { BookingStateMachine } from './booking-state-machine';
 import { BookingsReadService } from './bookings-read.service';
 
@@ -8,6 +9,7 @@ import { BookingsReadService } from './bookings-read.service';
  * (crear, cancelar, consultar) vive en `BookingsManagementModule`.
  */
 @Module({
+  imports: [PromotionRedemptionsModule],
   providers: [BookingsReadService, BookingStateMachine],
   exports: [BookingsReadService, BookingStateMachine],
 })

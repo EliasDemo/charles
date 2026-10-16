@@ -2,6 +2,7 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
+import { PromotionRedemptions } from '../promotions/promotion-redemptions';
 import { OutboxService } from '../../common/outbox/outbox.service';
 import type { Prisma } from '../../generated/prisma/client';
 import type { BookingStatus } from '../../generated/prisma/enums';
@@ -67,6 +68,7 @@ export class BookingStateMachine {
   constructor(
     private readonly outbox: OutboxService,
     @Inject(CLOCK) private readonly clock: Clock,
+    private readonly redemptions: PromotionRedemptions,
   ) {}
 
   /** Estado inicial (null → PENDING_PAYMENT): historial y evento `booking.created`. */
@@ -142,6 +144,10 @@ export class BookingStateMachine {
     await tx.bookingStatusHistory.create({
       data: { bookingId, fromStatus: from, toStatus: to, changedById: actor.userId, reason },
     });
+    // Fase 13: una reserva cancelada o vencida devuelve el cupo de su promoción.
+    if (to === 'CANCELLED' || to === 'EXPIRED') {
+      await this.redemptions.releaseForBooking(tx, bookingId);
+    }
     await this.outbox.publish(tx, bookingEventType(to), {
       bookingId,
       barbershopId: booking.barbershop_id,

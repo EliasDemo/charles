@@ -21,4 +21,5 @@ export const BLIND_INDEX_NORMALIZERS: Record<BlindIndexKind, (value: string) => 
       .replace(/[\s.-]/g, ''),
   // Tal cual (sin espacios alrededor): el token de Expo distingue mayúsculas.
   [BlindIndexKind.PUSH_TOKEN]: (value) => value.trim(),
+  [BlindIndexKind.SPONSOR_VIEWER]: (value) => value.trim().toLowerCase(),
 };

@@ -64,7 +64,15 @@ export class NotificationQueryDto extends PaginationQueryDto {
 
 export class NotificationResourceDto {
   @ApiProperty({
-    enum: ['booking', 'review', 'ticket', 'barbershop', 'account'],
+    enum: [
+      'booking',
+      'review',
+      'ticket',
+      'barbershop',
+      'account',
+      'conversation',
+      'job_application',
+    ],
     description: 'Pantalla que abre la app al tocar el aviso.',
   })
   type!: string;
