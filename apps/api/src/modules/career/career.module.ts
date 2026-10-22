@@ -26,7 +26,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { type AuthUser, CurrentUser } from '../../common/auth/auth-user';
+import { type AuthUser, CurrentUser, OptionalUser } from '../../common/auth/auth-user';
 import { Public } from '../../common/auth/public.decorator';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
 import { RateLimit } from '../../common/throttling/rate-limit.decorator';
@@ -224,10 +224,11 @@ export class BarberProfilesController {
   @ApiOperation({ summary: 'Valoraciones de toda su carrera (más recientes primero)' })
   @ApiOkResponse({ type: ProfileReviewPageDto })
   reviews(
+    @OptionalUser() user: AuthUser | null,
     @Param('id', uuid) id: string,
     @Query() query: PortfolioQueryDto,
   ): Promise<ProfileReviewPageDto> {
-    return this.profiles.reviews(id, query);
+    return this.profiles.reviews(id, query, user?.id ?? null);
   }
 }
 

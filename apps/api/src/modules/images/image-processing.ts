@@ -24,7 +24,8 @@ export type ImageKind =
   /** Foto de perfil de la cuenta: se guarda en `users.photo_variants`, no en `images`. */
   | 'USER_PHOTO'
   /** Fase 13: logo, banner o producto de un auspiciador (lo sube ADMIN). */
-  | 'SPONSOR_ASSET';
+  | 'SPONSOR_ASSET'
+  | 'POST_PHOTO';
 
 export interface Variant {
   name: 'thumb' | 'large' | 'square';
@@ -46,6 +47,10 @@ const PLAN: Record<ImageKind, { name: Variant['name']; width: number; square?: b
   BARBERSHOP_LOGO: [{ name: 'square', width: 512, square: true }],
   BARBER_PHOTO: [{ name: 'square', width: 512, square: true }],
   USER_PHOTO: [{ name: 'square', width: 512, square: true }],
+  POST_PHOTO: [
+    { name: 'thumb', width: 400 },
+    { name: 'large', width: 1600 },
+  ],
   SPONSOR_ASSET: [
     { name: 'thumb', width: 400 },
     { name: 'large', width: 1600 },

@@ -185,6 +185,19 @@ export class PublicReviewDto {
     description: 'Respuesta de la barbería (null si no hay o la ocultó soporte).',
   })
   response!: ReviewResponseDto | null;
+
+  @ApiProperty({ description: 'Me gusta de la comunidad.' })
+  likes!: number;
+
+  @ApiProperty({ description: 'Con sesión: si le di me gusta.' })
+  likedByMe!: boolean;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Foto de perfil del autor (null si no tiene).',
+  })
+  authorPhotoUrl!: string | null;
 }
 
 export class PublicReviewPageDto {

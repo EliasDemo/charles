@@ -1303,6 +1303,254 @@ void runDevTool(async (app) => {
     });
   }
 
+  // ───────────── 15. Comunidad: publicaciones, comentarios, me gusta, seguidores y eventos ─────────────
+  const photoFiles = mapping.flatMap((g) => g.images);
+  const photoDir: string = photosDir;
+  let photoIndex = 0;
+  async function postPhoto(uploader: string): Promise<string> {
+    const file = photoFiles[photoIndex++ % photoFiles.length]!;
+    const variants = await images.storePostPhoto(await readFile(join(photoDir, file)));
+    const media = await prisma.postMedia.create({
+      data: { uploadedById: uploader, variants },
+    });
+    return media.id;
+  }
+  const byKey = (key: string) => shops.find((x) => x.def.key === key)!;
+  const shopPosts: {
+    key: string;
+    type: 'PROMOTION' | 'EVENT' | 'WORK' | 'ANNOUNCEMENT';
+    body: string;
+    daysAgo: number;
+    photos: number;
+    event?: { inDays: number; hour: number; address: string; capacity: number | null };
+  }[] = [
+    {
+      key: 'imperial',
+      type: 'WORK',
+      body: 'Degradado medio con diseño para el fin de semana. ¿Qué te parece? 💈',
+      daysAgo: 1,
+      photos: 2,
+    },
+    {
+      key: 'imperial',
+      type: 'PROMOTION',
+      body: 'Martes de fade: 20 % de descuento en todos los degradados. Reserva desde la app.',
+      daysAgo: 3,
+      photos: 1,
+    },
+    {
+      key: 'fadehouse',
+      type: 'EVENT',
+      body: 'Taller gratuito de degradados para barberos que empiezan. Cupos limitados.',
+      daysAgo: 2,
+      photos: 1,
+      event: { inDays: 6, hour: 17, address: 'Jr. San Román 320, Juliaca', capacity: 15 },
+    },
+    {
+      key: 'fadehouse',
+      type: 'WORK',
+      body: 'Undercut con línea marcada. Trabajo de Alex.',
+      daysAgo: 5,
+      photos: 1,
+    },
+    {
+      key: 'santabarbara',
+      type: 'ANNOUNCEMENT',
+      body: 'Desde este mes atendemos también los domingos de 10:00 a 13:00.',
+      daysAgo: 4,
+      photos: 0,
+    },
+    {
+      key: 'navaja',
+      type: 'WORK',
+      body: 'Clásico con tijera, perfecto para la oficina.',
+      daysAgo: 6,
+      photos: 1,
+    },
+    {
+      key: 'andino',
+      type: 'EVENT',
+      body: 'Noche de mullets: cortes a precio especial y música en vivo. ¡Te esperamos!',
+      daysAgo: 1,
+      photos: 1,
+      event: {
+        inDays: 3,
+        hour: 19,
+        address: 'Av. Huancané 890, La Capilla, Juliaca',
+        capacity: null,
+      },
+    },
+    {
+      key: 'donlucho',
+      type: 'PROMOTION',
+      body: 'Corte + barba por S/ 30 toda la semana.',
+      daysAgo: 2,
+      photos: 1,
+    },
+    {
+      key: 'mercedes',
+      type: 'ANNOUNCEMENT',
+      body: 'Atendemos sin cita de 9:00 a 13:00 y con cita por la tarde.',
+      daysAgo: 8,
+      photos: 0,
+    },
+  ];
+  const promoOf = new Map<string, string>();
+  for (const [id, promo] of shopPromos) promoOf.set(id, promo.id);
+  const posts: { id: string; ownerId: string }[] = [];
+  for (const sp of shopPosts) {
+    const s = byKey(sp.key);
+    const createdAt = new Date(now - sp.daysAgo * DAY - Math.floor(rand() * 8) * 3_600_000);
+    const mediaIds: string[] = [];
+    for (let i = 0; i < sp.photos; i++) mediaIds.push(await postPhoto(s.ownerId));
+    const eventStart = sp.event ? limaAt(now, sp.event.inDays, sp.event.hour) : null;
+    const post = await prisma.post.create({
+      data: {
+        type: sp.type,
+        barbershopId: s.id,
+        createdById: s.ownerId,
+        body: sp.body,
+        promotionId: sp.type === 'PROMOTION' ? (promoOf.get(s.id) ?? null) : null,
+        eventStartsAt: eventStart,
+        eventEndsAt: eventStart ? new Date(eventStart.getTime() + 3 * 3_600_000) : null,
+        eventAddress: sp.event?.address ?? null,
+        eventCapacity: sp.event?.capacity ?? null,
+        latitude: s.def.latitude,
+        longitude: s.def.longitude,
+        pinnedAt: sp.key === 'imperial' && sp.type === 'PROMOTION' ? createdAt : null,
+        createdAt,
+      },
+    });
+    for (const [i, id] of mediaIds.entries()) {
+      await prisma.postMedia.update({ where: { id }, data: { postId: post.id, sortOrder: i } });
+    }
+    posts.push({ id: post.id, ownerId: s.ownerId });
+  }
+  // Publicación de un barbero independiente a su nombre (perfil profesional).
+  const yeison = byKey('yeison');
+  const yeisonProfile = await prisma.barberProfile.findUniqueOrThrow({
+    where: { userId: yeison.ownerId },
+  });
+  const yeisonPost = await prisma.post.create({
+    data: {
+      type: 'WORK',
+      authorProfileId: yeisonProfile.id,
+      createdById: yeison.ownerId,
+      body: 'Spiky con textura. Agenda tu cita conmigo 🔥',
+      latitude: yeison.def.latitude,
+      longitude: yeison.def.longitude,
+      createdAt: new Date(now - 2 * DAY),
+    },
+  });
+  const ym = await postPhoto(yeison.ownerId);
+  await prisma.postMedia.update({ where: { id: ym }, data: { postId: yeisonPost.id } });
+  posts.push({ id: yeisonPost.id, ownerId: yeison.ownerId });
+
+  // Seguidores, me gusta, guardados y asistencia.
+  const COMMENTS = [
+    '¡Quedó increíble!',
+    '¿Tienen turno para el sábado?',
+    'Ahí estaré 🙌',
+    '¿Cuánto cuesta?',
+    'El mejor de Juliaca.',
+    'Me encanta ese degradado.',
+  ];
+  for (const [ci, c] of clients.entries()) {
+    for (const s of shops)
+      if (rand() < 0.35)
+        await prisma.follow.create({ data: { followerId: c.id, barbershopId: s.id } });
+    if (rand() < 0.4)
+      await prisma.follow.create({ data: { followerId: c.id, barberProfileId: yeisonProfile.id } });
+    for (const p of posts) {
+      if (rand() < 0.45) {
+        await prisma.postLike.create({ data: { postId: p.id, userId: c.id } });
+        await prisma.post.update({ where: { id: p.id }, data: { likeCount: { increment: 1 } } });
+      }
+      if (rand() < 0.08) await prisma.postSave.create({ data: { postId: p.id, userId: c.id } });
+    }
+    if (ci < 8) {
+      const p = posts[ci % posts.length]!;
+      const top = await prisma.postComment.create({
+        data: {
+          postId: p.id,
+          authorId: c.id,
+          body: COMMENTS[ci % COMMENTS.length]!,
+          createdAt: new Date(now - (ci + 1) * 3_600_000),
+        },
+      });
+      let count = 1;
+      if (ci % 2 === 0) {
+        await prisma.postComment.create({
+          data: {
+            postId: p.id,
+            authorId: p.ownerId,
+            parentId: top.id,
+            mentionUserId: c.id,
+            body: '¡Gracias! Te esperamos 💈',
+            createdAt: new Date(now - ci * 3_600_000),
+          },
+        });
+        await prisma.postComment.update({ where: { id: top.id }, data: { replyCount: 1 } });
+        count++;
+      }
+      await prisma.post.update({
+        where: { id: p.id },
+        data: { commentCount: { increment: count } },
+      });
+    }
+  }
+  const events = await prisma.post.findMany({
+    where: { type: 'EVENT' },
+    select: { id: true, eventCapacity: true },
+  });
+  for (const e of events) {
+    let going = 0;
+    let interested = 0;
+    for (const c of clients.slice(0, 12)) {
+      const r = rand();
+      if (r < 0.35 && (e.eventCapacity === null || going < e.eventCapacity)) {
+        await prisma.eventAttendance.create({
+          data: { postId: e.id, userId: c.id, status: 'GOING' },
+        });
+        going++;
+      } else if (r < 0.6) {
+        await prisma.eventAttendance.create({
+          data: { postId: e.id, userId: c.id, status: 'INTERESTED' },
+        });
+        interested++;
+      }
+    }
+    await prisma.post.update({
+      where: { id: e.id },
+      data: { goingCount: going, interestedCount: interested },
+    });
+  }
+  // Un reporte abierto para revisar en el panel (Comunidad).
+  const reported = await prisma.postComment.create({
+    data: {
+      postId: posts[1]!.id,
+      authorId: clients[20]!.id,
+      body: 'Visiten mi página de ofertas, link en mi perfil!!!',
+      createdAt: new Date(now - 30 * 60_000),
+      reportCount: 2,
+    },
+  });
+  await prisma.post.update({
+    where: { id: posts[1]!.id },
+    data: { commentCount: { increment: 1 } },
+  });
+  for (const c of [clients[0]!, clients[1]!]) {
+    await prisma.contentReport.create({
+      data: {
+        reporterId: c.id,
+        targetType: 'COMMENT',
+        targetId: reported.id,
+        reason: 'SPAM',
+        note: 'Publicidad',
+      },
+    });
+  }
+
   // ───────────── Resumen ─────────────
   const counts = await Promise.all([
     prisma.barbershop.count(),
@@ -1313,10 +1561,12 @@ void runDevTool(async (app) => {
     prisma.localSale.count(),
     prisma.shopClient.count(),
     prisma.membership.count(),
+    prisma.post.count(),
   ]);
   console.warn(
     `Listo: ${counts[0]} barberías, ${counts[1]} cuentas, ${counts[2]} reservas, ${counts[3]} valoraciones, ` +
-      `${counts[4]} fotos, ${counts[5]} ventas, ${counts[6]} clientes del panel, ${counts[7]} membresías.`,
+      `${counts[4]} fotos, ${counts[5]} ventas, ${counts[6]} clientes del panel, ${counts[7]} membresías, ` +
+      `${counts[8]} publicaciones.`,
   );
   console.warn('CUENTAS:');
   for (const c of created) console.warn(`${c.role}\t${c.email}\t${c.username}\t${c.detail}`);

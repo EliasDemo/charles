@@ -234,6 +234,7 @@ export class BarberProfilesService {
   async reviews(
     profileId: string,
     query: { cursor?: string; limit?: number },
+    viewerId: string | null = null,
   ): Promise<ProfileReviewPageDto> {
     const found = await this.prisma.barberProfile.count({
       where: { id: profileId, deletedAt: null },
@@ -254,12 +255,23 @@ export class BarberProfilesService {
         rating: true,
         comment: true,
         createdAt: true,
-        client: { select: { username: true, anonymizedAt: true } },
+        likeCount: true,
+        client: { select: { username: true, anonymizedAt: true, photoVariants: true } },
         barbershop: { select: { name: true } },
         booking: { select: { serviceNameSnapshot: true } },
       },
     });
     const page = rows.slice(0, limit);
+    const liked = viewerId
+      ? new Set(
+          (
+            await this.prisma.reviewLike.findMany({
+              where: { userId: viewerId, reviewId: { in: page.map((r) => r.id) } },
+              select: { reviewId: true },
+            })
+          ).map((l) => l.reviewId),
+        )
+      : new Set<string>();
     return {
       items: page.map((r) => ({
         id: r.id,
@@ -269,6 +281,11 @@ export class BarberProfilesService {
         barbershopName: r.barbershop.name,
         serviceName: r.booking.serviceNameSnapshot,
         createdAt: r.createdAt,
+        likes: r.likeCount,
+        likedByMe: liked.has(r.id),
+        authorPhotoUrl: r.client.anonymizedAt
+          ? null
+          : variantUrl(this.storage, r.client.photoVariants, 'square'),
       })),
       nextCursor: rows.length > limit ? page[page.length - 1]!.id : null,
     };

@@ -37,6 +37,13 @@ export const ErrorCode = {
   /** Fase 16: sin créditos disponibles o la membresía no cubre el servicio (409). */
   /** Saldo a favor insuficiente para pagar el plan o liquidar (409). */
   INSUFFICIENT_BALANCE: 'INSUFFICIENT_BALANCE',
+  /** Comunidad: publicación retirada u oculta (410), comentarios desactivados o evento lleno (409),
+   * bloqueo entre cuentas (403) y palabras no permitidas (400). */
+  POST_HIDDEN: 'POST_HIDDEN',
+  COMMENTS_DISABLED: 'COMMENTS_DISABLED',
+  EVENT_FULL: 'EVENT_FULL',
+  BLOCKED: 'BLOCKED',
+  CONTENT_NOT_ALLOWED: 'CONTENT_NOT_ALLOWED',
   NO_MEMBERSHIP_CREDITS: 'NO_MEMBERSHIP_CREDITS',
   MEMBERSHIP_NOT_APPLICABLE: 'MEMBERSHIP_NOT_APPLICABLE',
   /** Cambio de contraseña: la contraseña actual no es correcta (400, no cierra la sesión). */

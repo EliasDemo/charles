@@ -117,6 +117,12 @@ export const SETTING_RULES: Readonly<Record<string, SettingRule>> = {
   [SettingKey.REVIEWS_WINDOW_DAYS]: int(1, 90),
   [SettingKey.REVIEWS_REPORT_THRESHOLD]: int(1, 50),
   [SettingKey.REVIEWS_RATE_LIMIT_PER_MINUTE]: int(1, 600),
+  [SettingKey.COMMUNITY_REPORT_HIDE_THRESHOLD]: int(1, 50),
+  [SettingKey.COMMUNITY_BLOCKED_WORDS]: {
+    schema: { type: 'string', minLength: 0, maxLength: 4000 },
+  },
+  [SettingKey.COMMUNITY_POSTS_PER_HOUR]: int(1, 200),
+  [SettingKey.COMMUNITY_COMMENTS_PER_10_MIN]: int(1, 500),
   [SettingKey.SUPPORT_TICKET_REOPEN_DAYS]: int(1, 90),
   [SettingKey.SUPPORT_TICKET_AUTO_CLOSE_DAYS]: int(1, 90),
   [SettingKey.SUPPORT_MAX_OPEN_TICKETS_PER_USER]: int(1, 50),

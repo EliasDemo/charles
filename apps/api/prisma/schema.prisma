@@ -383,6 +383,21 @@ model User {
   clientMemberships      Membership[]       @relation("MembershipUser")
   styleInteractions      StyleInteraction[] @relation("StyleInteractionUser")
 
+  posts           Post[]            @relation("PostCreatedBy")
+  postMedia       PostMedia[]       @relation("PostMediaUploader")
+  postComments    PostComment[]     @relation("CommentAuthor")
+  commentMentions PostComment[]     @relation("CommentMention")
+  postLikes       PostLike[]        @relation("PostLikeUser")
+  commentLikes    CommentLike[]     @relation("CommentLikeUser")
+  reviewLikes     ReviewLike[]      @relation("ReviewLikeUser")
+  postSaves       PostSave[]        @relation("PostSaveUser")
+  eventAttendance EventAttendance[] @relation("EventAttendanceUser")
+  follows         Follow[]          @relation("FollowFollower")
+  blocksMade      UserBlock[]       @relation("UserBlocker")
+  blocksReceived  UserBlock[]       @relation("UserBlocked")
+  contentReports  ContentReport[]   @relation("ContentReporter")
+  contentReviewed ContentReport[]   @relation("ContentReportReviewer")
+
   @@index([phoneHash])
   @@map("users")
 }
@@ -594,6 +609,9 @@ model Barbershop {
   balanceMovements BalanceMovement[]
   memberships      Membership[]
 
+  posts     Post[]
+  followers Follow[]
+
   @@index([location], type: Gist)
   @@index([districtId])
   @@map("barbershops")
@@ -745,6 +763,8 @@ model Service {
   coverImage      Image?                  @relation("ServiceCover", fields: [coverImageId], references: [id], onDelete: SetNull)
   saleLines       LocalSaleLine[]
   membershipPlans MembershipPlanService[]
+
+  posts Post[]
 
   @@index([barbershopId])
   @@index([styleId])
@@ -1227,6 +1247,8 @@ model Review {
   responseById    String?       @map("response_by") @db.Uuid
   responseAt      DateTime?     @map("response_at") @db.Timestamptz(3)
   responseStatus  ReviewStatus? @map("response_status")
+  /// Comunidad: me gusta (contador).
+  likeCount       Int           @default(0) @map("like_count")
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt       DateTime?     @map("deleted_at") @db.Timestamptz(3)
@@ -1239,6 +1261,8 @@ model Review {
   reports    ReviewReport[]
 
   barberProfile BarberProfile? @relation(fields: [barberProfileId], references: [id])
+
+  likes ReviewLike[]
 
   @@index([barberProfileId])
   @@index([clientId])
@@ -1421,6 +1445,8 @@ model Promotion {
   redemptions PromotionRedemption[]
   barbershop  Barbershop?           @relation(fields: [barbershopId], references: [id])
   createdBy   User?                 @relation("PromotionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  posts Post[]
 
   @@index([scope, scopeId])
   @@index([barbershopId])
@@ -1667,6 +1693,10 @@ model BarberProfile {
   videos       Video[]
   districtRef  PeruDistrict?            @relation(fields: [districtId], references: [id])
   jobOffers    JobOffer[]
+
+  posts     Post[]   @relation("PostAuthorProfile")
+  workPosts Post[]   @relation("PostWorkBarber")
+  followers Follow[] @relation("ProfileFollowers")
 
   @@index([availableForWork])
   @@index([districtId])
@@ -2658,4 +2688,287 @@ model BalanceMovement {
   @@index([barbershopId, createdAt])
   @@index([subscriptionId])
   @@map("balance_movements")
+}
+
+// ───────────── Comunidad (red social de barberías) ─────────────
+
+enum PostType {
+  PROMOTION
+  EVENT
+  WORK
+  ANNOUNCEMENT
+}
+
+enum EventAttendanceStatus {
+  INTERESTED
+  GOING
+}
+
+enum ContentReportTarget {
+  POST
+  COMMENT
+  USER
+}
+
+enum ContentReportReason {
+  SPAM
+  OFFENSIVE
+  HARASSMENT
+  NUDITY
+  VIOLENCE
+  FALSE_INFO
+  OTHER
+}
+
+enum ContentReportStatus {
+  OPEN
+  DISMISSED
+  ACTIONED
+}
+
+/// Publicación de la comunidad. El autor es una barbería (la publica su OWNER o MANAGER) o un
+/// perfil profesional de barbero (su dueño). Contadores desnormalizados para el feed.
+model Post {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  type             PostType
+  barbershopId     String?   @map("barbershop_id") @db.Uuid
+  authorProfileId  String?   @map("author_profile_id") @db.Uuid
+  createdById      String    @map("created_by") @db.Uuid
+  body             String
+  promotionId      String?   @map("promotion_id") @db.Uuid
+  /// WORK: barbero que hizo el corte y servicio para "reservar este estilo".
+  barberProfileId  String?   @map("barber_profile_id") @db.Uuid
+  serviceId        String?   @map("service_id") @db.Uuid
+  eventStartsAt    DateTime? @map("event_starts_at") @db.Timestamptz(3)
+  eventEndsAt      DateTime? @map("event_ends_at") @db.Timestamptz(3)
+  eventAddress     String?   @map("event_address")
+  eventCapacity    Int?      @map("event_capacity")
+  /// Ubicación para "Cerca de ti": la del evento, la de la barbería o el distrito del perfil.
+  latitude         Float?
+  longitude        Float?
+  commentsDisabled Boolean   @default(false) @map("comments_disabled")
+  pinnedAt         DateTime? @map("pinned_at") @db.Timestamptz(3)
+  likeCount        Int       @default(0) @map("like_count")
+  commentCount     Int       @default(0) @map("comment_count")
+  shareCount       Int       @default(0) @map("share_count")
+  goingCount       Int       @default(0) @map("going_count")
+  interestedCount  Int       @default(0) @map("interested_count")
+  reportCount      Int       @default(0) @map("report_count")
+  /// Oculta automáticamente por reportes (hasta que soporte la revise).
+  hiddenAt         DateTime? @map("hidden_at") @db.Timestamptz(3)
+  /// Retirada por soporte.
+  removedAt        DateTime? @map("removed_at") @db.Timestamptz(3)
+  editedAt         DateTime? @map("edited_at") @db.Timestamptz(3)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop    Barbershop?       @relation(fields: [barbershopId], references: [id])
+  authorProfile BarberProfile?    @relation("PostAuthorProfile", fields: [authorProfileId], references: [id])
+  createdBy     User              @relation("PostCreatedBy", fields: [createdById], references: [id])
+  promotion     Promotion?        @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+  barberProfile BarberProfile?    @relation("PostWorkBarber", fields: [barberProfileId], references: [id])
+  service       Service?          @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  media         PostMedia[]
+  comments      PostComment[]
+  likes         PostLike[]
+  saves         PostSave[]
+  attendance    EventAttendance[]
+
+  @@index([createdAt])
+  @@index([barbershopId, createdAt])
+  @@index([authorProfileId, createdAt])
+  @@index([createdById])
+  @@index([promotionId])
+  @@index([barberProfileId])
+  @@index([serviceId])
+  @@map("posts")
+}
+
+/// Foto de una publicación. Se sube antes de publicar (sin `postId`) y se adjunta al crearla.
+model PostMedia {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  postId       String?  @map("post_id") @db.Uuid
+  uploadedById String   @map("uploaded_by") @db.Uuid
+  variants     Json
+  sortOrder    Int      @default(0) @map("sort_order") @db.SmallInt
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  post       Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  uploadedBy User  @relation("PostMediaUploader", fields: [uploadedById], references: [id])
+
+  @@index([postId, sortOrder])
+  @@index([uploadedById])
+  @@map("post_media")
+}
+
+/// Comentario (máximo 2 niveles: `parentId` siempre apunta a un comentario de primer nivel).
+model PostComment {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  postId        String    @map("post_id") @db.Uuid
+  authorId      String    @map("author_id") @db.Uuid
+  parentId      String?   @map("parent_id") @db.Uuid
+  mentionUserId String?   @map("mention_user_id") @db.Uuid
+  body          String
+  likeCount     Int       @default(0) @map("like_count")
+  replyCount    Int       @default(0) @map("reply_count")
+  reportCount   Int       @default(0) @map("report_count")
+  pinnedAt      DateTime? @map("pinned_at") @db.Timestamptz(3)
+  hiddenAt      DateTime? @map("hidden_at") @db.Timestamptz(3)
+  removedAt     DateTime? @map("removed_at") @db.Timestamptz(3)
+  editedAt      DateTime? @map("edited_at") @db.Timestamptz(3)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  post        Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author      User          @relation("CommentAuthor", fields: [authorId], references: [id])
+  parent      PostComment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies     PostComment[] @relation("CommentReplies")
+  mentionUser User?         @relation("CommentMention", fields: [mentionUserId], references: [id])
+  likes       CommentLike[]
+
+  @@index([postId, parentId, createdAt])
+  @@index([authorId])
+  @@index([parentId])
+  @@index([mentionUserId])
+  @@map("post_comments")
+}
+
+model PostLike {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation("PostLikeUser", fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+  @@index([userId])
+  @@map("post_likes")
+}
+
+model CommentLike {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  commentId String   @map("comment_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  comment PostComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User        @relation("CommentLikeUser", fields: [userId], references: [id])
+
+  @@unique([commentId, userId])
+  @@index([userId])
+  @@map("comment_likes")
+}
+
+model ReviewLike {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  reviewId  String   @map("review_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation("ReviewLikeUser", fields: [userId], references: [id])
+
+  @@unique([reviewId, userId])
+  @@index([userId])
+  @@map("review_likes")
+}
+
+model PostSave {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation("PostSaveUser", fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+  @@index([userId, createdAt])
+  @@map("post_saves")
+}
+
+model EventAttendance {
+  id        String                @id @default(uuid(7)) @db.Uuid
+  postId    String                @map("post_id") @db.Uuid
+  userId    String                @map("user_id") @db.Uuid
+  status    EventAttendanceStatus
+  createdAt DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation("EventAttendanceUser", fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+  @@index([userId])
+  @@map("event_attendance")
+}
+
+/// Seguir a una barbería o a un perfil profesional (uno de los dos).
+model Follow {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  followerId      String   @map("follower_id") @db.Uuid
+  barbershopId    String?  @map("barbershop_id") @db.Uuid
+  barberProfileId String?  @map("barber_profile_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  follower      User           @relation("FollowFollower", fields: [followerId], references: [id])
+  barbershop    Barbershop?    @relation(fields: [barbershopId], references: [id])
+  barberProfile BarberProfile? @relation("ProfileFollowers", fields: [barberProfileId], references: [id])
+
+  @@unique([followerId, barbershopId])
+  @@unique([followerId, barberProfileId])
+  @@index([barbershopId])
+  @@index([barberProfileId])
+  @@map("follows")
+}
+
+/// Bloqueo entre cuentas: oculta en ambos sentidos publicaciones, comentarios y menciones.
+model UserBlock {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  blockerId String   @map("blocker_id") @db.Uuid
+  blockedId String   @map("blocked_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  blocker User @relation("UserBlocker", fields: [blockerId], references: [id])
+  blocked User @relation("UserBlocked", fields: [blockedId], references: [id])
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+  @@map("user_blocks")
+}
+
+/// Reporte de una publicación, un comentario o una cuenta (uno por persona y objetivo).
+model ContentReport {
+  id           String              @id @default(uuid(7)) @db.Uuid
+  reporterId   String              @map("reporter_id") @db.Uuid
+  targetType   ContentReportTarget @map("target_type")
+  targetId     String              @map("target_id") @db.Uuid
+  reason       ContentReportReason
+  note         String?
+  status       ContentReportStatus @default(OPEN)
+  reviewedById String?             @map("reviewed_by") @db.Uuid
+  reviewedAt   DateTime?           @map("reviewed_at") @db.Timestamptz(3)
+  resolution   String?
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  reporter   User  @relation("ContentReporter", fields: [reporterId], references: [id])
+  reviewedBy User? @relation("ContentReportReviewer", fields: [reviewedById], references: [id])
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+  @@index([reviewedById])
+  @@map("content_reports")
 }

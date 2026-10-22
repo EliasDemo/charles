@@ -26,6 +26,7 @@ export const ADMIN_SECTIONS = {
     'moderation',
     'tickets',
     'message-reports',
+    'community',
   ],
   ADMIN_ONLY: [
     'roles',

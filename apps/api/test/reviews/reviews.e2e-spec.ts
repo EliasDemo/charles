@@ -444,6 +444,9 @@ describe('RF-FAV-001…003, RF-VAL-001…003 Favoritos y valoraciones — Fase 1
           'createdAt',
           'editedAt',
           'response',
+          'likes',
+          'likedByMe',
+          'authorPhotoUrl',
         ].sort(),
       );
       const byBarber = await publicList(shop.shopId, `?barberId=${shop.barberIds[0]}`);

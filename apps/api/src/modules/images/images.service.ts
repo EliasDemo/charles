@@ -157,6 +157,11 @@ export class ImagesService {
     };
   }
 
+  /** Comunidad: foto de una publicación (variantes guardadas; la fila la crea Comunidad). */
+  storePostPhoto(file: Buffer | undefined): Promise<StoredVariants> {
+    return this.store(file, 'POST_PHOTO');
+  }
+
   /** Quita la foto de perfil (idempotente). */
   async deleteUserPhoto(userId: string, ip: string | null): Promise<{ photoUrl: null }> {
     const result = await this.users.replacePhoto(userId, null, ip);

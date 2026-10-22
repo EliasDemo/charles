@@ -28,9 +28,11 @@ import type {
 import { ReviewModerationService } from './review-moderation.service';
 import { REVIEW_DEFAULTS, withinReviewWindow } from './review-policy';
 import { ReviewRatings } from './review-ratings';
+import { IMAGE_STORAGE, type ImageStorage } from '../images/image-storage';
+import { variantUrl } from '../images/image-variants';
 
 const reviewInclude = {
-  client: { select: { username: true, anonymizedAt: true } },
+  client: { select: { username: true, anonymizedAt: true, photoVariants: true } },
   barber: { select: { id: true, displayName: true } },
   booking: { select: { serviceNameSnapshot: true } },
   barbershop: { select: { id: true, name: true } },
@@ -68,6 +70,7 @@ export class ReviewsService {
     private readonly audit: AuditService,
     private readonly outbox: OutboxService,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(IMAGE_STORAGE) private readonly storage: ImageStorage,
   ) {}
 
   // ───────────── Cliente ─────────────
@@ -218,6 +221,7 @@ export class ReviewsService {
   async listPublic(
     barbershopId: string,
     query: BarbershopReviewsQueryDto,
+    viewerId: string | null = null,
   ): Promise<Page<PublicReviewDto>> {
     await this.access.requirePublic(barbershopId);
     const rows = await this.prisma.review.findMany({
@@ -233,7 +237,20 @@ export class ReviewsService {
       take: (query.limit ?? DEFAULT_PAGE_SIZE) + 1,
       include: reviewInclude,
     });
-    return pageDesc(rows, query, (row) => this.toPublic(row));
+    const liked = viewerId
+      ? new Set(
+          (
+            await this.prisma.reviewLike.findMany({
+              where: { userId: viewerId, reviewId: { in: rows.map((r) => r.id) } },
+              select: { reviewId: true },
+            })
+          ).map((l) => l.reviewId),
+        )
+      : new Set<string>();
+    return pageDesc(rows, query, (row) => ({
+      ...this.toPublic(row),
+      likedByMe: liked.has(row.id),
+    }));
   }
 
   // ───────────── Barbería ─────────────
@@ -419,6 +436,11 @@ export class ReviewsService {
       response: responseVisible
         ? { text: row.responseText!, respondedAt: row.responseAt!.toISOString() }
         : null,
+      likes: row.likeCount,
+      likedByMe: false,
+      authorPhotoUrl: row.client.anonymizedAt
+        ? null
+        : variantUrl(this.storage, row.client.photoVariants, 'square'),
     };
   }
 

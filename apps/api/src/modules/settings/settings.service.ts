@@ -56,6 +56,11 @@ export const SettingKey = {
   REVIEWS_WINDOW_DAYS: 'reviews.window_days',
   REVIEWS_REPORT_THRESHOLD: 'reviews.report_threshold',
   REVIEWS_RATE_LIMIT_PER_MINUTE: 'reviews.rate_limit_per_minute',
+  /** Comunidad: reportes que ocultan contenido, palabras bloqueadas y límites por cuenta. */
+  COMMUNITY_REPORT_HIDE_THRESHOLD: 'community.report_hide_threshold',
+  COMMUNITY_BLOCKED_WORDS: 'community.blocked_words',
+  COMMUNITY_POSTS_PER_HOUR: 'community.posts_per_hour',
+  COMMUNITY_COMMENTS_PER_10_MIN: 'community.comments_per_10_min',
   SUPPORT_TICKET_REOPEN_DAYS: 'support.ticket_reopen_days',
   SUPPORT_TICKET_AUTO_CLOSE_DAYS: 'support.ticket_auto_close_days',
   SUPPORT_MAX_OPEN_TICKETS_PER_USER: 'support.max_open_tickets_per_user',

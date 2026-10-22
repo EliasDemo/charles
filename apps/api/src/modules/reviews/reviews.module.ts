@@ -1,3 +1,4 @@
+import { ImageStorageModule } from '../images/image-storage.module';
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { BarbershopAccessModule } from '../barbershops/barbershop-access.module';
@@ -16,6 +17,7 @@ import { ReviewsService } from './reviews.service';
   imports: [
     BarbershopAccessModule,
     SettingsModule,
+    ImageStorageModule,
     BullModule.registerQueue({ name: REVIEWS_QUEUE }),
   ],
   controllers: [ReviewsController, FavoritesController],

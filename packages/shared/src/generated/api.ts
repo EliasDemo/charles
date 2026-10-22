@@ -5037,6 +5037,442 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Feed de la comunidad (sin sesión también)
+         * @description forYou: interacción y frescura (30 días). nearby: exige lat/lng (radiusKm, def. 30). following: barberías y perfiles que sigo (vacío sin sesión). Cursor opaco.
+         */
+        get: operations["CommunityController_feed_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/posts/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Subir una foto para una publicación (antes de publicar)
+         * @description multipart/form-data, campo `file`: JPEG, PNG o WebP hasta 10 MB (HEIC: convertir en la app). Se eliminan los metadatos (EXIF y GPS) y se guarda en WebP. Luego envía su id en mediaIds (máx. 10 por publicación).
+         */
+        post: operations["CommunityController_uploadMedia_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publicar (como barbería si envías barbershopId; si no, como mi perfil profesional)
+         * @description PROMOTION puede enlazar promotionId (de la barbería). EVENT exige event. WORK admite barberProfileId y serviceId. 400 CONTENT_NOT_ALLOWED con palabras no permitidas.
+         */
+        post: operations["CommunityController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/posts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Una publicación */
+        get: operations["CommunityController_one_v1"];
+        put?: never;
+        post?: never;
+        /** Borrar (autor) */
+        delete: operations["CommunityController_remove_v1"];
+        options?: never;
+        head?: never;
+        /** Editar (autor: creador, OWNER/MANAGER de la barbería o dueño del perfil) */
+        patch: operations["CommunityController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/posts/{id}/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Fijar o soltar en el perfil del autor */
+        put: operations["CommunityController_pin_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Publicaciones de una barbería (fijadas primero) */
+        get: operations["CommunityController_byShop_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/professional-profiles/{id}/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Publicaciones de un perfil profesional (fijadas primero) */
+        get: operations["CommunityController_byProfile_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/posts/{id}/like": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Me gusta (idempotente) */
+        put: operations["CommunityController_like_v1"];
+        post?: never;
+        /** Quitar me gusta (idempotente) */
+        delete: operations["CommunityController_unlike_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/posts/{id}/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Guardar (idempotente) */
+        put: operations["CommunityController_save_v1"];
+        post?: never;
+        /** Quitar de guardados (idempotente) */
+        delete: operations["CommunityController_unsave_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/saved-posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mis publicaciones guardadas */
+        get: operations["CommunityController_saved_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/posts/{id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Contar un compartido (devuelve el enlace) */
+        post: operations["CommunityController_share_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/posts/{id}/attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Asistencia a un evento: INTERESTED, GOING o NONE (respeta el cupo) */
+        put: operations["CommunityController_attendance_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/posts/{id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Comentarios (primer nivel, fijados primero) o respuestas de uno (parentId) */
+        get: operations["CommunityController_comments_v1"];
+        put?: never;
+        /**
+         * Comentar o responder (máximo 2 niveles)
+         * @description Para responder a una respuesta: el mismo parentId y mentionUserId.
+         */
+        post: operations["CommunityController_comment_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Borrar un comentario (su autor o el autor de la publicación) */
+        delete: operations["CommunityController_removeComment_v1"];
+        options?: never;
+        head?: never;
+        /** Editar mi comentario */
+        patch: operations["CommunityController_updateComment_v1"];
+        trace?: never;
+    };
+    "/api/v1/comments/{id}/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Fijar un comentario (autor de la publicación) */
+        put: operations["CommunityController_pinComment_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comments/{id}/like": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Me gusta en un comentario (idempotente) */
+        put: operations["CommunityController_likeComment_v1"];
+        post?: never;
+        /** Quitar me gusta de un comentario (idempotente) */
+        delete: operations["CommunityController_unlikeComment_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviews/{id}/like": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Me gusta en una valoración (idempotente) */
+        put: operations["CommunityController_likeReview_v1"];
+        post?: never;
+        /** Quitar me gusta de una valoración (idempotente) */
+        delete: operations["CommunityController_unlikeReview_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/follow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Seguidores de la barbería (y si la sigo) */
+        get: operations["CommunityController_shopFollowState_v1"];
+        /** Seguir una barbería (idempotente) */
+        put: operations["CommunityController_followShop_v1"];
+        post?: never;
+        /** Dejar de seguir una barbería (idempotente) */
+        delete: operations["CommunityController_unfollowShop_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/professional-profiles/{id}/follow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Seguidores del perfil profesional (y si lo sigo) */
+        get: operations["CommunityController_profileFollowState_v1"];
+        /** Seguir un perfil profesional (idempotente) */
+        put: operations["CommunityController_followProfile_v1"];
+        post?: never;
+        /** Dejar de seguir un perfil profesional (idempotente) */
+        delete: operations["CommunityController_unfollowProfile_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Bloquear una cuenta: se oculta su contenido en todo, en ambos sentidos */
+        put: operations["CommunityController_block_v1"];
+        post?: never;
+        /** Desbloquear (idempotente) */
+        delete: operations["CommunityController_unblock_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cuentas que bloqueé */
+        get: operations["CommunityController_blocks_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reportar una publicación, un comentario o una cuenta
+         * @description Idempotente. Con N reportes de personas distintas el contenido se oculta hasta revisarlo.
+         */
+        post: operations["ContentReportsController_report_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/community/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** ADMIN o SUPPORT: reportes de la comunidad (los 200 más recientes) */
+        get: operations["CommunityAdminController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/community/reports/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ADMIN o SUPPORT: descartar, retirar o restaurar (todos los reportes del mismo contenido) */
+        post: operations["CommunityAdminController_resolve_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/locations/departments": {
         parameters: {
             query?: never;
@@ -6014,6 +6450,12 @@ export interface components {
             editedAt: string | null;
             /** @description Respuesta de la barbería (null si no hay o la ocultó soporte). */
             response: components["schemas"]["ReviewResponseDto"] | null;
+            /** @description Me gusta de la comunidad. */
+            likes: number;
+            /** @description Con sesión: si le di me gusta. */
+            likedByMe: boolean;
+            /** @description Foto de perfil del autor (null si no tiene). */
+            authorPhotoUrl: string | null;
             /** Format: uuid */
             bookingId: string;
             barbershop: components["schemas"]["ReviewBarbershopDto"];
@@ -6053,6 +6495,12 @@ export interface components {
             editedAt: string | null;
             /** @description Respuesta de la barbería (null si no hay o la ocultó soporte). */
             response: components["schemas"]["ReviewResponseDto"] | null;
+            /** @description Me gusta de la comunidad. */
+            likes: number;
+            /** @description Con sesión: si le di me gusta. */
+            likedByMe: boolean;
+            /** @description Foto de perfil del autor (null si no tiene). */
+            authorPhotoUrl: string | null;
         };
         PublicReviewPageDto: {
             items: components["schemas"]["PublicReviewDto"][];
@@ -6079,6 +6527,12 @@ export interface components {
             editedAt: string | null;
             /** @description Respuesta de la barbería (null si no hay o la ocultó soporte). */
             response: components["schemas"]["ReviewResponseDto"] | null;
+            /** @description Me gusta de la comunidad. */
+            likes: number;
+            /** @description Con sesión: si le di me gusta. */
+            likedByMe: boolean;
+            /** @description Foto de perfil del autor (null si no tiene). */
+            authorPhotoUrl: string | null;
             /** @description VISIBLE; UNDER_REVIEW (reportada, sigue visible); HIDDEN (oculta por soporte). */
             status: components["schemas"]["ReviewStatus"];
             /** @description Estado de la respuesta de la barbería; null si no respondió. */
@@ -8338,6 +8792,12 @@ export interface components {
             serviceName: string;
             /** Format: date-time */
             createdAt: string;
+            /** @description Me gusta de la comunidad. */
+            likes: number;
+            /** @description Con sesión: si le di me gusta. */
+            likedByMe: boolean;
+            /** @description Foto de perfil del autor (null si no tiene). */
+            authorPhotoUrl: string | null;
         };
         ProfileReviewPageDto: {
             items: components["schemas"]["ProfileReviewDto"][];
@@ -9954,6 +10414,299 @@ export interface components {
         };
         BarberCommissionDto: {
             commissionBp: number | null;
+        };
+        PostAuthorDto: {
+            /** @enum {string} */
+            kind: "BARBERSHOP" | "PROFESSIONAL";
+            /**
+             * Format: uuid
+             * @description ID de la barbería o del perfil profesional.
+             */
+            id: string;
+            name: string;
+            photoUrl: string | null;
+            /** @description Barbería con insignia "Verificada" de su plan. */
+            verified: boolean;
+            followers: number;
+        };
+        PostMediaDto: {
+            /** Format: uuid */
+            id: string;
+            url: string | null;
+            thumbUrl: string | null;
+            width: number | null;
+            height: number | null;
+        };
+        PostPromotionDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            type: "PERCENTAGE" | "FIXED_AMOUNT";
+            value: number;
+            /** Format: date-time */
+            endsAt: string | null;
+        };
+        PostEventDto: {
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt: string | null;
+            address: string;
+            lat: number | null;
+            lng: number | null;
+            capacity: number | null;
+            going: number;
+            interested: number;
+            /** @description Sin cupo disponible para GOING. */
+            full: boolean;
+        };
+        PostCountsDto: {
+            likes: number;
+            comments: number;
+            shares: number;
+        };
+        PostDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "PROMOTION" | "EVENT" | "WORK" | "ANNOUNCEMENT";
+            author: components["schemas"]["PostAuthorDto"];
+            body: string;
+            media: components["schemas"]["PostMediaDto"][];
+            promotion: components["schemas"]["PostPromotionDto"] | null;
+            event: components["schemas"]["PostEventDto"] | null;
+            /** Format: uuid */
+            barberProfileId: string | null;
+            /** Format: uuid */
+            serviceId: string | null;
+            counts: components["schemas"]["PostCountsDto"];
+            /** @description Con lat/lng en el feed. */
+            distanceKm: number | null;
+            commentsDisabled: boolean;
+            pinned: boolean;
+            /** @description Enlace para compartir (página web con vista previa). */
+            shareUrl: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            editedAt: string | null;
+            /** @description Con sesión. */
+            likedByMe: boolean;
+            savedByMe: boolean;
+            followingAuthor: boolean;
+            /** @enum {string} */
+            myEventStatus: "INTERESTED" | "GOING" | "NONE";
+            canEdit: boolean;
+            canDelete: boolean;
+            canPin: boolean;
+        };
+        PostPageDto: {
+            items: components["schemas"]["PostDto"][];
+            nextCursor: string | null;
+        };
+        PostMediaUploadDto: {
+            /** Format: binary */
+            file: string;
+        };
+        UploadedPostMediaDto: {
+            /** Format: uuid */
+            id: string;
+            url: string | null;
+            thumbUrl: string | null;
+            width: number | null;
+            height: number | null;
+        };
+        PostEventInputDto: {
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt?: string;
+            address: string;
+            lat?: number;
+            lng?: number;
+            /** @description Cupo (personas que van). Sin cupo: ilimitado. */
+            capacity?: number;
+        };
+        CreatePostDto: {
+            /** @enum {string} */
+            type: "PROMOTION" | "EVENT" | "WORK" | "ANNOUNCEMENT";
+            /**
+             * Format: uuid
+             * @description Publicar como esta barbería (OWNER o MANAGER). Sin él, como mi perfil profesional.
+             */
+            barbershopId?: string;
+            body: string;
+            /** @description IDs de fotos subidas antes con POST /posts/media (en ese orden). */
+            mediaIds?: string[];
+            /**
+             * Format: uuid
+             * @description PROMOTION: promoción existente de la barbería.
+             */
+            promotionId?: string;
+            /** @description Obligatorio en EVENT. */
+            event?: components["schemas"]["PostEventInputDto"];
+            /**
+             * Format: uuid
+             * @description WORK: perfil del barbero que hizo el corte.
+             */
+            barberProfileId?: string;
+            /**
+             * Format: uuid
+             * @description WORK: servicio para "reservar este estilo".
+             */
+            serviceId?: string;
+            /** @default false */
+            commentsDisabled: boolean;
+        };
+        UpdatePostDto: {
+            body?: string;
+            /** @description Reemplaza las fotos. */
+            mediaIds?: string[];
+            event?: components["schemas"]["PostEventInputDto"];
+            commentsDisabled?: boolean;
+        };
+        PinPostDto: {
+            /** @description true: fija la publicación arriba en el perfil del autor. */
+            pinned: boolean;
+        };
+        LikeStateDto: {
+            liked: boolean;
+            likes: number;
+        };
+        SaveStateDto: {
+            saved: boolean;
+        };
+        ShareStateDto: {
+            shares: number;
+            shareUrl: string;
+        };
+        AttendanceDto: {
+            /** @enum {string} */
+            status: "INTERESTED" | "GOING" | "NONE";
+        };
+        AttendanceStateDto: {
+            /** @enum {string} */
+            status: "INTERESTED" | "GOING" | "NONE";
+            going: number;
+            interested: number;
+            capacity: number | null;
+        };
+        CommentAuthorDto: {
+            /** Format: uuid */
+            userId: string;
+            /** @description Nombre de usuario. */
+            username: string;
+            photoUrl: string | null;
+        };
+        CommentDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            postId: string;
+            /** Format: uuid */
+            parentId: string | null;
+            author: components["schemas"]["CommentAuthorDto"];
+            /** @description Lo escribió el autor de la publicación (la barbería o el barbero). */
+            authorIsOfficial: boolean;
+            mention: components["schemas"]["CommentAuthorDto"] | null;
+            body: string;
+            likes: number;
+            replies: number;
+            likedByMe: boolean;
+            pinned: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            editedAt: string | null;
+            canEdit: boolean;
+            /** @description Su autor o el autor de la publicación. */
+            canDelete: boolean;
+            /** @description Solo el autor de la publicación (comentarios de primer nivel). */
+            canPin: boolean;
+        };
+        CommentPageDto: {
+            items: components["schemas"]["CommentDto"][];
+            nextCursor: string | null;
+        };
+        CreateCommentDto: {
+            body: string;
+            /**
+             * Format: uuid
+             * @description Comentario de primer nivel al que responde. Para responder a una respuesta, usa su mismo padre y mentionUserId.
+             */
+            parentId?: string;
+            /**
+             * Format: uuid
+             * @description Cuenta mencionada (recibe aviso).
+             */
+            mentionUserId?: string;
+        };
+        UpdateCommentDto: {
+            body: string;
+        };
+        PinCommentDto: {
+            pinned: boolean;
+        };
+        FollowStateDto: {
+            following: boolean;
+            followers: number;
+        };
+        BlockStateDto: {
+            blocked: boolean;
+        };
+        BlockedUserDto: {
+            /** Format: uuid */
+            userId: string;
+            username: string;
+            photoUrl: string | null;
+            /** Format: date-time */
+            blockedAt: string;
+        };
+        CreateContentReportDto: {
+            /** @enum {string} */
+            targetType: "post" | "comment" | "user";
+            /** Format: uuid */
+            targetId: string;
+            /** @enum {string} */
+            reason: "SPAM" | "OFFENSIVE" | "HARASSMENT" | "NUDITY" | "VIOLENCE" | "FALSE_INFO" | "OTHER";
+            note?: string;
+        };
+        AdminContentReportDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            targetType: "POST" | "COMMENT" | "USER";
+            /** Format: uuid */
+            targetId: string;
+            /** @enum {string} */
+            reason: "SPAM" | "OFFENSIVE" | "HARASSMENT" | "NUDITY" | "VIOLENCE" | "FALSE_INFO" | "OTHER";
+            note: string | null;
+            /** @enum {string} */
+            status: "OPEN" | "DISMISSED" | "ACTIONED";
+            /** @description Usuario que reporta. */
+            reporter: string;
+            /** @description Reportes abiertos del mismo objetivo. */
+            openReports: number;
+            /** @description Texto del contenido (o el usuario reportado). */
+            preview: string;
+            /** @description Autor del contenido (usuario). */
+            targetAuthor: string | null;
+            /** @enum {string} */
+            targetState: "VISIBLE" | "HIDDEN" | "REMOVED" | "DELETED";
+            /** @description Fotos (publicaciones). */
+            photos: string[];
+            resolution: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ResolveReportDto: {
+            /**
+             * @description DISMISS: sin infracción (si estaba oculto por reportes, vuelve a verse). REMOVE: retira el contenido. RESTORE: vuelve a mostrar un contenido retirado. En reportes de cuentas, REMOVE no aplica (usar Cuentas).
+             * @enum {string}
+             */
+            action: "DISMISS" | "REMOVE" | "RESTORE";
+            reason: string;
         };
         ProvinceDto: {
             /** @example Puno */
@@ -22469,6 +23222,2055 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_feed_v1: {
+        parameters: {
+            query?: {
+                tab?: "forYou" | "nearby" | "following";
+                type?: "PROMOTION" | "EVENT" | "WORK" | "ANNOUNCEMENT";
+                /** @description nearby: obligatorio (con lng). */
+                lat?: number;
+                lng?: number;
+                /** @description nearby: radio en km. */
+                radiusKm?: number;
+                /** @description Valor de nextCursor (opaco). */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostPageDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_uploadMedia_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["PostMediaUploadDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadedPostMediaDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_create_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePostDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_one_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_remove_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_update_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePostDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_pin_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinPostDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_byShop_v1: {
+        parameters: {
+            query?: {
+                type?: "PROMOTION" | "EVENT" | "WORK" | "ANNOUNCEMENT";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostPageDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_byProfile_v1: {
+        parameters: {
+            query?: {
+                type?: "PROMOTION" | "EVENT" | "WORK" | "ANNOUNCEMENT";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostPageDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_like_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LikeStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_unlike_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LikeStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_save_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_unsave_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_saved_v1: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostPageDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_share_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_attendance_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttendanceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description EVENT_FULL: sin cupos o terminado. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_comments_v1: {
+        parameters: {
+            query?: {
+                /** @description Respuestas de este comentario. Sin él: primer nivel. */
+                parentId?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentPageDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_comment_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCommentDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description COMMENTS_DISABLED */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_removeComment_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_updateComment_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCommentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_pinComment_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinCommentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_likeComment_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LikeStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_unlikeComment_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LikeStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_likeReview_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LikeStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_unlikeReview_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LikeStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_shopFollowState_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_followShop_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_unfollowShop_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_profileFollowState_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_followProfile_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_unfollowProfile_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_block_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_unblock_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockStateDto"];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityController_blocks_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockedUserDto"][];
+                };
+            };
+            /** @description BLOCKED: hay un bloqueo con el autor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description POST_HIDDEN: retirada u oculta por reportes. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ContentReportsController_report_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateContentReportDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityAdminController_list_v1: {
+        parameters: {
+            query?: {
+                status?: "OPEN" | "DISMISSED" | "ACTIONED";
+                targetType?: "POST" | "COMMENT" | "USER";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminContentReportDto"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    CommunityAdminController_resolve_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveReportDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminContentReportDto"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

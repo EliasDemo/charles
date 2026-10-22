@@ -18,6 +18,11 @@ import {
   type BookingContext,
   planAccountDeletion,
   planApplicationUpdate,
+  planCommunityComment,
+  planCommunityLike,
+  planCommunityMention,
+  planCommunityNewPost,
+  planCommunityReply,
   planJobOfferAnswered,
   planJobOfferReceived,
   planMembershipNotice,
@@ -68,6 +73,9 @@ export const NOTIFICATION_EVENTS = [
   'billing.membership',
   'job.offer_created',
   'job.offer_answered',
+  'community.post_created',
+  'community.commented',
+  'community.liked',
 ] as const;
 
 /** Avisos que recibe una cuenta aunque no esté activa (seguridad de la propia cuenta). */
@@ -245,6 +253,124 @@ export class NotificationsService implements OnModuleInit {
           barbershopName: shop.name,
           outcome: message.type === 'barbershop.review_approved' ? 'APPROVED' : 'CHANGES_REQUESTED',
           reason: shop.reviewNotes,
+        });
+      }
+      case 'community.post_created': {
+        const post = await this.prisma.post.findUnique({
+          where: { id: id('postId') ?? '' },
+          select: {
+            id: true,
+            type: true,
+            createdById: true,
+            barbershopId: true,
+            authorProfileId: true,
+            deletedAt: true,
+            removedAt: true,
+            barbershop: { select: { name: true } },
+            authorProfile: { select: { displayName: true } },
+          },
+        });
+        if (!post || post.deletedAt || post.removedAt) return [];
+        const [followers, blocks] = await Promise.all([
+          this.prisma.follow.findMany({
+            where: post.barbershopId
+              ? { barbershopId: post.barbershopId }
+              : { barberProfileId: post.authorProfileId },
+            select: { followerId: true },
+            take: 1000,
+          }),
+          this.prisma.userBlock.findMany({
+            where: { OR: [{ blockerId: post.createdById }, { blockedId: post.createdById }] },
+            select: { blockerId: true, blockedId: true },
+          }),
+        ]);
+        const excluded = new Set([
+          post.createdById,
+          ...blocks.flatMap((b) => [b.blockerId, b.blockedId]),
+        ]);
+        return planCommunityNewPost({
+          userIds: followers.map((f) => f.followerId).filter((u) => !excluded.has(u)),
+          postId: post.id,
+          authorName: post.barbershop?.name ?? post.authorProfile?.displayName ?? 'Charles',
+          type: post.type,
+        });
+      }
+      case 'community.commented': {
+        const comment = await this.prisma.postComment.findUnique({
+          where: { id: id('commentId') ?? '' },
+          select: {
+            authorId: true,
+            body: true,
+            mentionUserId: true,
+            author: { select: { username: true } },
+            parent: { select: { authorId: true } },
+            post: {
+              select: { id: true, createdById: true, barbershopId: true, authorProfileId: true },
+            },
+          },
+        });
+        if (!comment) return [];
+        const blocked = await this.blockedWith(comment.authorId);
+        const owners = await this.postOwners(comment.post);
+        const base = {
+          postId: comment.post.id,
+          author: comment.author.username,
+          body: comment.body,
+        };
+        const notified = new Set<string>([comment.authorId]);
+        const plans: PlannedNotification[] = [];
+        const add = (ids: string[], make: (ids: string[]) => PlannedNotification[]) => {
+          const fresh = ids.filter((u) => !notified.has(u) && !blocked.has(u));
+          for (const u of fresh) notified.add(u);
+          if (fresh.length) plans.push(...make(fresh));
+        };
+        if (comment.mentionUserId) {
+          add([comment.mentionUserId], ([u]) => planCommunityMention({ ...base, userId: u! }));
+        }
+        if (comment.parent) {
+          add([comment.parent.authorId], ([u]) => planCommunityReply({ ...base, userId: u! }));
+        }
+        add(owners, (ids) => planCommunityComment({ ...base, userIds: ids }));
+        return plans;
+      }
+      case 'community.liked': {
+        const likerId = id('userId');
+        const commentId = id('commentId');
+        const target = commentId
+          ? await this.prisma.postComment.findUnique({
+              where: { id: commentId },
+              select: { authorId: true, likeCount: true, post: { select: { id: true } } },
+            })
+          : null;
+        const post = await this.prisma.post.findUnique({
+          where: { id: target?.post.id ?? id('postId') ?? '' },
+          select: {
+            id: true,
+            createdById: true,
+            barbershopId: true,
+            authorProfileId: true,
+            likeCount: true,
+          },
+        });
+        if (!post || !likerId) return [];
+        const liker = await this.prisma.user.findUnique({
+          where: { id: likerId },
+          select: { username: true },
+        });
+        if (!liker) return [];
+        const blocked = await this.blockedWith(likerId);
+        const recipients = (target ? [target.authorId] : await this.postOwners(post)).filter(
+          (u) => u !== likerId && !blocked.has(u),
+        );
+        const total = target ? target.likeCount : post.likeCount;
+        const hour = Math.floor(now / 3_600_000);
+        return planCommunityLike({
+          userIds: recipients,
+          postId: post.id,
+          liker: liker.username,
+          others: Math.max(0, total - 1),
+          onComment: !!target,
+          dedupeKey: `like:${commentId ?? post.id}:${hour}`,
         });
       }
       case 'job.offer_created':
@@ -463,7 +589,7 @@ export class NotificationsService implements OnModuleInit {
           title: text.title,
           body: text.body,
           channel,
-          dedupeKey: `${dedupeBase}:${plan.type}`,
+          dedupeKey: `${plan.dedupeKey ?? dedupeBase}:${plan.type}`,
           data: { type: plan.type, resource: plan.resource, ...extraData },
           status: channel === 'IN_APP' ? 'SENT' : 'PENDING',
           sentAt: channel === 'IN_APP' ? new Date(now) : null,
@@ -890,5 +1016,29 @@ export class NotificationsService implements OnModuleInit {
         ];
       }),
     );
+  }
+  /** Cuentas con bloqueo (en cualquier sentido) con esta. */
+  private async blockedWith(userId: string): Promise<Set<string>> {
+    const rows = await this.prisma.userBlock.findMany({
+      where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+      select: { blockerId: true, blockedId: true },
+    });
+    return new Set(rows.map((r) => (r.blockerId === userId ? r.blockedId : r.blockerId)));
+  }
+
+  /** Quienes responden por una publicación: OWNER y MANAGER de la barbería, o el dueño del perfil. */
+  private async postOwners(post: {
+    createdById: string;
+    barbershopId: string | null;
+    authorProfileId: string | null;
+  }): Promise<string[]> {
+    if (post.barbershopId) {
+      const staff = await this.prisma.barbershopMember.findMany({
+        where: { barbershopId: post.barbershopId, role: { in: ['OWNER', 'MANAGER'] } },
+        select: { userId: true },
+      });
+      return [...new Set([post.createdById, ...staff.map((s) => s.userId)])];
+    }
+    return [post.createdById];
   }
 }

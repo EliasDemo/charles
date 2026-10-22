@@ -26,7 +26,7 @@ import {
   ApiTags,
   ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
-import { type AuthUser, CurrentUser } from '../../common/auth/auth-user';
+import { type AuthUser, CurrentUser, OptionalUser } from '../../common/auth/auth-user';
 import { Public } from '../../common/auth/public.decorator';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
 import { type Page, PaginationQueryDto } from '../../common/pagination/pagination';
@@ -118,10 +118,11 @@ export class ReviewsController {
   })
   @ApiOkResponse({ type: PublicReviewPageDto })
   listPublic(
+    @OptionalUser() user: AuthUser | null,
     @Param('id', uuid) barbershopId: string,
     @Query() query: BarbershopReviewsQueryDto,
   ): Promise<Page<PublicReviewDto>> {
-    return this.reviews.listPublic(barbershopId, query);
+    return this.reviews.listPublic(barbershopId, query, user?.id ?? null);
   }
 
   @Get('me/barbershops/:id/reviews')

@@ -41,7 +41,12 @@ export type NotificationType =
   | 'PLAN_UPDATE'
   | 'MEMBERSHIP_UPDATE'
   | 'JOB_OFFER_RECEIVED'
-  | 'JOB_OFFER_ANSWERED';
+  | 'JOB_OFFER_ANSWERED'
+  | 'COMMUNITY_COMMENT'
+  | 'COMMUNITY_REPLY'
+  | 'COMMUNITY_MENTION'
+  | 'COMMUNITY_LIKE'
+  | 'COMMUNITY_NEW_POST';
 
 export type ResourceType =
   | 'booking'
@@ -53,7 +58,8 @@ export type ResourceType =
   | 'job_application'
   | 'subscription'
   | 'membership'
-  | 'job_offer';
+  | 'job_offer'
+  | 'post';
 
 export interface Text {
   title: string;
@@ -74,6 +80,8 @@ export interface PlannedNotification {
   detail: Text;
   email?: { subject: string; text: string };
   resource: { type: ResourceType; id: string | null };
+  /** Agrupar: misma clave = un solo aviso (p. ej. me gusta por publicación y hora). */
+  dedupeKey?: string;
 }
 
 export interface BookingContext {
@@ -799,5 +807,132 @@ export function planJobOfferAnswered(input: {
       text: body,
     },
     resource: { type: 'job_offer' as const, id: input.offerId },
+  }));
+}
+
+// ───────────── Comunidad ─────────────
+
+const COMMUNITY_CHANNELS: NotificationChannel[] = ['IN_APP', 'PUSH'];
+
+const TYPE_TEXT: Record<string, string> = {
+  PROMOTION: 'una promoción',
+  EVENT: 'un evento',
+  WORK: 'un trabajo nuevo',
+  ANNOUNCEMENT: 'un anuncio',
+};
+
+const clip = (s: string, n = 80): string => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+
+/** A quien publicó: un comentario en su publicación. */
+export function planCommunityComment(input: {
+  userIds: string[];
+  postId: string;
+  author: string;
+  body: string;
+}): PlannedNotification[] {
+  const body = `@${input.author} comentó: «${clip(input.body)}»`;
+  return input.userIds.map((userId) => ({
+    userId,
+    type: 'COMMUNITY_COMMENT' as const,
+    channels: COMMUNITY_CHANNELS,
+    mandatory: false,
+    urgent: false,
+    push: { title: 'Nuevo comentario', body },
+    detail: { title: 'Nuevo comentario', body },
+    resource: { type: 'post' as const, id: input.postId },
+  }));
+}
+
+/** A quien escribió el comentario principal: alguien le respondió. */
+export function planCommunityReply(input: {
+  userId: string;
+  postId: string;
+  author: string;
+  body: string;
+}): PlannedNotification[] {
+  const body = `@${input.author} respondió tu comentario: «${clip(input.body)}»`;
+  return [
+    {
+      userId: input.userId,
+      type: 'COMMUNITY_REPLY',
+      channels: COMMUNITY_CHANNELS,
+      mandatory: false,
+      urgent: false,
+      push: { title: 'Te respondieron', body },
+      detail: { title: 'Te respondieron', body },
+      resource: { type: 'post', id: input.postId },
+    },
+  ];
+}
+
+/** A la cuenta mencionada en un comentario. */
+export function planCommunityMention(input: {
+  userId: string;
+  postId: string;
+  author: string;
+  body: string;
+}): PlannedNotification[] {
+  const body = `@${input.author} te mencionó: «${clip(input.body)}»`;
+  return [
+    {
+      userId: input.userId,
+      type: 'COMMUNITY_MENTION',
+      channels: COMMUNITY_CHANNELS,
+      mandatory: false,
+      urgent: false,
+      push: { title: 'Te mencionaron', body },
+      detail: { title: 'Te mencionaron', body },
+      resource: { type: 'post', id: input.postId },
+    },
+  ];
+}
+
+/**
+ * Me gusta agrupados: como mucho un aviso por publicación (o comentario) y hora, con el total
+ * ("A @ana y 4 personas más les gusta…").
+ */
+export function planCommunityLike(input: {
+  userIds: string[];
+  postId: string;
+  liker: string;
+  others: number;
+  onComment: boolean;
+  dedupeKey: string;
+}): PlannedNotification[] {
+  const what = input.onComment ? 'tu comentario' : 'tu publicación';
+  const body =
+    input.others > 0
+      ? `A @${input.liker} y ${input.others} ${input.others === 1 ? 'persona' : 'personas'} más les gusta ${what}.`
+      : `A @${input.liker} le gusta ${what}.`;
+  return input.userIds.map((userId) => ({
+    userId,
+    type: 'COMMUNITY_LIKE' as const,
+    channels: COMMUNITY_CHANNELS,
+    mandatory: false,
+    urgent: false,
+    push: { title: 'Me gusta', body },
+    detail: { title: 'Me gusta', body },
+    resource: { type: 'post' as const, id: input.postId },
+    dedupeKey: input.dedupeKey,
+  }));
+}
+
+/** A los seguidores: publicación nueva de una barbería o barbero que siguen. */
+export function planCommunityNewPost(input: {
+  userIds: string[];
+  postId: string;
+  authorName: string;
+  type: string;
+}): PlannedNotification[] {
+  const body = `${input.authorName} publicó ${TYPE_TEXT[input.type] ?? 'algo nuevo'}.`;
+  return input.userIds.map((userId) => ({
+    userId,
+    type: 'COMMUNITY_NEW_POST' as const,
+    channels: COMMUNITY_CHANNELS,
+    mandatory: false,
+    urgent: false,
+    push: { title: input.authorName, body },
+    detail: { title: 'Nueva publicación', body },
+    resource: { type: 'post' as const, id: input.postId },
   }));
 }
