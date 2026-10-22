@@ -3,6 +3,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Prisma, PrismaClient } from '../src/generated/prisma/client';
 import { seedServiceCategories, seedServiceStyles } from './seed/categories';
 import { seedFaceShapeReference } from './seed/face-shape';
+import { seedPeruDistricts } from './seed/peru-districts';
 import { SEED_SETTINGS } from './seed/seed';
 
 /**
@@ -18,6 +19,7 @@ async function main(): Promise<void> {
     const categories = await seedServiceCategories(prisma);
     const styles = await seedServiceStyles(prisma);
     const faceShape = await seedFaceShapeReference(prisma);
+    const districts = await seedPeruDistricts(prisma);
     let settings = 0;
     if (process.argv.includes('--settings')) {
       for (const setting of SEED_SETTINGS) {
@@ -36,7 +38,7 @@ async function main(): Promise<void> {
     }
     console.log(
       `Datos de referencia: ${categories} categorías, ${styles} estilos, ${faceShape.rules} reglas de ` +
-        `forma de cara (${faceShape.styles} cortes completados) y ${settings} ajustes creados.`,
+        `forma de cara (${faceShape.styles} cortes completados) y ${settings} ajustes creados; ${districts} distritos del Perú.`,
     );
   } finally {
     await prisma.$disconnect();

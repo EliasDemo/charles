@@ -25,6 +25,8 @@ import {
   refundQuote,
 } from './refund-policy';
 import { restoreCredit } from '../memberships/membership-credits';
+import { SellerAccountsService } from './marketplace/seller-accounts';
+import type { SellerCredentials } from './payment-gateway';
 
 export interface PaymentStartDto {
   paymentId: string;
@@ -78,6 +80,7 @@ export class PaymentsService {
     private readonly settings: SettingsService,
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
     @Inject(CLOCK) private readonly clock: Clock,
+    private readonly sellers: SellerAccountsService,
   ) {}
 
   // ───────────── Cobro ─────────────
@@ -85,12 +88,22 @@ export class PaymentsService {
   /** Dentro de la transacción de la reserva: solo la fila, sin llamar a la pasarela. */
   async createPendingInTx(
     tx: Prisma.TransactionClient,
-    booking: { id: string; totalAmount: number; currency: string },
+    booking: {
+      id: string;
+      barbershopId: string;
+      totalAmount: number;
+      commissionAmount: number;
+      currency: string;
+    },
   ): Promise<string> {
+    // Marketplace: con la cuenta de la barbería vinculada, el cobro va directo a ella.
+    const seller = await this.sellers.isConnectedInTx(tx, booking.barbershopId);
     const payment = await tx.payment.create({
       data: {
         bookingId: booking.id,
         provider: this.gateway.provider,
+        payee: seller ? 'SELLER' : 'PLATFORM',
+        marketplaceFee: seller ? Math.min(booking.commissionAmount, booking.totalAmount) : null,
         status: 'PENDING',
         amount: booking.totalAmount,
         currency: booking.currency,
@@ -403,7 +416,9 @@ export class PaymentsService {
       include: { payment: true },
     });
     if (!refund || refund.status !== 'PENDING' || refund.requestedAt) return;
+    const seller = await this.sellerOf(refund.payment);
     const result = await this.gateway.refund({
+      ...(seller ? { seller } : {}),
       refundId,
       paymentId: refund.paymentId,
       providerPaymentId: refund.payment.providerPaymentId,
@@ -497,6 +512,31 @@ export class PaymentsService {
     }));
   }
 
+  /**
+   * Marketplace: credenciales de la barbería si el pago se cobra (o se cobró) con su cuenta.
+   * Lanza si la cuenta ya no está disponible: el pago es de ella y no se puede operar con otra.
+   */
+  async sellerOf(payment: {
+    id: string;
+    payee: 'PLATFORM' | 'SELLER';
+    bookingId: string;
+  }): Promise<SellerCredentials | null> {
+    if (payment.payee !== 'SELLER') return null;
+    const booking = await this.prisma.booking.findUniqueOrThrow({
+      where: { id: payment.bookingId },
+      select: { barbershopId: true },
+    });
+    const credentials = await this.sellers.credentialsFor(booking.barbershopId);
+    if (!credentials) {
+      throw new AppException(
+        ErrorCode.PAYMENT_PROVIDER_ERROR,
+        'La cuenta de Mercado Pago de la barbería no está disponible.',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+    return credentials;
+  }
+
   private async callGateway(
     payment: {
       id: string;
@@ -505,6 +545,10 @@ export class PaymentsService {
       amount: number;
       currency: string;
       idempotencyKey: string;
+      payee: 'PLATFORM' | 'SELLER';
+      marketplaceFee: number | null;
+      bookingId: string;
+      startedAt: Date | null;
     },
     description: string,
     throwOnFailure: boolean,
@@ -516,7 +560,24 @@ export class PaymentsService {
       amount: { amount: payment.amount, currency: payment.currency },
     };
     try {
+      let seller: SellerCredentials | null = null;
+      if (payment.payee === 'SELLER') {
+        const booking = await this.prisma.booking.findUniqueOrThrow({
+          where: { id: payment.bookingId },
+          select: { barbershopId: true },
+        });
+        seller = await this.sellers.credentialsFor(booking.barbershopId);
+        // La barbería se desvinculó antes de iniciar el cobro: se cobra con la cuenta de Charles.
+        if (!seller && payment.startedAt) throw new Error('Cuenta de la barbería no disponible');
+        if (!seller && !payment.startedAt) {
+          await this.prisma.payment.updateMany({
+            where: { id: payment.id, startedAt: null },
+            data: { payee: 'PLATFORM', marketplaceFee: null },
+          });
+        }
+      }
       const result = await this.gateway.createPayment({
+        ...(seller ? { seller: { ...seller, marketplaceFee: payment.marketplaceFee ?? 0 } } : {}),
         paymentId: payment.id,
         amount: payment.amount,
         currency: payment.currency,

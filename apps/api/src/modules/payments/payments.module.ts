@@ -24,6 +24,14 @@ import {
   ReconciliationService,
 } from './reconciliation';
 import { RefundExecutor } from './refund-executor';
+import {
+  SELLER_OAUTH_CLIENT,
+  SellerAccountsController,
+  SellerAccountsService,
+  SellerOAuthCallbackController,
+  sellerOAuthClientFactory,
+} from './marketplace/seller-accounts';
+import { BarbershopAccessModule } from '../barbershops/barbershop-access.module';
 import { WebhookRateLimiter, WebhookRateLimitRefresher } from './webhook-rate-limit';
 import { WebhooksService } from './webhooks.service';
 
@@ -36,6 +44,7 @@ import { WebhooksService } from './webhooks.service';
     BookingsModule,
     SettingsModule,
     UsersModule,
+    BarbershopAccessModule,
     BullModule.registerQueue({ name: PAYMENTS_QUEUE }),
   ],
   controllers: [
@@ -43,6 +52,8 @@ import { WebhooksService } from './webhooks.service';
     PaymentPagesController,
     IzipayCheckoutController,
     MercadoPagoReturnController,
+    SellerAccountsController,
+    SellerOAuthCallbackController,
   ],
   providers: [
     FakeGateway,
@@ -63,6 +74,12 @@ import { WebhooksService } from './webhooks.service';
             ? mercadoPago
             : fake,
     },
+    {
+      provide: SELLER_OAUTH_CLIENT,
+      inject: [APP_CONFIG, PAYMENT_GATEWAY],
+      useFactory: sellerOAuthClientFactory,
+    },
+    SellerAccountsService,
     IzipayCheckoutService,
     PaymentsService,
     PaymentsProviderCheck,
@@ -75,6 +92,6 @@ import { WebhooksService } from './webhooks.service';
     PaymentsProcessor,
     PaymentsScheduler,
   ],
-  exports: [PaymentsService, ReconciliationService, FakeGateway],
+  exports: [PaymentsService, ReconciliationService, FakeGateway, SellerAccountsService],
 })
 export class PaymentsModule {}

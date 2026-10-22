@@ -15,8 +15,12 @@ import {
   Max,
   Min,
   ValidateIf,
+  IsLatitude,
+  IsLongitude,
+  IsBoolean,
 } from 'class-validator';
 import { StyleRefDto } from '../../barbers/dto/barber.dto';
+import { LocationDto } from '../../locations/locations';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -31,7 +35,230 @@ export const EMPLOYMENT_TYPES = [
 ] as const;
 export const APPLICATION_DECISIONS = ['SHORTLISTED', 'REJECTED', 'HIRED'] as const;
 
-export class CreateJobPostingDto {
+// ───────────── Condiciones de la oferta (pedido de la app) ─────────────
+
+export const PAY_TYPES = ['FIXED', 'COMMISSION', 'MIXED', 'PER_SERVICE'] as const;
+export const PAY_PERIODS = ['DAY', 'WEEK', 'BIWEEKLY', 'MONTH', 'PER_SERVICE'] as const;
+export const SELECTION_PROCESSES = ['INTERVIEW', 'TRIAL', 'DIRECT'] as const;
+
+/** Pago, distrito, requisitos, proceso y horario: comunes a la oferta pública y a la directa. */
+export class JobTermsDto {
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    description: 'Pago mínimo (céntimos).',
+    example: 120000,
+  })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsInt()
+  @Min(0)
+  @Max(10_000_000)
+  payMin?: number | null;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    description: 'Pago máximo (céntimos).',
+    example: 200000,
+  })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsInt()
+  @Min(0)
+  @Max(10_000_000)
+  payMax?: number | null;
+
+  @ApiPropertyOptional({
+    enum: PAY_TYPES,
+    nullable: true,
+    description: 'Fijo, comisión, mixto o por servicio.',
+  })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsIn(PAY_TYPES)
+  payType?: (typeof PAY_TYPES)[number] | null;
+
+  @ApiPropertyOptional({ enum: PAY_PERIODS, nullable: true })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsIn(PAY_PERIODS)
+  payPeriod?: (typeof PAY_PERIODS)[number] | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    maxLength: 200,
+    example: 'Lunes a sábado de 9:00 a 20:00',
+  })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @Transform(trim)
+  @IsString()
+  @Length(2, 200)
+  schedule?: string | null;
+}
+
+export class JobPostingTermsDto extends JobTermsDto {
+  @ApiPropertyOptional({ description: 'El pago es negociable.' })
+  @IsOptional()
+  @IsBoolean()
+  negotiable?: boolean;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: '211101',
+    description: 'Distrito (UBIGEO). Por defecto, el de la barbería.',
+  })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @Matches(/^[0-9]{6}$/)
+  ubigeo?: string | null;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Requisitos (hasta 20).',
+    example: ['2 años de experiencia', 'Manejo de fades'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @Length(2, 120, { each: true })
+  requirements?: string[];
+
+  @ApiPropertyOptional({
+    enum: SELECTION_PROCESSES,
+    nullable: true,
+    description: 'Entrevista, prueba práctica o contratación directa.',
+  })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsIn(SELECTION_PROCESSES)
+  selectionProcess?: (typeof SELECTION_PROCESSES)[number] | null;
+}
+
+// ───────────── Oferta directa a un barbero ─────────────
+
+export const JOB_OFFER_STATUSES = [
+  'PENDING',
+  'ACCEPTED',
+  'REJECTED',
+  'WITHDRAWN',
+  'EXPIRED',
+] as const;
+
+export class CreateJobOfferDto extends JobTermsDto {
+  @ApiProperty({ format: 'uuid', description: 'Perfil profesional del barbero.' })
+  @IsUUID()
+  barberProfileId!: string;
+
+  @ApiProperty({ example: 'Barbero para el turno tarde' })
+  @Transform(trim)
+  @IsString()
+  @Length(3, 100)
+  title!: string;
+
+  @ApiPropertyOptional({ maxLength: 1000 })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @Length(1, 1000)
+  message?: string;
+
+  @ApiProperty({ enum: EMPLOYMENT_TYPES })
+  @IsIn(EMPLOYMENT_TYPES)
+  employmentType!: (typeof EMPLOYMENT_TYPES)[number];
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 30, default: 7, description: 'Días para responder.' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  expiresInDays?: number;
+}
+
+export class AnswerJobOfferDto {
+  @ApiPropertyOptional({ maxLength: 300 })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @Length(1, 300)
+  note?: string;
+}
+
+export class JobBarbershopDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  address!: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  logoUrl!: string | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  ratingAverage!: number | null;
+}
+
+export class JobOfferDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ type: JobBarbershopDto })
+  barbershop!: JobBarbershopDto;
+
+  @ApiProperty({ format: 'uuid' })
+  barberProfileId!: string;
+
+  @ApiProperty()
+  barberName!: string;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  message!: string | null;
+
+  @ApiProperty({ enum: EMPLOYMENT_TYPES })
+  employmentType!: string;
+
+  @ApiProperty({ type: Number, nullable: true })
+  payMin!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  payMax!: number | null;
+
+  @ApiProperty({ enum: PAY_TYPES, nullable: true })
+  payType!: string | null;
+
+  @ApiProperty({ enum: PAY_PERIODS, nullable: true })
+  payPeriod!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  schedule!: string | null;
+
+  @ApiProperty({ enum: JOB_OFFER_STATUSES })
+  status!: (typeof JOB_OFFER_STATUSES)[number];
+
+  @ApiProperty()
+  expiresAt!: Date;
+
+  @ApiProperty({ type: Date, nullable: true })
+  respondedAt!: Date | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  responseNote!: string | null;
+
+  @ApiProperty()
+  createdAt!: Date;
+}
+
+export class CreateJobPostingDto extends JobPostingTermsDto {
   @ApiProperty({ minLength: 5, maxLength: 80, example: 'Barbero con experiencia en degradados' })
   @Transform(trim)
   @IsString()
@@ -70,7 +297,7 @@ export class CreateJobPostingDto {
   closesAt?: Date;
 }
 
-export class UpdateJobPostingDto {
+export class UpdateJobPostingDto extends JobPostingTermsDto {
   @ApiPropertyOptional({ minLength: 5, maxLength: 80 })
   @IsOptional()
   @Transform(trim)
@@ -136,6 +363,47 @@ export class JobsQueryDto {
   @Length(2, 60)
   area?: string;
 
+  @ApiPropertyOptional({ example: '211101', description: 'Distrito (UBIGEO) de la oferta.' })
+  @IsOptional()
+  @Matches(/^[0-9]{6}$/)
+  ubigeo?: string;
+
+  @ApiPropertyOptional({ example: 'San Roman', description: 'Provincia (lista fija).' })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @Length(2, 60)
+  province?: string;
+
+  @ApiPropertyOptional({ description: 'Con lng: ofertas cerca de este punto (y su distancia).' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsLatitude()
+  lat?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsLongitude()
+  lng?: number;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 200, default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  radiusKm?: number;
+
+  @ApiPropertyOptional({
+    enum: ['recent', 'distance'],
+    default: 'recent',
+    description: 'distance: la más cercana primero (requiere lat y lng; sin paginación, hasta 50).',
+  })
+  @IsOptional()
+  @IsIn(['recent', 'distance'])
+  sort?: 'recent' | 'distance';
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -182,23 +450,6 @@ export class InviteProfileDto {
   message?: string;
 }
 
-export class JobBarbershopDto {
-  @ApiProperty({ format: 'uuid' })
-  id!: string;
-
-  @ApiProperty()
-  name!: string;
-
-  @ApiProperty()
-  address!: string;
-
-  @ApiProperty({ type: String, nullable: true })
-  logoUrl!: string | null;
-
-  @ApiProperty({ type: Number, nullable: true })
-  ratingAverage!: number | null;
-}
-
 export class JobPostingDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -220,6 +471,36 @@ export class JobPostingDto {
 
   @ApiProperty({ type: [StyleRefDto] })
   styles!: StyleRefDto[];
+
+  @ApiProperty({ type: Number, nullable: true })
+  payMin!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  payMax!: number | null;
+
+  @ApiProperty({ enum: PAY_TYPES, nullable: true })
+  payType!: string | null;
+
+  @ApiProperty({ enum: PAY_PERIODS, nullable: true })
+  payPeriod!: string | null;
+
+  @ApiProperty()
+  negotiable!: boolean;
+
+  @ApiProperty({ type: LocationDto, nullable: true })
+  location!: LocationDto | null;
+
+  @ApiProperty({ type: [String] })
+  requirements!: string[];
+
+  @ApiProperty({ enum: SELECTION_PROCESSES, nullable: true })
+  selectionProcess!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  schedule!: string | null;
+
+  @ApiProperty({ type: Number, nullable: true, description: 'Km desde el punto pedido (lat/lng).' })
+  distanceKm!: number | null;
 
   @ApiProperty({ enum: ['OPEN', 'CLOSED'], description: 'CLOSED también si pasó closesAt.' })
   status!: 'OPEN' | 'CLOSED';

@@ -35,6 +35,8 @@ export const ErrorCode = {
   SALE_ALREADY_VOIDED: 'SALE_ALREADY_VOIDED',
   INVOICING_NOT_CONFIGURED: 'INVOICING_NOT_CONFIGURED',
   /** Fase 16: sin créditos disponibles o la membresía no cubre el servicio (409). */
+  /** Saldo a favor insuficiente para pagar el plan o liquidar (409). */
+  INSUFFICIENT_BALANCE: 'INSUFFICIENT_BALANCE',
   NO_MEMBERSHIP_CREDITS: 'NO_MEMBERSHIP_CREDITS',
   MEMBERSHIP_NOT_APPLICABLE: 'MEMBERSHIP_NOT_APPLICABLE',
   /** Cambio de contraseña: la contraseña actual no es correcta (400, no cierra la sesión). */

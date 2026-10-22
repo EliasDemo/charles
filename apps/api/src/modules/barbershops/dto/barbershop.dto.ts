@@ -25,6 +25,7 @@ import {
   OwnerDocumentType,
 } from '../../../generated/prisma/enums';
 import { PHONE_PATTERN } from '../../users/dto/profile.dto';
+import { LocationDto } from '../../locations/locations';
 
 /** Ámbito del MVP: solo Perú (CLAUDE.md §4.1). Rectángulo amplio que contiene al país. */
 
@@ -134,6 +135,15 @@ const HTTPS_URL = { protocols: ['https'], require_protocol: true };
 
 /** RF-BAR-001. Obligatorios: nombre, dirección, ubicación y teléfono. */
 export class CreateBarbershopDto {
+  @ApiPropertyOptional({
+    example: '211101',
+    description:
+      'Distrito (UBIGEO del INEI, ver /locations). Si no se envía, se toma el más cercano a latitude/longitude.',
+  })
+  @IsOptional()
+  @Matches(/^[0-9]{6}$/)
+  ubigeo?: string;
+
   @ApiProperty({ example: 'Barbería Central' })
   @Transform(trim)
   @IsString()
@@ -333,6 +343,13 @@ export class BarbershopPublicDto {
 
   @ApiProperty({ example: DEFAULT_TIMEZONE })
   timezone!: string;
+
+  @ApiProperty({
+    type: LocationDto,
+    nullable: true,
+    description: 'Distrito, provincia y departamento.',
+  })
+  location!: LocationDto | null;
 
   @ApiProperty({
     enum: BarbershopType,

@@ -8,6 +8,7 @@ import { AdminAccessModule } from '../admin/admin-access.module';
 import { BarbershopAccessModule } from '../barbershops/barbershop-access.module';
 import { SettingsModule } from '../settings/settings.module';
 import { UsersModule } from '../users/users.module';
+import { BalanceModule } from '../balance/balance';
 import { PlanEnforcementService } from './plan-enforcement.service';
 import {
   BarbershopPlanController,
@@ -57,6 +58,7 @@ export class BillingScheduler implements OnApplicationBootstrap {
     AdminAccessModule,
     SettingsModule,
     UsersModule,
+    BalanceModule,
     BullModule.registerQueue({ name: BILLING_QUEUE }),
   ],
   controllers: [

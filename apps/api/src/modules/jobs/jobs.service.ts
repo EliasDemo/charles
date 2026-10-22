@@ -22,7 +22,9 @@ import type {
   JobPostingPageDto,
   JobsQueryDto,
   UpdateJobPostingDto,
+  JobPostingTermsDto,
 } from './dto/jobs.dto';
+import { locationOf, LocationsService } from '../locations/locations';
 
 const DEFAULT_LIMIT = 20;
 const MAX_OPEN_POSTINGS = 10;
@@ -33,7 +35,14 @@ const LIVE_APPLICATIONS = ['APPLIED', 'SHORTLISTED'] as const;
 
 const postingInclude = {
   barbershop: {
-    select: { id: true, name: true, address: true, ratingAvg: true, ratingCount: true },
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      ratingAvg: true,
+      ratingCount: true,
+      districtId: true,
+    },
   },
 } satisfies Prisma.JobPostingInclude;
 type PostingRow = Prisma.JobPostingGetPayload<{ include: typeof postingInclude }>;
@@ -76,6 +85,7 @@ const invalid = (field: string, constraint: string): AppException =>
 @Injectable()
 export class JobsService {
   constructor(
+    private readonly locations: LocationsService,
     private readonly prisma: PrismaService,
     private readonly access: BarbershopAccessService,
     private readonly barbers: BarbersService,
@@ -93,6 +103,12 @@ export class JobsService {
   async list(query: JobsQueryDto, viewerId: string | null): Promise<JobPostingPageDto> {
     const now = new Date(this.clock.now());
     const limit = query.limit ?? DEFAULT_LIMIT;
+    // Cercanía: barberías dentro del radio, con su distancia en km.
+    const near =
+      query.lat !== undefined && query.lng !== undefined
+        ? await this.shopsNear(query.lat, query.lng, query.radiusKm ?? 20)
+        : null;
+    const byDistance = query.sort === 'distance' && near !== null;
     let styleId: string | null = null;
     if (query.style) {
       const style = await this.prisma.serviceStyle.findFirst({
@@ -113,15 +129,24 @@ export class JobsService {
         },
         ...(query.employmentType ? { employmentType: query.employmentType } : {}),
         ...(styleId ? { styleIds: { has: styleId } } : {}),
-        ...(query.cursor ? { id: { lt: query.cursor } } : {}),
+        ...(query.ubigeo ? { districtId: this.locations.resolve(query.ubigeo).id } : {}),
+        ...(query.province
+          ? { districtId: { in: this.locations.districtIdsOfProvince(query.province) } }
+          : {}),
+        ...(near ? { barbershopId: { in: [...near.keys()] } } : {}),
+        ...(query.cursor && !byDistance ? { id: { lt: query.cursor } } : {}),
       },
       include: postingInclude,
       orderBy: { id: 'desc' },
-      take: limit + 1,
+      take: byDistance ? 50 : limit + 1,
     });
+    if (byDistance) {
+      rows.sort((a, b) => (near.get(a.barbershopId) ?? 0) - (near.get(b.barbershopId) ?? 0));
+      return { items: await this.toPostings(rows, viewerId, false, near), nextCursor: null };
+    }
     const page = rows.slice(0, limit);
     return {
-      items: await this.toPostings(page, viewerId, false),
+      items: await this.toPostings(page, viewerId, false, near),
       nextCursor: rows.length > limit ? page[page.length - 1]!.id : null,
     };
   }
@@ -259,6 +284,7 @@ export class JobsService {
     await this.access.requireMember(actorId, barbershopId);
     await this.assertStyles(dto.styleIds ?? []);
     this.assertClosesAt(dto.closesAt ?? null);
+    this.assertPay(dto.payMin ?? null, dto.payMax ?? null);
     const open = await this.prisma.jobPosting.count({ where: { barbershopId, status: 'OPEN' } });
     if (open >= MAX_OPEN_POSTINGS) {
       throw new AppException(
@@ -278,6 +304,15 @@ export class JobsService {
           styleIds: dto.styleIds ?? [],
           closesAt: dto.closesAt ?? null,
           createdById: actorId,
+          ...this.termsData(dto),
+          districtId: dto.ubigeo
+            ? this.locations.resolve(dto.ubigeo).id
+            : ((
+                await tx.barbershop.findUnique({
+                  where: { id: barbershopId },
+                  select: { districtId: true },
+                })
+              )?.districtId ?? null),
         },
         include: postingInclude,
       });
@@ -303,10 +338,19 @@ export class JobsService {
     if (!current) throw postingNotFound();
     if (dto.styleIds) await this.assertStyles(dto.styleIds);
     if (dto.closesAt !== undefined) this.assertClosesAt(dto.closesAt);
+    this.assertPay(dto.payMin ?? current.payMin, dto.payMax ?? current.payMax);
     const row = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.jobPosting.update({
         where: { id: postingId },
-        data: Object.fromEntries(Object.entries(dto).filter(([, v]) => v !== undefined)),
+        data: (() => {
+          const { ubigeo, ...rest } = dto;
+          return {
+            ...Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined)),
+            ...(ubigeo === undefined
+              ? {}
+              : { districtId: ubigeo ? this.locations.resolve(ubigeo).id : null }),
+          };
+        })(),
         include: postingInclude,
       });
       await this.audit.record(
@@ -524,10 +568,54 @@ export class JobsService {
     };
   }
 
+  private termsData(
+    dto: JobPostingTermsDto,
+  ): Pick<
+    Prisma.JobPostingUncheckedCreateInput,
+    | 'payMin'
+    | 'payMax'
+    | 'payType'
+    | 'payPeriod'
+    | 'negotiable'
+    | 'requirements'
+    | 'selectionProcess'
+    | 'schedule'
+  > {
+    return {
+      payMin: dto.payMin ?? null,
+      payMax: dto.payMax ?? null,
+      payType: dto.payType ?? null,
+      payPeriod: dto.payPeriod ?? null,
+      negotiable: dto.negotiable ?? false,
+      requirements: dto.requirements ?? [],
+      selectionProcess: dto.selectionProcess ?? null,
+      schedule: dto.schedule ?? null,
+    };
+  }
+
+  assertPay(min: number | null | undefined, max: number | null | undefined): void {
+    if (min != null && max != null && min > max) throw invalid('payMax', 'notBelowPayMin');
+  }
+
+  /** Barberías visibles dentro del radio: id → km. */
+  private async shopsNear(
+    lat: number,
+    lng: number,
+    radiusKm: number,
+  ): Promise<Map<string, number>> {
+    const point = Prisma.sql`ST_SetSRID(ST_MakePoint(${lng}::float8, ${lat}::float8), 4326)::geography`;
+    const rows = await this.prisma.$queryRaw<{ id: string; km: number }[]>`
+      SELECT b.id::text AS id, ROUND((ST_Distance(b.location, ${point}) / 1000)::numeric, 2)::float8 AS km
+        FROM barbershops b
+       WHERE b.deleted_at IS NULL AND ST_DWithin(b.location, ${point}, ${radiusKm * 1000}::float8)`;
+    return new Map(rows.map((r) => [r.id, r.km]));
+  }
+
   private async toPostings(
     rows: PostingRow[],
     viewerId: string | null,
     forShop: boolean,
+    near: Map<string, number> | null = null,
   ): Promise<JobPostingDto[]> {
     const ids = rows.map((r) => r.id);
     const styleIds = [...new Set(rows.flatMap((r) => r.styleIds))];
@@ -568,6 +656,16 @@ export class JobsService {
       employmentType: r.employmentType,
       compensationText: r.compensationText,
       styles: r.styleIds.flatMap((id) => (styleById.get(id) ? [styleById.get(id)!] : [])),
+      payMin: r.payMin,
+      payMax: r.payMax,
+      payType: r.payType,
+      payPeriod: r.payPeriod,
+      negotiable: r.negotiable,
+      location: locationOf(r.districtId ?? r.barbershop.districtId),
+      requirements: r.requirements,
+      selectionProcess: r.selectionProcess,
+      schedule: r.schedule,
+      distanceKm: near?.get(r.barbershopId) ?? null,
       status: this.isOpen(r) ? 'OPEN' : 'CLOSED',
       closesAt: r.closesAt,
       applicationsCount: countBy.get(r.id) ?? 0,

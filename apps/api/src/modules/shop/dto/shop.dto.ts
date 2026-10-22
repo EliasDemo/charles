@@ -19,6 +19,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { USERNAME_PATTERN } from '../../users/username';
+import { LocationDto } from '../../locations/locations';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -803,4 +804,185 @@ export class BarberCommissionDto {
   @Min(0)
   @Max(10000)
   commissionBp!: number | null;
+}
+
+// ───────────── Reportes por mes, mapa de horas y mercado ─────────────
+
+export class MonthlyQueryDto {
+  @ApiPropertyOptional({ minimum: 1, maximum: 24, default: 12 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(24)
+  months?: number;
+}
+
+export class MonthReportDto {
+  @ApiProperty({ example: '2026-10' })
+  month!: string;
+
+  @ApiProperty()
+  appAmount!: number;
+
+  @ApiProperty()
+  localAmount!: number;
+
+  @ApiProperty()
+  totalAmount!: number;
+
+  @ApiProperty()
+  count!: number;
+
+  @ApiProperty()
+  averageTicket!: number;
+
+  @ApiProperty()
+  newClients!: number;
+
+  @ApiProperty()
+  returningClients!: number;
+
+  @ApiProperty({ type: Number, nullable: true, description: '% contra el mes anterior.' })
+  growthPct!: number | null;
+}
+
+export class ServiceTrendDto {
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty({ description: 'Atenciones del último mes.' })
+  current!: number;
+
+  @ApiProperty({ description: 'Atenciones del mes anterior.' })
+  previous!: number;
+
+  @ApiProperty({ type: Number, nullable: true })
+  changePct!: number | null;
+}
+
+export class MonthlyReportDto {
+  @ApiProperty({ type: [MonthReportDto], description: 'Del más antiguo al actual.' })
+  months!: MonthReportDto[];
+
+  @ApiProperty({ type: String, nullable: true, example: '2026-08' })
+  bestMonth!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  worstMonth!: string | null;
+
+  @ApiProperty({ description: 'Promedio mensual (céntimos).' })
+  monthlyAverage!: number;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: '% del mes actual contra el mismo mes del año pasado.',
+  })
+  yearOverYearPct!: number | null;
+
+  @ApiProperty({ type: [ServiceTrendDto], description: 'Servicios que más suben y bajan.' })
+  serviceTrends!: ServiceTrendDto[];
+}
+
+export class HeatmapQueryDto {
+  @ApiPropertyOptional({ minimum: 7, maximum: 365, default: 90 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(7)
+  @Max(365)
+  days?: number;
+}
+
+export class HeatmapCellDto {
+  @ApiProperty({ description: '0 = domingo … 6 = sábado.' })
+  weekday!: number;
+
+  @ApiProperty({ description: 'Hora de Lima (0–23).' })
+  hour!: number;
+
+  @ApiProperty()
+  count!: number;
+}
+
+export class HeatmapDto {
+  @ApiProperty({ type: [HeatmapCellDto], description: 'Solo celdas con atenciones.' })
+  cells!: HeatmapCellDto[];
+
+  @ApiProperty({ type: Number, nullable: true })
+  busiestWeekday!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  busiestHour!: number | null;
+
+  @ApiProperty({
+    type: [HeatmapCellDto],
+    description: 'Horas abiertas con menos movimiento (para promociones).',
+  })
+  quietSlots!: HeatmapCellDto[];
+
+  @ApiProperty()
+  days!: number;
+}
+
+export class MarketQueryDto {
+  @ApiPropertyOptional({ minimum: 1, maximum: 30, default: 5 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  radiusKm?: number;
+}
+
+export class MarketStyleDto {
+  @ApiProperty()
+  key!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  count!: number;
+}
+
+export class MarketDto {
+  @ApiProperty()
+  radiusKm!: number;
+
+  @ApiProperty({ description: 'Otras barberías visibles en el radio.' })
+  competitors!: number;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: 'Precio promedio del corte en la zona (céntimos).',
+  })
+  zoneHaircutPrice!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, description: 'Tu precio promedio de corte.' })
+  myHaircutPrice!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, description: 'Valoración promedio de la zona.' })
+  zoneRating!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  myRating!: number | null;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: 'Tu puesto por valoración en la zona (1 = mejor).',
+  })
+  myRatingRank!: number | null;
+
+  @ApiProperty({
+    type: [MarketStyleDto],
+    description: 'Cortes más reservados en la zona (90 días).',
+  })
+  topStyles!: MarketStyleDto[];
+
+  @ApiProperty({ type: LocationDto, nullable: true })
+  location!: LocationDto | null;
 }

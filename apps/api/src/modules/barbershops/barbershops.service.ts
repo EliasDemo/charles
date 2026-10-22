@@ -50,6 +50,7 @@ import {
   type UpdateBarbershopDto,
   type UpdateBarbershopStatusDto,
 } from './dto/barbershop.dto';
+import { locationOf, LocationsService } from '../locations/locations';
 
 /** Campos que se tratan como datos personales en la auditoría (solo el nombre del campo). */
 const PERSONAL_FIELDS = ['phone'] as const;
@@ -83,6 +84,7 @@ export function toPublicDto(
     latitude: shop.latitude,
     longitude: shop.longitude,
     timezone: shop.timezone,
+    location: locationOf(shop.districtId),
     type: shop.type,
     phone: shop.phone,
     status: shop.status,
@@ -118,6 +120,7 @@ const notFound = (): AppException =>
 @Injectable()
 export class BarbershopsService {
   constructor(
+    private readonly locations: LocationsService,
     private readonly prisma: PrismaService,
     private readonly access: BarbershopAccessService,
     private readonly users: UsersService,
@@ -232,6 +235,11 @@ export class BarbershopsService {
         address: dto.address,
         latitude: dto.latitude,
         longitude: dto.longitude,
+        districtId:
+          (dto.ubigeo
+            ? this.locations.resolve(dto.ubigeo)
+            : this.locations.nearest(dto.latitude, dto.longitude)
+          )?.id ?? null,
         timezone: dto.timezone ?? DEFAULT_TIMEZONE,
         phone: dto.phone,
         websiteUrl: dto.websiteUrl ?? null,
@@ -324,6 +332,14 @@ export class BarbershopsService {
       address: dto.address,
       latitude: dto.latitude,
       longitude: dto.longitude,
+      ...(dto.ubigeo
+        ? { district: { connect: { id: this.locations.resolve(dto.ubigeo).id } } }
+        : dto.latitude !== undefined && dto.longitude !== undefined
+          ? (() => {
+              const near = this.locations.nearest(dto.latitude, dto.longitude);
+              return near ? { district: { connect: { id: near.id } } } : {};
+            })()
+          : {}),
       timezone: dto.timezone,
       phone: dto.phone,
       websiteUrl: dto.websiteUrl,

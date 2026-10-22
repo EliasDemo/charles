@@ -58,6 +58,8 @@ export class FakeGateway implements PaymentGateway {
   private unavailable = false;
   /** IMMEDIATE: el reembolso se confirma al pedirlo. ASYNC: llega luego por webhook. */
   refundMode: 'IMMEDIATE' | 'ASYNC' = 'ASYNC';
+  /** Marketplace: con qué cuenta (y comisión) se creó cada pago, para las pruebas. */
+  readonly sellerOf = new Map<string, { providerUserId: string; marketplaceFee: number }>();
 
   constructor(@Optional() @Inject(CLOCK) private readonly clock: Clock = systemClock) {}
 
@@ -140,6 +142,12 @@ export class FakeGateway implements PaymentGateway {
           currency: input.currency,
           status: 'PENDING',
           transactionId: null,
+        });
+      }
+      if (input.seller) {
+        this.sellerOf.set(input.paymentId, {
+          providerUserId: input.seller.providerUserId,
+          marketplaceFee: input.seller.marketplaceFee,
         });
       }
       return {

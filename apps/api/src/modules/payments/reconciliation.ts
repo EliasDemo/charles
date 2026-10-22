@@ -51,9 +51,11 @@ export class ReconciliationService {
     if (!payment || payment.status !== 'PENDING') return 'UNCHANGED';
     let state;
     try {
+      const seller = await this.payments.sellerOf(payment);
       state = await this.gateway.getPayment({
         paymentId,
         providerPaymentId: payment.providerPaymentId,
+        ...(seller ? { seller } : {}),
       });
     } catch {
       return 'UNAVAILABLE';
@@ -122,7 +124,15 @@ export class ReconciliationService {
     }
     let state;
     try {
-      state = await this.gateway.getRefund({ refundId, providerRefundId: refund.providerRefundId });
+      const payment = await this.prisma.payment.findUniqueOrThrow({
+        where: { id: refund.paymentId },
+      });
+      const seller = await this.payments.sellerOf(payment);
+      state = await this.gateway.getRefund({
+        refundId,
+        providerRefundId: refund.providerRefundId,
+        ...(seller ? { seller } : {}),
+      });
     } catch {
       return 'UNAVAILABLE';
     }

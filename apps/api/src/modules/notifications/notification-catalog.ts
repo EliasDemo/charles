@@ -39,7 +39,9 @@ export type NotificationType =
   | 'JOB_APPLICATION_RECEIVED'
   | 'JOB_APPLICATION_UPDATED'
   | 'PLAN_UPDATE'
-  | 'MEMBERSHIP_UPDATE';
+  | 'MEMBERSHIP_UPDATE'
+  | 'JOB_OFFER_RECEIVED'
+  | 'JOB_OFFER_ANSWERED';
 
 export type ResourceType =
   | 'booking'
@@ -50,7 +52,8 @@ export type ResourceType =
   | 'conversation'
   | 'job_application'
   | 'subscription'
-  | 'membership';
+  | 'membership'
+  | 'job_offer';
 
 export interface Text {
   title: string;
@@ -743,4 +746,58 @@ export function planMembershipNotice(
       resource: { type: 'membership', id: ctx.membershipId },
     },
   ];
+}
+
+// ───────────── Ofertas directas de trabajo ─────────────
+
+/** Al barbero: una barbería le ofreció trabajo. */
+export function planJobOfferReceived(input: {
+  userId: string;
+  offerId: string;
+  barbershopName: string;
+  title: string;
+}): PlannedNotification[] {
+  const body = `${input.barbershopName} te ofrece trabajo: «${input.title}». Acéptala o recházala en «Ofertas».`;
+  return [
+    {
+      userId: input.userId,
+      type: 'JOB_OFFER_RECEIVED',
+      channels: ALL,
+      mandatory: false,
+      urgent: false,
+      push: { title: 'Oferta de trabajo', body: 'Una barbería te ofrece trabajo.' },
+      detail: { title: 'Oferta de trabajo', body },
+      email: { subject: `Oferta de trabajo de ${input.barbershopName}`, text: body },
+      resource: { type: 'job_offer', id: input.offerId },
+    },
+  ];
+}
+
+/** A la barbería (OWNER y MANAGER): el barbero respondió. */
+export function planJobOfferAnswered(input: {
+  userIds: string[];
+  offerId: string;
+  barberName: string;
+  title: string;
+  accepted: boolean;
+}): PlannedNotification[] {
+  const body = input.accepted
+    ? `${input.barberName} aceptó tu oferta «${input.title}» y ya está en tu equipo. Asígnale sus servicios y horario.`
+    : `${input.barberName} rechazó tu oferta «${input.title}».`;
+  return input.userIds.map((userId) => ({
+    userId,
+    type: 'JOB_OFFER_ANSWERED' as const,
+    channels: ALL,
+    mandatory: false,
+    urgent: false,
+    push: { title: 'Oferta de trabajo', body: 'Un barbero respondió tu oferta.' },
+    detail: { title: input.accepted ? 'Oferta aceptada' : 'Oferta rechazada', body },
+    email: {
+      subject: input.accepted
+        ? 'Aceptaron tu oferta de trabajo'
+        : 'Rechazaron tu oferta de trabajo',
+      text: body,
+    },
+    resource: { type: 'job_offer' as const, id: input.offerId },
+  }));
 }

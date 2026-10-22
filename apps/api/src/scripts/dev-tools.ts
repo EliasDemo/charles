@@ -218,7 +218,9 @@ export async function devBooking(
         );
       paymentId = await app.get(PaymentsService).createPendingInTx(tx, {
         id: booking.id,
+        barbershopId: profile.barbershopId,
         totalAmount: service.priceAmount,
+        commissionAmount: 0,
         currency: service.currency,
       });
       return booking.id;

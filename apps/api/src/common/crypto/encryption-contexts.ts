@@ -34,6 +34,9 @@ export const EncryptedField = {
   INVOICE_CUSTOMER_DOC: 'charles/invoice.customer-doc/v1',
   /** Fase 15: correo de pago de un auspiciador. */
   SPONSOR_PAYER_EMAIL: 'charles/sponsor.payer-email/v1',
+  /** Marketplace: tokens OAuth de la cuenta de Mercado Pago de una barbería. */
+  SELLER_ACCESS_TOKEN: 'charles/seller.access-token/v1',
+  SELLER_REFRESH_TOKEN: 'charles/seller.refresh-token/v1',
 } as const;
 
 export type EncryptedField = (typeof EncryptedField)[keyof typeof EncryptedField];

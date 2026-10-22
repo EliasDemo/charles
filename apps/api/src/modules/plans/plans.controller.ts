@@ -130,6 +130,25 @@ export class BarbershopPlanController {
     return this.subscriptions.subscribe({ userId: user.id, ip: req.ip }, id, dto);
   }
 
+  @Post('subscription/pay-with-balance')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Solo OWNER: pagar con el saldo a favor el periodo siguiente (o recuperar un plan vencido)',
+    description:
+      'Solo para planes contratados con paymentMethod=BALANCE. 409 INSUFFICIENT_BALANCE si no alcanza.',
+  })
+  @ApiOkResponse({ type: SubscriptionDto })
+  @ApiConflictResponse({ type: ErrorResponseDto, description: 'INSUFFICIENT_BALANCE' })
+  payWithBalance(
+    @CurrentUser() user: AuthUser,
+    @Param('id', uuid) id: string,
+    @Req() req: Request,
+  ): Promise<SubscriptionDto> {
+    return this.subscriptions.payWithBalance({ userId: user.id, ip: req.ip }, id);
+  }
+
   @Post('subscription/cancel')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()

@@ -416,6 +416,18 @@ export class SubscribeDto {
   @IsOptional()
   @IsBoolean()
   replace?: boolean;
+
+  @ApiPropertyOptional({
+    enum: ['GATEWAY', 'BALANCE'],
+    default: 'GATEWAY',
+    description:
+      'GATEWAY: enlace de pago por correo (Mercado Pago). BALANCE: se paga al instante con el saldo a ' +
+      'favor de la barbería (sin prueba gratis) y se renueva sola con el saldo; si no alcanza, queda ' +
+      'PAST_DUE. 409 INSUFFICIENT_BALANCE si no alcanza.',
+  })
+  @IsOptional()
+  @IsIn(['GATEWAY', 'BALANCE'])
+  paymentMethod?: 'GATEWAY' | 'BALANCE';
 }
 
 export class CancelSubscriptionDto {

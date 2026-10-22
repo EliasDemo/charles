@@ -36,7 +36,13 @@ describe('Pagos con Mercado Pago (simulado) — Checkout Pro, webhook firmado, c
           ...base.payments,
           gateway: PaymentsGateway.MercadoPago,
           publicApiUrl: PUBLIC,
-          mercadoPago: { accessToken: mp.accessToken, webhookSecret: mp.webhookSecret, apiUrl },
+          mercadoPago: {
+            accessToken: mp.accessToken,
+            webhookSecret: mp.webhookSecret,
+            apiUrl,
+            clientId: null,
+            clientSecret: null,
+          },
         },
       },
     });

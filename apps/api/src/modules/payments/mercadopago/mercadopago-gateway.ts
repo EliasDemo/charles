@@ -16,7 +16,11 @@ import {
   type RawWebhook,
   type RefundInput,
   type RefundResult,
+  type SellerCredentials,
 } from '../payment-gateway';
+
+/** Marketplace: token de la barbería dueña de un pago, según el `user_id` del aviso. */
+export type SellerTokenResolver = (providerUserId: string) => Promise<string | null>;
 
 export const MERCADOPAGO_PROVIDER = 'MERCADOPAGO';
 /** Ruta (bajo /api/v1) del regreso desde Checkout Pro. */
@@ -102,6 +106,12 @@ export class MercadoPagoGateway implements PaymentGateway {
   /** El aviso trae `ts`, pero los reintentos de Mercado Pago no están documentados: idempotencia. */
   readonly webhookMaxAgeSeconds = null;
   private readonly logger = new Logger(MercadoPagoGateway.name);
+  private sellerTokens: SellerTokenResolver | null = null;
+
+  /** Lo registra el servicio de cuentas vinculadas (evita una dependencia circular). */
+  setSellerTokenResolver(resolver: SellerTokenResolver): void {
+    this.sellerTokens = resolver;
+  }
 
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
@@ -152,8 +162,14 @@ export class MercadoPagoGateway implements PaymentGateway {
         expiration_date_from: new Date(now).toISOString(),
         expiration_date_to: new Date(now + PREFERENCE_TTL_MS).toISOString(),
         statement_descriptor: 'CHARLES',
+        // Marketplace: el cobro va a la barbería y Charles retiene su comisión.
+        ...(input.seller
+          ? { marketplace_fee: toMercadoPagoAmount(input.seller.marketplaceFee) }
+          : {}),
       },
       input.idempotencyKey,
+      false,
+      input.seller?.accessToken,
     );
     const url = preference.init_point ?? preference.sandbox_init_point;
     if (!preference.id || !url)
@@ -168,7 +184,10 @@ export class MercadoPagoGateway implements PaymentGateway {
   }
 
   /** Busca los pagos del pedido por `external_reference` (base de la conciliación). */
-  async getPayment(input: { paymentId: string }): Promise<ProviderPaymentState> {
+  async getPayment(input: {
+    paymentId: string;
+    seller?: SellerCredentials;
+  }): Promise<ProviderPaymentState> {
     const query = new URLSearchParams({
       external_reference: input.paymentId,
       sort: 'date_created',
@@ -177,6 +196,10 @@ export class MercadoPagoGateway implements PaymentGateway {
     const body = await this.request<{ results?: MercadoPagoPayment[] }>(
       'GET',
       `/v1/payments/search?${query.toString()}`,
+      undefined,
+      undefined,
+      false,
+      input.seller?.accessToken,
     );
     const results = (body.results ?? []).filter((p) => p.external_reference === input.paymentId);
     const approved = results.find((p) => p.status === 'approved');
@@ -214,6 +237,8 @@ export class MercadoPagoGateway implements PaymentGateway {
       `/v1/payments/${encodeURIComponent(mpPaymentId)}/refunds`,
       { amount: toMercadoPagoAmount(input.amount) },
       input.idempotencyKey,
+      false,
+      input.seller?.accessToken,
     );
     if (refund.id === undefined) throw new PaymentGatewayError('Mercado Pago: devolución sin id');
     return {
@@ -222,7 +247,10 @@ export class MercadoPagoGateway implements PaymentGateway {
     };
   }
 
-  async getRefund(input: { providerRefundId: string | null }): Promise<ProviderRefundState> {
+  async getRefund(input: {
+    providerRefundId: string | null;
+    seller?: SellerCredentials;
+  }): Promise<ProviderRefundState> {
     const [paymentId, refundId] = (input.providerRefundId ?? '').split(':');
     if (!paymentId || !refundId) return { status: 'NOT_FOUND' };
     const refund = await this.request<{ status?: string } | null>(
@@ -231,6 +259,7 @@ export class MercadoPagoGateway implements PaymentGateway {
       undefined,
       undefined,
       true,
+      input.seller?.accessToken,
     );
     if (!refund) return { status: 'NOT_FOUND' };
     if (refund.status === 'approved') return { status: 'SUCCEEDED' };
@@ -251,9 +280,17 @@ export class MercadoPagoGateway implements PaymentGateway {
     if (!valid || !body || !dataId) throw new InvalidSignatureError();
     // Solo interesan los pagos; otros temas se reciben y se ignoran.
     if (body.type !== 'payment') return ignoredEvent(`${body.type ?? 'unknown'}:${dataId}`);
+    // Marketplace: el pago es de la cuenta de una barbería (`user_id` del aviso) y se consulta con
+    // su token; si no es de ninguna vinculada, con el de Charles.
+    const sellerId = body.user_id === undefined ? null : String(body.user_id);
+    const sellerToken = sellerId && this.sellerTokens ? await this.sellerTokens(sellerId) : null;
     const payment = await this.request<MercadoPagoPayment>(
       'GET',
       `/v1/payments/${encodeURIComponent(dataId)}`,
+      undefined,
+      undefined,
+      false,
+      sellerToken ?? undefined,
     );
     const amount = fromMercadoPagoAmount(payment.transaction_amount);
     // Sin referencia, o de facturación (`sub:`, `mem:`, `spk:`): no es el pago de una reserva.
@@ -300,13 +337,14 @@ export class MercadoPagoGateway implements PaymentGateway {
     body?: object,
     idempotencyKey?: string,
     notFoundAsNull = false,
+    accessToken?: string,
   ): Promise<T> {
     let res: Response;
     try {
       res = await fetch(`${this.mp.apiUrl}${path}`, {
         method,
         headers: {
-          Authorization: `Bearer ${this.required(this.mp.accessToken, 'MERCADOPAGO_ACCESS_TOKEN')}`,
+          Authorization: `Bearer ${accessToken ?? this.required(this.mp.accessToken, 'MERCADOPAGO_ACCESS_TOKEN')}`,
           'Content-Type': 'application/json',
           ...(idempotencyKey ? { 'X-Idempotency-Key': idempotencyKey } : {}),
         },
@@ -340,6 +378,7 @@ export class MercadoPagoGateway implements PaymentGateway {
 interface WebhookBody {
   type?: string;
   action?: string;
+  user_id?: string | number;
   data?: { id?: string | number };
 }
 

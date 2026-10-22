@@ -302,6 +302,15 @@ export class EnvironmentVariables {
   @IsString()
   MERCADOPAGO_WEBHOOK_SECRET?: string;
 
+  /** Marketplace: Client ID y Client Secret de la aplicación, para vincular la cuenta de cada barbería (OAuth). */
+  @IsOptional()
+  @IsString()
+  MERCADOPAGO_CLIENT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  MERCADOPAGO_CLIENT_SECRET?: string;
+
   /** Por defecto https://api.mercadopago.com (las pruebas usan otra URL local). */
   @IsOptional()
   @IsUrl({ require_tld: false, protocols: ['http', 'https'], require_protocol: true })
@@ -345,6 +354,8 @@ export interface AppConfig {
       accessToken: string | null;
       webhookSecret: string | null;
       apiUrl: string;
+      clientId: string | null;
+      clientSecret: string | null;
     };
     izipay: {
       mode: IzipayMode;
@@ -613,6 +624,8 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
       mercadoPago: {
         accessToken: env.MERCADOPAGO_ACCESS_TOKEN || null,
         webhookSecret: env.MERCADOPAGO_WEBHOOK_SECRET || null,
+        clientId: env.MERCADOPAGO_CLIENT_ID || null,
+        clientSecret: env.MERCADOPAGO_CLIENT_SECRET || null,
         apiUrl: (env.MERCADOPAGO_API_URL || 'https://api.mercadopago.com').replace(/\/+$/, ''),
       },
       izipay: {

@@ -1,4 +1,5 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { CLOCK, type Clock } from '../../common/clock/clock';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -7,10 +8,17 @@ import { DAY_MS } from '../billing/billing-gateway';
 import { EntitlementsService } from '../plans/entitlements.service';
 import type {
   BarberCommissionDto,
+  HeatmapCellDto,
+  HeatmapDto,
+  MarketDto,
+  MonthlyReportDto,
+  MonthReportDto,
   ReportBarberDto,
   ReportsQueryDto,
   SalesReportDto,
+  ServiceTrendDto,
 } from './dto/shop.dto';
+import { locationOf } from '../locations/locations';
 
 const MAX_RANGE_DAYS = 366;
 
@@ -29,6 +37,7 @@ export class ReportsService {
     private readonly prisma: PrismaService,
     private readonly access: BarbershopAccessService,
     private readonly entitlements: EntitlementsService,
+    @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
   async sales(
@@ -212,6 +221,301 @@ export class ReportsService {
         ...v,
       })),
       full,
+    };
+  }
+
+  // ───────────── Por mes, mapa de horas y mercado ─────────────
+
+  /** Ventas por mes (app + local), crecimiento, mejor y peor mes, y servicios que suben o bajan. */
+  async monthly(userId: string, barbershopId: string, months = 12): Promise<MonthlyReportDto> {
+    await this.access.requireMember(userId, barbershopId);
+    const now = this.clock.now();
+    const keyOf = (d: Date) => new Date(d.getTime() - 5 * 3_600_000).toISOString().slice(0, 7);
+    const current = new Date(now - 5 * 3_600_000);
+    const keys: string[] = [];
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth() - i, 1));
+      keys.push(d.toISOString().slice(0, 7));
+    }
+    const yearAgoKey = (() => {
+      const d = new Date(Date.UTC(current.getUTCFullYear() - 1, current.getUTCMonth(), 1));
+      return d.toISOString().slice(0, 7);
+    })();
+    const from = new Date(
+      Date.UTC(Number(keys[0]!.slice(0, 4)), Number(keys[0]!.slice(5)) - 1, 1, 5),
+    );
+    const yearAgoFrom = new Date(
+      Date.UTC(current.getUTCFullYear() - 1, current.getUTCMonth(), 1, 5),
+    );
+    const since = from < yearAgoFrom ? from : yearAgoFrom;
+    const [bookings, sales] = await Promise.all([
+      this.prisma.booking.findMany({
+        where: { barbershopId, status: 'ATTENDED', startAt: { gte: since } },
+        select: {
+          startAt: true,
+          clientId: true,
+          subtotalAmount: true,
+          discountTotalAmount: true,
+          serviceNameSnapshot: true,
+        },
+      }),
+      this.prisma.localSale.findMany({
+        where: { barbershopId, status: 'COMPLETED', soldAt: { gte: since } },
+        select: {
+          soldAt: true,
+          totalAmount: true,
+          paymentMethod: true,
+          shopClientId: true,
+          shopClient: { select: { userId: true } },
+          lines: { select: { description: true, quantity: true } },
+        },
+      }),
+    ]);
+    // Primera visita de cada cliente (toda la historia) para separar nuevos de recurrentes.
+    const firsts = new Map<string, number>();
+    const prior = await this.prisma.booking.groupBy({
+      by: ['clientId'],
+      where: { barbershopId, status: 'ATTENDED' },
+      _min: { startAt: true },
+    });
+    for (const p of prior) firsts.set(`u:${p.clientId}`, p._min.startAt!.getTime());
+    const priorSales = await this.prisma.localSale.groupBy({
+      by: ['shopClientId'],
+      where: { barbershopId, status: 'COMPLETED', shopClientId: { not: null } },
+      _min: { soldAt: true },
+    });
+    for (const p of priorSales) {
+      const key = `c:${p.shopClientId}`;
+      firsts.set(key, Math.min(firsts.get(key) ?? Infinity, p._min.soldAt!.getTime()));
+    }
+
+    type Acc = {
+      app: number;
+      local: number;
+      count: number;
+      clients: Map<string, number>;
+      services: Map<string, number>;
+    };
+    const acc = new Map<string, Acc>();
+    const bucket = (k: string): Acc => {
+      let a = acc.get(k);
+      if (!a)
+        acc.set(k, (a = { app: 0, local: 0, count: 0, clients: new Map(), services: new Map() }));
+      return a;
+    };
+    for (const b of bookings) {
+      const a = bucket(keyOf(b.startAt));
+      a.app += b.subtotalAmount - b.discountTotalAmount;
+      a.count++;
+      a.clients.set(`u:${b.clientId}`, b.startAt.getTime());
+      a.services.set(b.serviceNameSnapshot, (a.services.get(b.serviceNameSnapshot) ?? 0) + 1);
+    }
+    for (const s of sales) {
+      const a = bucket(keyOf(s.soldAt));
+      a.local += s.paymentMethod === 'MEMBERSHIP_CREDIT' ? 0 : s.totalAmount;
+      a.count++;
+      const key = s.shopClient?.userId
+        ? `u:${s.shopClient.userId}`
+        : s.shopClientId
+          ? `c:${s.shopClientId}`
+          : null;
+      if (key) a.clients.set(key, s.soldAt.getTime());
+      for (const l of s.lines)
+        a.services.set(l.description, (a.services.get(l.description) ?? 0) + l.quantity);
+    }
+    const monthsDto: MonthReportDto[] = keys.map((k, i) => {
+      const a = acc.get(k) ?? {
+        app: 0,
+        local: 0,
+        count: 0,
+        clients: new Map<string, number>(),
+        services: new Map<string, number>(),
+      };
+      const total = a.app + a.local;
+      let fresh = 0;
+      for (const key of a.clients.keys()) {
+        const first = firsts.get(key);
+        if (first !== undefined && keyOf(new Date(first)) === k) fresh++;
+      }
+      const prevKey = keys[i - 1];
+      const prev = prevKey ? acc.get(prevKey) : undefined;
+      const prevTotal = prev ? prev.app + prev.local : 0;
+      return {
+        month: k,
+        appAmount: a.app,
+        localAmount: a.local,
+        totalAmount: total,
+        count: a.count,
+        averageTicket: a.count ? Math.round(total / a.count) : 0,
+        newClients: fresh,
+        returningClients: a.clients.size - fresh,
+        growthPct:
+          prevKey && prevTotal > 0
+            ? Math.round(((total - prevTotal) / prevTotal) * 1000) / 10
+            : null,
+      };
+    });
+    const withSales = monthsDto.filter((m) => m.totalAmount > 0);
+    const best = withSales.reduce<MonthReportDto | null>(
+      (b, m) => (!b || m.totalAmount > b.totalAmount ? m : b),
+      null,
+    );
+    const worst = withSales.reduce<MonthReportDto | null>(
+      (w, m) => (!w || m.totalAmount < w.totalAmount ? m : w),
+      null,
+    );
+    const last = monthsDto[monthsDto.length - 1]!;
+    const yearAgo = acc.get(yearAgoKey);
+    const yearAgoTotal = yearAgo ? yearAgo.app + yearAgo.local : 0;
+    const lastServices = acc.get(keys[keys.length - 1]!)?.services ?? new Map<string, number>();
+    const prevServices =
+      acc.get(keys[keys.length - 2] ?? '')?.services ?? new Map<string, number>();
+    const names = new Set([...lastServices.keys(), ...prevServices.keys()]);
+    const trends: ServiceTrendDto[] = [...names]
+      .map((name) => {
+        const cur = lastServices.get(name) ?? 0;
+        const prev = prevServices.get(name) ?? 0;
+        return {
+          name,
+          current: cur,
+          previous: prev,
+          changePct: prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null,
+        };
+      })
+      .sort((a, b) => Math.abs(b.current - b.previous) - Math.abs(a.current - a.previous))
+      .slice(0, 8);
+    return {
+      months: monthsDto,
+      bestMonth: best?.month ?? null,
+      worstMonth: worst?.month ?? null,
+      monthlyAverage: withSales.length
+        ? Math.round(withSales.reduce((s, m) => s + m.totalAmount, 0) / withSales.length)
+        : 0,
+      yearOverYearPct:
+        yearAgoTotal > 0
+          ? Math.round(((last.totalAmount - yearAgoTotal) / yearAgoTotal) * 1000) / 10
+          : null,
+      serviceTrends: trends,
+    };
+  }
+
+  /** Días y horas con más atenciones (reservas atendidas y ventas del local). Plan con reportes completos. */
+  async heatmap(userId: string, barbershopId: string, days = 90): Promise<HeatmapDto> {
+    await this.access.requireMember(userId, barbershopId);
+    await this.entitlements.assertFeature(barbershopId, 'reports_full');
+    const since = new Date(this.clock.now() - days * 86_400_000);
+    const rows = await this.prisma.$queryRaw<{ weekday: number; hour: number; count: number }[]>`
+      SELECT EXTRACT(DOW FROM at AT TIME ZONE 'America/Lima')::int AS weekday,
+             EXTRACT(HOUR FROM at AT TIME ZONE 'America/Lima')::int AS hour,
+             COUNT(*)::int AS count
+        FROM (
+          SELECT start_at AS at FROM bookings
+           WHERE barbershop_id = ${barbershopId}::uuid AND status = 'ATTENDED' AND start_at >= ${since}
+          UNION ALL
+          SELECT sold_at AS at FROM local_sales
+           WHERE barbershop_id = ${barbershopId}::uuid AND status = 'COMPLETED' AND sold_at >= ${since}
+        ) t
+       GROUP BY 1, 2`;
+    const byDay = new Map<number, number>();
+    const byHour = new Map<number, number>();
+    for (const r of rows) {
+      byDay.set(r.weekday, (byDay.get(r.weekday) ?? 0) + r.count);
+      byHour.set(r.hour, (byHour.get(r.hour) ?? 0) + r.count);
+    }
+    const top = (m: Map<number, number>) =>
+      [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    // Horas abiertas con menos movimiento: franjas del horario con 0–1 atenciones.
+    const hours = await this.prisma.businessHour.findMany({
+      where: { barbershopId },
+      select: { dayOfWeek: true, openTime: true, closeTime: true },
+    });
+    const count = new Map(rows.map((r) => [`${r.weekday}:${r.hour}`, r.count]));
+    const quiet: HeatmapCellDto[] = [];
+    for (const h of hours) {
+      for (let hour = h.openTime.getUTCHours(); hour < h.closeTime.getUTCHours(); hour++) {
+        const c = count.get(`${h.dayOfWeek}:${hour}`) ?? 0;
+        if (c <= 1) quiet.push({ weekday: h.dayOfWeek, hour, count: c });
+      }
+    }
+    return {
+      cells: rows.sort((a, b) => a.weekday - b.weekday || a.hour - b.hour),
+      busiestWeekday: top(byDay),
+      busiestHour: top(byHour),
+      quietSlots: quiet.slice(0, 20),
+      days,
+    };
+  }
+
+  /** La barbería frente a su zona (solo promedios; nunca datos de otra barbería con nombre). */
+  async market(userId: string, barbershopId: string, radiusKm = 5): Promise<MarketDto> {
+    await this.access.requireMember(userId, barbershopId);
+    await this.entitlements.assertFeature(barbershopId, 'reports_full');
+    const me = await this.prisma.barbershop.findUniqueOrThrow({
+      where: { id: barbershopId },
+      select: { districtId: true, ratingAvg: true, ratingCount: true },
+    });
+    const near = await this.prisma.$queryRaw<
+      { id: string; rating: number; rating_count: number }[]
+    >`
+      SELECT b.id::text AS id, b.rating_avg::float8 AS rating, b.rating_count
+        FROM barbershops b, barbershops me
+       WHERE me.id = ${barbershopId}::uuid AND b.id <> me.id AND b.deleted_at IS NULL
+         AND b.status IN ('OPEN', 'TEMPORARILY_CLOSED')
+         AND ST_DWithin(b.location, me.location, ${radiusKm * 1000}::float8)`;
+    const ids = near.map((n) => n.id);
+    const haircutWhere = {
+      deletedAt: null,
+      isAvailable: true,
+      category: { key: 'haircut' },
+    } as const;
+    const [zonePrice, myPrice, styles] = await Promise.all([
+      ids.length
+        ? this.prisma.service.aggregate({
+            where: { ...haircutWhere, barbershopId: { in: ids } },
+            _avg: { priceAmount: true },
+          })
+        : null,
+      this.prisma.service.aggregate({
+        where: { ...haircutWhere, barbershopId },
+        _avg: { priceAmount: true },
+      }),
+      ids.length
+        ? this.prisma.booking.groupBy({
+            by: ['styleId'],
+            where: {
+              barbershopId: { in: [...ids, barbershopId] },
+              status: 'ATTENDED',
+              styleId: { not: null },
+              startAt: { gte: new Date(this.clock.now() - 90 * 86_400_000) },
+            },
+            _count: { _all: true },
+            orderBy: { _count: { styleId: 'desc' } },
+            take: 5,
+          })
+        : [],
+    ]);
+    const styleRows = await this.prisma.serviceStyle.findMany({
+      where: { id: { in: styles.map((s) => s.styleId!).filter(Boolean) } },
+      select: { id: true, key: true, name: true },
+    });
+    const styleById = new Map(styleRows.map((s) => [s.id, s]));
+    const rated = near.filter((n) => n.rating_count > 0);
+    const myRating = me.ratingCount > 0 ? Number(me.ratingAvg) : null;
+    return {
+      radiusKm,
+      competitors: near.length,
+      zoneHaircutPrice: zonePrice?._avg.priceAmount ? Math.round(zonePrice._avg.priceAmount) : null,
+      myHaircutPrice: myPrice._avg.priceAmount ? Math.round(myPrice._avg.priceAmount) : null,
+      zoneRating: rated.length
+        ? Math.round((rated.reduce((s, n) => s + n.rating, 0) / rated.length) * 100) / 100
+        : null,
+      myRating,
+      myRatingRank: myRating === null ? null : rated.filter((n) => n.rating > myRating).length + 1,
+      topStyles: styles.flatMap((s) => {
+        const st = styleById.get(s.styleId!);
+        return st ? [{ key: st.key, name: st.name, count: s._count._all }] : [];
+      }),
+      location: locationOf(me.districtId),
     };
   }
 

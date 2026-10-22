@@ -1445,6 +1445,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/barbershops/{id}/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** OWNER o MANAGER: ¿se puede reservar? y, si no, por qué */
+        get: operations["ReadinessController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search/barbershops": {
         parameters: {
             query?: never;
@@ -1569,6 +1586,41 @@ export interface paths {
         put?: never;
         /** RF-PAG-002: aviso firmado de la pasarela (IPN). Idempotente por evento. */
         post: operations["PaymentsController_webhook_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/seller-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Estado de la cuenta de Mercado Pago vinculada (cobro directo) */
+        get: operations["SellerAccountsController_status_v1"];
+        put?: never;
+        post?: never;
+        /** OWNER: desvincular (los pagos vuelven a la cuenta de Charles) */
+        delete: operations["SellerAccountsController_disconnect_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/seller-account/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** OWNER: enlace para vincular la cuenta de Mercado Pago de la barbería */
+        post: operations["SellerAccountsController_connect_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3718,6 +3770,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/barbershops/{barbershopId}/job-offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** OWNER o MANAGER: ofertas directas enviadas (100 más recientes) */
+        get: operations["JobOffersController_list_v1"];
+        put?: never;
+        /** OWNER o MANAGER: ofrecer trabajo directamente a un barbero (por su perfil) */
+        post: operations["JobOffersController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{barbershopId}/job-offers/{offerId}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** OWNER o MANAGER: retirar una oferta pendiente */
+        post: operations["JobOffersController_withdraw_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/job-offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Barbero: ofertas de trabajo que recibí */
+        get: operations["JobOffersController_mine_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/job-offers/{offerId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Barbero: aceptar (entro al equipo de la barbería) */
+        post: operations["JobOffersController_accept_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/job-offers/{offerId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Barbero: rechazar */
+        post: operations["JobOffersController_reject_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/barbershops/{id}/videos": {
         parameters: {
             query?: never;
@@ -4046,6 +4184,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/barbershops/{id}/subscription/pay-with-balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Solo OWNER: pagar con el saldo a favor el periodo siguiente (o recuperar un plan vencido)
+         * @description Solo para planes contratados con paymentMethod=BALANCE. 409 INSUFFICIENT_BALANCE si no alcanza.
+         */
+        post: operations["BarbershopPlanController_payWithBalance_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/barbershops/{id}/subscription/cancel": {
         parameters: {
             query?: never;
@@ -4246,6 +4404,75 @@ export interface paths {
         put?: never;
         /** Solo ADMIN: sumar días de cortesía */
         post: operations["SubscriptionsAdminController_extend_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** OWNER o MANAGER: saldo a favor (disponible, pendiente y cobrado directo) */
+        get: operations["BalanceController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** OWNER o MANAGER: estado de cuenta (cobros, comisiones, devoluciones y movimientos) */
+        get: operations["BalanceController_statement_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Solo ADMIN: saldo de cada barbería (para liquidar) */
+        get: operations["BalanceAdminController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/balances/{barbershopId}/movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Solo ADMIN: movimientos del saldo de una barbería */
+        get: operations["BalanceAdminController_movements_v1"];
+        put?: never;
+        /** Solo ADMIN: registrar una transferencia (PAYOUT) o un ajuste */
+        post: operations["BalanceAdminController_create_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4725,6 +4952,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/barbershops/{id}/reports/monthly": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ventas por mes (app y local), crecimiento, mejor y peor mes, servicios en alza */
+        get: operations["ShopController_monthly_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/reports/heatmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Días y horas con más atenciones, y horas tranquilas (plan con reportes completos) */
+        get: operations["ShopController_heatmap_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/barbershops/{id}/reports/market": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tu barbería frente a su zona: precios, valoración y cortes más pedidos (promedios) */
+        get: operations["ShopController_market_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/barbershops/{id}/reports/sales.csv": {
         parameters: {
             query?: never;
@@ -4752,6 +5030,74 @@ export interface paths {
         get?: never;
         /** Solo OWNER: comisión del barbero sobre sus atenciones (para reportes) */
         put: operations["ShopController_commission_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/locations/departments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Departamentos del Perú */
+        get: operations["LocationsController_departments_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/locations/provinces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Provincias (de un departamento, o todas) */
+        get: operations["LocationsController_provinces_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/locations/districts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Distritos (filtra por departamento, provincia o nombre; máximo 300) */
+        get: operations["LocationsController_districts_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/locations/districts/{ubigeo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Un distrito por su UBIGEO */
+        get: operations["LocationsController_district_v1"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -5068,6 +5414,11 @@ export interface components {
             number: string;
         };
         CreateBarbershopDto: {
+            /**
+             * @description Distrito (UBIGEO del INEI, ver /locations). Si no se envía, se toma el más cercano a latitude/longitude.
+             * @example 211101
+             */
+            ubigeo?: string;
             /** @example Barbería Central */
             name: string;
             description?: string | null;
@@ -5095,6 +5446,19 @@ export interface components {
             websiteUrl?: string | null;
             instagramUrl?: string | null;
             facebookUrl?: string | null;
+        };
+        LocationDto: {
+            /**
+             * @description Código UBIGEO del distrito (INEI).
+             * @example 211101
+             */
+            ubigeo: string;
+            /** @example Juliaca */
+            district: string;
+            /** @example San Roman */
+            province: string;
+            /** @example Puno */
+            department: string;
         };
         /**
          * @description BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero).
@@ -5139,6 +5503,8 @@ export interface components {
             longitude: number;
             /** @example America/Lima */
             timezone: string;
+            /** @description Distrito, provincia y departamento. */
+            location: components["schemas"]["LocationDto"] | null;
             /** @description BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero). */
             type: components["schemas"]["BarbershopType"];
             /** @description Teléfono del negocio. */
@@ -5164,6 +5530,11 @@ export interface components {
             ownerRoleGranted: boolean;
         };
         CreateIndependentDto: {
+            /**
+             * @description Distrito (UBIGEO del INEI, ver /locations). Si no se envía, se toma el más cercano a latitude/longitude.
+             * @example 211101
+             */
+            ubigeo?: string;
             /** @example Barbería Central */
             name: string;
             description?: string | null;
@@ -5205,6 +5576,8 @@ export interface components {
             longitude: number;
             /** @example America/Lima */
             timezone: string;
+            /** @description Distrito, provincia y departamento. */
+            location: components["schemas"]["LocationDto"] | null;
             /** @description BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero). */
             type: components["schemas"]["BarbershopType"];
             /** @description Teléfono del negocio. */
@@ -5246,6 +5619,8 @@ export interface components {
             longitude: number;
             /** @example America/Lima */
             timezone: string;
+            /** @description Distrito, provincia y departamento. */
+            location: components["schemas"]["LocationDto"] | null;
             /** @description BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero). */
             type: components["schemas"]["BarbershopType"];
             /** @description Teléfono del negocio. */
@@ -5264,6 +5639,11 @@ export interface components {
             isFavorite: boolean;
         };
         UpdateBarbershopDto: {
+            /**
+             * @description Distrito (UBIGEO del INEI, ver /locations). Si no se envía, se toma el más cercano a latitude/longitude.
+             * @example 211101
+             */
+            ubigeo?: string;
             /** @example Barbería Central */
             name?: string;
             description?: string | null;
@@ -5300,6 +5680,8 @@ export interface components {
             longitude: number;
             /** @example America/Lima */
             timezone: string;
+            /** @description Distrito, provincia y departamento. */
+            location: components["schemas"]["LocationDto"] | null;
             /** @description BARBERSHOP: barbería. INDEPENDENT: barbero independiente (un solo barbero). */
             type: components["schemas"]["BarbershopType"];
             /** @description Teléfono del negocio. */
@@ -6189,6 +6571,27 @@ export interface components {
             /** @description Solo lo ven los responsables y el propio barbero. */
             reason?: string;
         };
+        ReadinessIssueDto: {
+            /** @enum {string} */
+            code: "NOT_PUBLISHED" | "NO_BUSINESS_HOURS" | "NO_SERVICES" | "NO_ACTIVE_BARBERS" | "BARBER_WITHOUT_SERVICES" | "INVITATION_PENDING" | "BARBERS_SUSPENDED_BY_PLAN";
+            /**
+             * @description BLOCKING impide reservar; WARNING es un aviso.
+             * @enum {string}
+             */
+            severity: "BLOCKING" | "WARNING";
+            /** @description Texto para mostrar al dueño. */
+            message: string;
+            /** Format: uuid */
+            barberId: string | null;
+            barberName: string | null;
+        };
+        ReadinessDto: {
+            /** @description Se puede reservar: publicada, con horario, servicios y al menos un barbero listo. */
+            ready: boolean;
+            /** @description Barberos que ya reciben reservas (activos y con servicios). */
+            bookableBarbers: number;
+            issues: components["schemas"]["ReadinessIssueDto"][];
+        };
         SearchRatingDto: {
             /** @description null si no tiene valoraciones. */
             average: number | null;
@@ -6365,6 +6768,25 @@ export interface components {
             received: boolean;
             /** @description true si el evento ya se había recibido (no se aplica de nuevo). */
             duplicate: boolean;
+        };
+        SellerAccountDto: {
+            /**
+             * @description CONNECTED: los pagos de reservas van directo a la cuenta de la barbería.
+             * @enum {string}
+             */
+            status: "NOT_CONNECTED" | "PENDING" | "CONNECTED" | "REVOKED";
+            /** @example MERCADOPAGO */
+            provider: string;
+            /** @description ID de la cuenta en Mercado Pago. */
+            providerUserId: string | null;
+            /** Format: date-time */
+            connectedAt: string | null;
+        };
+        SellerConnectDto: {
+            /** @description Abrir en el navegador: el dueño autoriza en Mercado Pago y vuelve. */
+            authorizationUrl: string;
+            /** Format: date-time */
+            expiresAt: string;
         };
         CreateBookingDto: {
             /** Format: uuid */
@@ -7805,6 +8227,8 @@ export interface components {
             photoUrl: string | null;
             yearsExperience: number | null;
             district: string | null;
+            /** @description Distrito de la lista fija. */
+            location: components["schemas"]["LocationDto"] | null;
             availableForWork: boolean;
             /** @description null sin valoraciones. */
             ratingAverage: number | null;
@@ -7828,6 +8252,11 @@ export interface components {
             yearsExperience?: number | null;
             /** @example Miraflores */
             district?: string | null;
+            /**
+             * @description Distrito de la lista fija (UBIGEO, ver /locations). Reemplaza a `district` (texto libre).
+             * @example 211101
+             */
+            ubigeo?: string | null;
             /** @description Aparece en la búsqueda de barberos para las barberías ("disponible para trabajar"). */
             availableForWork?: boolean;
         };
@@ -7875,12 +8304,16 @@ export interface components {
             headline: string | null;
             photoUrl: string | null;
             district: string | null;
+            /** @description Distrito de la lista fija. */
+            location: components["schemas"]["LocationDto"] | null;
             ratingAverage: number | null;
             ratingCount: number;
             attendedCount: number;
             /** @description Puntaje del ranking (promedio bayesiano, 0 a 5). */
             score: number;
             availableForWork: boolean;
+            /** @description Km desde el punto pedido (lat/lng): su barbería actual o el centro de su distrito. */
+            distanceKm: number | null;
             specialties: components["schemas"]["StyleRefDto"][];
             /** @description Barberías donde trabaja hoy. */
             currentBarbershops: string[];
@@ -8042,6 +8475,20 @@ export interface components {
             employmentType: "FULL_TIME" | "PART_TIME" | "WEEKENDS" | "COMMISSION" | "FREELANCE";
             compensationText: string | null;
             styles: components["schemas"]["StyleRefDto"][];
+            payMin: number | null;
+            payMax: number | null;
+            /** @enum {string|null} */
+            payType: "FIXED" | "COMMISSION" | "MIXED" | "PER_SERVICE" | null;
+            /** @enum {string|null} */
+            payPeriod: "DAY" | "WEEK" | "BIWEEKLY" | "MONTH" | "PER_SERVICE" | null;
+            negotiable: boolean;
+            location: components["schemas"]["LocationDto"] | null;
+            requirements: string[];
+            /** @enum {string|null} */
+            selectionProcess: "INTERVIEW" | "TRIAL" | "DIRECT" | null;
+            schedule: string | null;
+            /** @description Km desde el punto pedido (lat/lng). */
+            distanceKm: number | null;
             /**
              * @description CLOSED también si pasó closesAt.
              * @enum {string}
@@ -8093,6 +8540,45 @@ export interface components {
             createdAt: string;
         };
         CreateJobPostingDto: {
+            /**
+             * @description Pago mínimo (céntimos).
+             * @example 120000
+             */
+            payMin?: number | null;
+            /**
+             * @description Pago máximo (céntimos).
+             * @example 200000
+             */
+            payMax?: number | null;
+            /**
+             * @description Fijo, comisión, mixto o por servicio.
+             * @enum {string|null}
+             */
+            payType?: "FIXED" | "COMMISSION" | "MIXED" | "PER_SERVICE" | null;
+            /** @enum {string|null} */
+            payPeriod?: "DAY" | "WEEK" | "BIWEEKLY" | "MONTH" | "PER_SERVICE" | null;
+            /** @example Lunes a sábado de 9:00 a 20:00 */
+            schedule?: string | null;
+            /** @description El pago es negociable. */
+            negotiable?: boolean;
+            /**
+             * @description Distrito (UBIGEO). Por defecto, el de la barbería.
+             * @example 211101
+             */
+            ubigeo?: string | null;
+            /**
+             * @description Requisitos (hasta 20).
+             * @example [
+             *       "2 años de experiencia",
+             *       "Manejo de fades"
+             *     ]
+             */
+            requirements?: string[];
+            /**
+             * @description Entrevista, prueba práctica o contratación directa.
+             * @enum {string|null}
+             */
+            selectionProcess?: "INTERVIEW" | "TRIAL" | "DIRECT" | null;
             /** @example Barbero con experiencia en degradados */
             title: string;
             description: string;
@@ -8109,6 +8595,45 @@ export interface components {
             closesAt?: string;
         };
         UpdateJobPostingDto: {
+            /**
+             * @description Pago mínimo (céntimos).
+             * @example 120000
+             */
+            payMin?: number | null;
+            /**
+             * @description Pago máximo (céntimos).
+             * @example 200000
+             */
+            payMax?: number | null;
+            /**
+             * @description Fijo, comisión, mixto o por servicio.
+             * @enum {string|null}
+             */
+            payType?: "FIXED" | "COMMISSION" | "MIXED" | "PER_SERVICE" | null;
+            /** @enum {string|null} */
+            payPeriod?: "DAY" | "WEEK" | "BIWEEKLY" | "MONTH" | "PER_SERVICE" | null;
+            /** @example Lunes a sábado de 9:00 a 20:00 */
+            schedule?: string | null;
+            /** @description El pago es negociable. */
+            negotiable?: boolean;
+            /**
+             * @description Distrito (UBIGEO). Por defecto, el de la barbería.
+             * @example 211101
+             */
+            ubigeo?: string | null;
+            /**
+             * @description Requisitos (hasta 20).
+             * @example [
+             *       "2 años de experiencia",
+             *       "Manejo de fades"
+             *     ]
+             */
+            requirements?: string[];
+            /**
+             * @description Entrevista, prueba práctica o contratación directa.
+             * @enum {string|null}
+             */
+            selectionProcess?: "INTERVIEW" | "TRIAL" | "DIRECT" | null;
             title?: string;
             description?: string;
             /** @enum {string} */
@@ -8142,6 +8667,73 @@ export interface components {
              * @description Vínculo creado (pendiente de que acepte).
              */
             barberId: string;
+        };
+        CreateJobOfferDto: {
+            /**
+             * @description Pago mínimo (céntimos).
+             * @example 120000
+             */
+            payMin?: number | null;
+            /**
+             * @description Pago máximo (céntimos).
+             * @example 200000
+             */
+            payMax?: number | null;
+            /**
+             * @description Fijo, comisión, mixto o por servicio.
+             * @enum {string|null}
+             */
+            payType?: "FIXED" | "COMMISSION" | "MIXED" | "PER_SERVICE" | null;
+            /** @enum {string|null} */
+            payPeriod?: "DAY" | "WEEK" | "BIWEEKLY" | "MONTH" | "PER_SERVICE" | null;
+            /** @example Lunes a sábado de 9:00 a 20:00 */
+            schedule?: string | null;
+            /**
+             * Format: uuid
+             * @description Perfil profesional del barbero.
+             */
+            barberProfileId: string;
+            /** @example Barbero para el turno tarde */
+            title: string;
+            message?: string;
+            /** @enum {string} */
+            employmentType: "FULL_TIME" | "PART_TIME" | "WEEKENDS" | "COMMISSION" | "FREELANCE";
+            /**
+             * @description Días para responder.
+             * @default 7
+             */
+            expiresInDays: number;
+        };
+        JobOfferDto: {
+            /** Format: uuid */
+            id: string;
+            barbershop: components["schemas"]["JobBarbershopDto"];
+            /** Format: uuid */
+            barberProfileId: string;
+            barberName: string;
+            title: string;
+            message: string | null;
+            /** @enum {string} */
+            employmentType: "FULL_TIME" | "PART_TIME" | "WEEKENDS" | "COMMISSION" | "FREELANCE";
+            payMin: number | null;
+            payMax: number | null;
+            /** @enum {string|null} */
+            payType: "FIXED" | "COMMISSION" | "MIXED" | "PER_SERVICE" | null;
+            /** @enum {string|null} */
+            payPeriod: "DAY" | "WEEK" | "BIWEEKLY" | "MONTH" | "PER_SERVICE" | null;
+            schedule: string | null;
+            /** @enum {string} */
+            status: "PENDING" | "ACCEPTED" | "REJECTED" | "WITHDRAWN" | "EXPIRED";
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            respondedAt: string | null;
+            responseNote: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AnswerJobOfferDto: {
+            note?: string;
         };
         VideoDto: {
             /** Format: uuid */
@@ -8520,6 +9112,12 @@ export interface components {
              * @default false
              */
             replace: boolean;
+            /**
+             * @description GATEWAY: enlace de pago por correo (Mercado Pago). BALANCE: se paga al instante con el saldo a favor de la barbería (sin prueba gratis) y se renueva sola con el saldo; si no alcanza, queda PAST_DUE. 409 INSUFFICIENT_BALANCE si no alcanza.
+             * @default GATEWAY
+             * @enum {string}
+             */
+            paymentMethod: "GATEWAY" | "BALANCE";
         };
         CancelSubscriptionDto: {
             reason?: string;
@@ -8719,6 +9317,95 @@ export interface components {
             reason: string;
             /** @description Días de cortesía que se suman al periodo actual. */
             days: number;
+        };
+        BalanceDto: {
+            /** @description Saldo a favor disponible (céntimos): se puede liquidar o usar para pagar el plan. */
+            available: number;
+            /** @description Cobrado por Charles de reservas aún no atendidas (se libera al atender). */
+            pending: number;
+            /** @description Cobrado directo en tu cuenta de Mercado Pago (no pasa por el saldo). */
+            paidDirect: number;
+            /** @example PEN */
+            currency: string;
+            /** @description true si la barbería tiene su cuenta de Mercado Pago vinculada. */
+            sellerConnected: boolean;
+        };
+        StatementLineDto: {
+            /** Format: date-time */
+            at: string;
+            /**
+             * @description BOOKING: reserva cobrada por Charles (suma al saldo al atenderse). BOOKING_DIRECT: cobrada en tu cuenta de Mercado Pago (informativa). REFUND: devolución. MEMBERSHIP: cobro de membresía. SUBSCRIPTION_PAYMENT: plan pagado con saldo. PAYOUT: transferencia de Charles. ADJUSTMENT: ajuste.
+             * @enum {string}
+             */
+            kind: "BOOKING" | "BOOKING_DIRECT" | "REFUND" | "MEMBERSHIP" | "SUBSCRIPTION_PAYMENT" | "PAYOUT" | "ADJUSTMENT";
+            description: string;
+            /** @description Monto cobrado al cliente (céntimos; 0 en movimientos). */
+            gross: number;
+            /** @description Comisión de Charles (céntimos). */
+            commission: number;
+            /** @description Efecto en tu saldo (con signo; 0 si no lo afecta). */
+            net: number;
+            /**
+             * @description Quién recibió el dinero.
+             * @enum {string}
+             */
+            payee: "PLATFORM" | "SELLER" | "NONE";
+            /** @enum {string} */
+            state: "AVAILABLE" | "PENDING" | "INFO";
+            /** Format: uuid */
+            bookingId: string | null;
+        };
+        StatementDto: {
+            balance: components["schemas"]["BalanceDto"];
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** @description Total cobrado en el periodo (céntimos). */
+            gross: number;
+            /** @description Comisiones de Charles en el periodo. */
+            commission: number;
+            /** @description Neto de la barbería en el periodo. */
+            net: number;
+            /** @description Del más reciente al más antiguo (máx. 500). */
+            lines: components["schemas"]["StatementLineDto"][];
+        };
+        AdminBalanceDto: {
+            /** @description Saldo a favor disponible (céntimos): se puede liquidar o usar para pagar el plan. */
+            available: number;
+            /** @description Cobrado por Charles de reservas aún no atendidas (se libera al atender). */
+            pending: number;
+            /** @description Cobrado directo en tu cuenta de Mercado Pago (no pasa por el saldo). */
+            paidDirect: number;
+            /** @example PEN */
+            currency: string;
+            /** @description true si la barbería tiene su cuenta de Mercado Pago vinculada. */
+            sellerConnected: boolean;
+            /** Format: uuid */
+            barbershopId: string;
+            barbershopName: string;
+            /** Format: date-time */
+            lastPayoutAt: string | null;
+        };
+        BalanceMovementDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "SUBSCRIPTION_PAYMENT" | "PAYOUT" | "ADJUSTMENT";
+            amount: number;
+            reference: string | null;
+            note: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CreateBalanceMovementDto: {
+            /** @enum {string} */
+            type: "PAYOUT" | "ADJUSTMENT";
+            /** @description Céntimos. PAYOUT: monto transferido (positivo; se descuenta). ADJUSTMENT: con signo. */
+            amount: number;
+            /** @description N.º de operación de la transferencia. */
+            reference?: string;
+            note?: string;
         };
         MembershipPlanServiceDto: {
             /** Format: uuid */
@@ -9193,8 +9880,98 @@ export interface components {
             /** @description El plan incluye reportes completos. */
             full: boolean;
         };
+        MonthReportDto: {
+            /** @example 2026-10 */
+            month: string;
+            appAmount: number;
+            localAmount: number;
+            totalAmount: number;
+            count: number;
+            averageTicket: number;
+            newClients: number;
+            returningClients: number;
+            /** @description % contra el mes anterior. */
+            growthPct: number | null;
+        };
+        ServiceTrendDto: {
+            name: string;
+            /** @description Atenciones del último mes. */
+            current: number;
+            /** @description Atenciones del mes anterior. */
+            previous: number;
+            changePct: number | null;
+        };
+        MonthlyReportDto: {
+            /** @description Del más antiguo al actual. */
+            months: components["schemas"]["MonthReportDto"][];
+            /** @example 2026-08 */
+            bestMonth: string | null;
+            worstMonth: string | null;
+            /** @description Promedio mensual (céntimos). */
+            monthlyAverage: number;
+            /** @description % del mes actual contra el mismo mes del año pasado. */
+            yearOverYearPct: number | null;
+            /** @description Servicios que más suben y bajan. */
+            serviceTrends: components["schemas"]["ServiceTrendDto"][];
+        };
+        HeatmapCellDto: {
+            /** @description 0 = domingo … 6 = sábado. */
+            weekday: number;
+            /** @description Hora de Lima (0–23). */
+            hour: number;
+            count: number;
+        };
+        HeatmapDto: {
+            /** @description Solo celdas con atenciones. */
+            cells: components["schemas"]["HeatmapCellDto"][];
+            busiestWeekday: number | null;
+            busiestHour: number | null;
+            /** @description Horas abiertas con menos movimiento (para promociones). */
+            quietSlots: components["schemas"]["HeatmapCellDto"][];
+            days: number;
+        };
+        MarketStyleDto: {
+            key: string;
+            name: string;
+            count: number;
+        };
+        MarketDto: {
+            radiusKm: number;
+            /** @description Otras barberías visibles en el radio. */
+            competitors: number;
+            /** @description Precio promedio del corte en la zona (céntimos). */
+            zoneHaircutPrice: number | null;
+            /** @description Tu precio promedio de corte. */
+            myHaircutPrice: number | null;
+            /** @description Valoración promedio de la zona. */
+            zoneRating: number | null;
+            myRating: number | null;
+            /** @description Tu puesto por valoración en la zona (1 = mejor). */
+            myRatingRank: number | null;
+            /** @description Cortes más reservados en la zona (90 días). */
+            topStyles: components["schemas"]["MarketStyleDto"][];
+            location: components["schemas"]["LocationDto"] | null;
+        };
         BarberCommissionDto: {
             commissionBp: number | null;
+        };
+        ProvinceDto: {
+            /** @example Puno */
+            department: string;
+            /** @example San Roman */
+            province: string;
+        };
+        DistrictDto: {
+            /** @example 211101 */
+            ubigeo: string;
+            /** @example Puno */
+            department: string;
+            /** @example San Roman */
+            province: string;
+            /** @example Juliaca */
+            district: string;
+            latitude: number | null;
+            longitude: number | null;
         };
     };
     responses: never;
@@ -12958,6 +13735,35 @@ export interface operations {
             };
         };
     };
+    ReadinessController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     SearchController_barbershops_v1: {
         parameters: {
             query?: {
@@ -13301,6 +14107,67 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    SellerAccountsController_status_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SellerAccountDto"];
+                };
+            };
+        };
+    };
+    SellerAccountsController_disconnect_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SellerAccountsController_connect_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SellerConnectDto"];
                 };
             };
         };
@@ -17556,7 +18423,15 @@ export interface operations {
                 /** @description Desplazamiento (paginación). */
                 offset?: number;
                 limit?: number;
-                sort?: "ranking" | "newest";
+                /** @description Provincia (lista fija; sin tildes ni mayúsculas). */
+                province?: string;
+                /** @description Con lng: barberos cerca de este punto (y su distancia). */
+                lat?: number;
+                lng?: number;
+                /** @description Radio en km (con lat y lng). */
+                radiusKm?: number;
+                /** @description distance: el más cercano primero (requiere lat y lng). */
+                sort?: "ranking" | "newest" | "distance";
             };
             header?: never;
             path?: never;
@@ -18185,6 +19060,16 @@ export interface operations {
                 employmentType?: "FULL_TIME" | "PART_TIME" | "WEEKENDS" | "COMMISSION" | "FREELANCE";
                 /** @description Texto en la dirección de la barbería (distrito, ciudad). */
                 area?: string;
+                /** @description Distrito (UBIGEO) de la oferta. */
+                ubigeo?: string;
+                /** @description Provincia (lista fija). */
+                province?: string;
+                /** @description Con lng: ofertas cerca de este punto (y su distancia). */
+                lat?: number;
+                lng?: number;
+                radiusKm?: number;
+                /** @description distance: la más cercana primero (requiere lat y lng; sin paginación, hasta 50). */
+                sort?: "recent" | "distance";
                 cursor?: string;
                 limit?: number;
             };
@@ -18528,6 +19413,208 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InvitedBarberDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    JobOffersController_list_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                barbershopId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOfferDto"][];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    JobOffersController_create_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                barbershopId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateJobOfferDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOfferDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description Ya trabaja aquí o ya tiene una oferta pendiente. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    JobOffersController_withdraw_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                barbershopId: string;
+                offerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOfferDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    JobOffersController_mine_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOfferDto"][];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    JobOffersController_accept_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                offerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerJobOfferDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOfferDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    JobOffersController_reject_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                offerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerJobOfferDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOfferDto"];
                 };
             };
             404: {
@@ -19170,6 +20257,44 @@ export interface operations {
             };
         };
     };
+    BarbershopPlanController_payWithBalance_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description INSUFFICIENT_BALANCE */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     BarbershopPlanController_cancel_v1: {
         parameters: {
             query?: never;
@@ -19689,6 +20814,182 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminSubscriptionDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BalanceController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BalanceDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BalanceController_statement_v1: {
+        parameters: {
+            query?: {
+                /** @description Por defecto, hace 30 días. */
+                from?: string;
+                /** @description Por defecto, ahora. */
+                to?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatementDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BalanceAdminController_list_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBalanceDto"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BalanceAdminController_movements_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                barbershopId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BalanceMovementDto"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BalanceAdminController_create_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                barbershopId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBalanceMovementDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BalanceMovementDto"];
                 };
             };
             403: {
@@ -20971,6 +22272,126 @@ export interface operations {
             };
         };
     };
+    ShopController_monthly_v1: {
+        parameters: {
+            query?: {
+                months?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonthlyReportDto"];
+                };
+            };
+            /** @description PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ShopController_heatmap_v1: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeatmapDto"];
+                };
+            };
+            /** @description PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ShopController_market_v1: {
+        parameters: {
+            query?: {
+                radiusKm?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketDto"];
+                };
+            };
+            /** @description PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     ShopController_reportCsv_v1: {
         parameters: {
             query: {
@@ -21053,6 +22474,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    LocationsController_departments_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    LocationsController_provinces_v1: {
+        parameters: {
+            query?: {
+                department?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProvinceDto"][];
+                };
+            };
+        };
+    };
+    LocationsController_districts_v1: {
+        parameters: {
+            query?: {
+                department?: string;
+                province?: string;
+                /** @description Busca por nombre del distrito (sin tildes). */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistrictDto"][];
+                };
+            };
+        };
+    };
+    LocationsController_district_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ubigeo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistrictDto"];
                 };
             };
         };

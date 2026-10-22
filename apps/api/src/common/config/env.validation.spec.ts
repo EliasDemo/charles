@@ -126,6 +126,8 @@ describe('validateEnv', () => {
           accessToken: 'TEST-123',
           webhookSecret: 'secreto-real',
           apiUrl: 'https://api.mercadopago.com',
+          clientId: null,
+          clientSecret: null,
         });
       });
     });

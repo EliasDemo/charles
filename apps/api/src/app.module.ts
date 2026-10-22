@@ -50,6 +50,8 @@ import { EntitlementsModule } from './modules/plans/entitlements.module';
 import { PlansModule } from './modules/plans/plans.module';
 import { MembershipsModule } from './modules/memberships/memberships.module';
 import { ShopModule } from './modules/shop/shop.module';
+import { BalanceModule } from './modules/balance/balance';
+import { LocationsModule } from './modules/locations/locations.module';
 
 @Module({
   imports: [
@@ -104,6 +106,8 @@ import { ShopModule } from './modules/shop/shop.module';
     PlansModule,
     MembershipsModule,
     ShopModule,
+    BalanceModule,
+    LocationsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

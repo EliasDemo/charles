@@ -176,6 +176,12 @@ describe('RF-BAR-001…004 Gestión de barberías (e2e)', () => {
         closure: null,
         links: { website: null, instagram: 'https://www.instagram.com/barberia', facebook: null },
         rating: { average: 0, count: 0 },
+        location: {
+          ubigeo: expect.any(String),
+          district: 'Miraflores',
+          province: 'Lima',
+          department: 'Lima',
+        },
       });
       expect(JSON.stringify(res.body)).not.toMatch(/10467793549|ownerDocument/);
     });

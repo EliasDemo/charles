@@ -18,6 +18,8 @@ import {
   type BookingContext,
   planAccountDeletion,
   planApplicationUpdate,
+  planJobOfferAnswered,
+  planJobOfferReceived,
   planMembershipNotice,
   planSubscriptionNotice,
   planJobApplication,
@@ -64,6 +66,8 @@ export const NOTIFICATION_EVENTS = [
   'job.application_updated',
   'billing.subscription',
   'billing.membership',
+  'job.offer_created',
+  'job.offer_answered',
 ] as const;
 
 /** Avisos que recibe una cuenta aunque no esté activa (seguridad de la propia cuenta). */
@@ -241,6 +245,35 @@ export class NotificationsService implements OnModuleInit {
           barbershopName: shop.name,
           outcome: message.type === 'barbershop.review_approved' ? 'APPROVED' : 'CHANGES_REQUESTED',
           reason: shop.reviewNotes,
+        });
+      }
+      case 'job.offer_created':
+      case 'job.offer_answered': {
+        const offer = await this.prisma.jobOffer.findUnique({
+          where: { id: id('offerId') ?? '' },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            barbershop: { select: { name: true, members: { select: { userId: true } } } },
+            barberProfile: { select: { userId: true, displayName: true } },
+          },
+        });
+        if (!offer) return [];
+        if (message.type === 'job.offer_created') {
+          return planJobOfferReceived({
+            userId: offer.barberProfile.userId,
+            offerId: offer.id,
+            barbershopName: offer.barbershop.name,
+            title: offer.title,
+          });
+        }
+        return planJobOfferAnswered({
+          userIds: offer.barbershop.members.map((m) => m.userId),
+          offerId: offer.id,
+          barberName: offer.barberProfile.displayName,
+          title: offer.title,
+          accepted: offer.status === 'ACCEPTED',
         });
       }
       case 'billing.subscription': {

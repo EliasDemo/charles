@@ -23,6 +23,7 @@ import {
   type BillingSubscriptionEvent,
   BillingWebhooksService,
 } from '../billing/billing-webhooks.service';
+import { BalanceService, insufficient } from '../balance/balance';
 import { SettingKey, SettingsService } from '../settings/settings.service';
 import { UsersService } from '../users/users.service';
 import type {
@@ -50,6 +51,8 @@ type Tx = Prisma.TransactionClient;
 /** Un enlace de pago sin usar vence a los 7 días. */
 const PENDING_TTL_MS = 7 * DAY_MS;
 const BACK_PATH = '/api/v1/payments/done?status=pending';
+/** Proveedor de las suscripciones pagadas con el saldo a favor (sin pasarela). */
+export const BALANCE_PROVIDER = 'BALANCE';
 
 export type SubscriptionNotice =
   | 'checkout_ready'
@@ -96,6 +99,7 @@ export class SubscriptionsService implements OnModuleInit {
     @Inject(BILLING_GATEWAY) private readonly gateway: BillingGateway,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     @Inject(CLOCK) private readonly clock: Clock,
+    private readonly balance: BalanceService,
   ) {}
 
   onModuleInit(): void {
@@ -253,6 +257,14 @@ export class SubscriptionsService implements OnModuleInit {
         HttpStatus.CONFLICT,
       );
     }
+    if (dto.paymentMethod === 'BALANCE') {
+      return this.subscribeWithBalance(actor, barbershopId, {
+        plan,
+        interval,
+        price,
+        replaces: live?.id ?? null,
+      });
+    }
     const email = await this.users.contactEmail(actor.userId);
     if (!email) throw notFound();
     // Prueba gratis: solo la primera vez que la barbería prueba un plan.
@@ -326,6 +338,195 @@ export class SubscriptionsService implements OnModuleInit {
       await this.notice(tx, sub.id, 'checkout_ready');
     });
     return toSubscriptionDto(await this.load(sub.id));
+  }
+
+  // ───────────── Pago con el saldo a favor ─────────────
+
+  private async subscribeWithBalance(
+    actor: { userId: string; ip?: string | null },
+    barbershopId: string,
+    input: {
+      plan: { id: string; code: string; currency: string };
+      interval: 'MONTHLY' | 'YEARLY';
+      price: number;
+      replaces: string | null;
+    },
+  ): Promise<SubscriptionDto> {
+    const now = new Date(this.clock.now());
+    const { id, replaced } = await this.prisma.$transaction(async (tx) => {
+      const available = await this.balance.lockAvailable(tx, barbershopId);
+      if (available < input.price) throw insufficient(available);
+      let replaced: string | null = null;
+      if (input.replaces) {
+        const old = await tx.subscription.findUnique({
+          where: { id: input.replaces },
+          select: { providerSubscriptionId: true },
+        });
+        replaced = old?.providerSubscriptionId ?? null;
+        await tx.subscription.updateMany({
+          where: {
+            id: input.replaces,
+            status: { in: ['TRIALING', 'ACTIVE', 'PAST_DUE', 'CANCELED'] },
+          },
+          data: { status: 'EXPIRED', endedAt: now, cancelReason: 'Reemplazada por otro plan' },
+        });
+      }
+      await tx.subscription.updateMany({
+        where: { barbershopId, status: 'PENDING' },
+        data: { status: 'EXPIRED', endedAt: now },
+      });
+      const created = await tx.subscription.create({
+        data: {
+          planId: input.plan.id,
+          barbershopId,
+          payerUserId: actor.userId,
+          interval: input.interval,
+          priceAmount: input.price,
+          currency: input.plan.currency,
+          provider: BALANCE_PROVIDER,
+          status: 'ACTIVE',
+          currentPeriodStart: now,
+          currentPeriodEnd: addMonths(now, input.interval === 'YEARLY' ? 12 : 1),
+          metadata: {
+            paidWithBalance: true,
+            ...(input.replaces ? { replaces: input.replaces } : {}),
+          },
+        },
+        select: { id: true },
+      });
+      await this.chargeBalanceInTx(
+        tx,
+        created.id,
+        barbershopId,
+        input.price,
+        input.plan.currency,
+        now,
+      );
+      await this.audit.record(
+        {
+          actorId: actor.userId,
+          action: 'subscription.paid_with_balance',
+          entityType: 'subscription',
+          entityId: created.id,
+          changes: { plan: input.plan.code, interval: input.interval, amount: input.price },
+          ip: actor.ip ?? null,
+        },
+        tx,
+      );
+      await this.notice(tx, created.id, 'activated');
+      return { id: created.id, replaced };
+    });
+    if (replaced) {
+      await this.cancelAtProvider(replaced).catch((error: unknown) =>
+        this.logger.warn(
+          `No se pudo cancelar la suscripción reemplazada: ${(error as Error).message}`,
+        ),
+      );
+    }
+    this.entitlements.invalidate(barbershopId);
+    await this.enforcement.apply(barbershopId);
+    return toSubscriptionDto(await this.load(id));
+  }
+
+  /** Descuenta el periodo del saldo: movimiento negativo y cobro PAID (proveedor BALANCE). */
+  private async chargeBalanceInTx(
+    tx: Tx,
+    subscriptionId: string,
+    barbershopId: string,
+    amount: number,
+    currency: string,
+    now: Date,
+  ): Promise<void> {
+    const movement = await tx.balanceMovement.create({
+      data: { barbershopId, type: 'SUBSCRIPTION_PAYMENT', amount: -amount, subscriptionId },
+      select: { id: true },
+    });
+    await tx.billingCharge.create({
+      data: {
+        purpose: 'SUBSCRIPTION',
+        subscriptionId,
+        amount,
+        currency,
+        status: 'PAID',
+        provider: BALANCE_PROVIDER,
+        providerPaymentId: movement.id,
+        paidAt: now,
+      },
+    });
+  }
+
+  /**
+   * Solo OWNER: paga con el saldo el periodo siguiente de un plan pagado con saldo (lo adelanta) o
+   * recupera uno vencido (PAST_DUE).
+   */
+  async payWithBalance(
+    actor: { userId: string; ip?: string | null },
+    barbershopId: string,
+  ): Promise<SubscriptionDto> {
+    await this.access.requireMember(actor.userId, barbershopId, ['OWNER']);
+    const sub = await this.prisma.subscription.findFirst({
+      where: { barbershopId, provider: BALANCE_PROVIDER, status: { in: ['ACTIVE', 'PAST_DUE'] } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!sub) throw notFound();
+    const result = await this.renewWithBalance(sub.id, actor.userId);
+    if (!result.renewed) throw insufficient(result.available);
+    return toSubscriptionDto(await this.load(sub.id));
+  }
+
+  /** Renueva un periodo con el saldo. Si no alcanza, no cambia nada y devuelve el disponible. */
+  private async renewWithBalance(
+    subscriptionId: string,
+    actorId: string | null,
+  ): Promise<{ renewed: boolean; available: number }> {
+    const now = new Date(this.clock.now());
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      const sub = await tx.subscription.findUniqueOrThrow({ where: { id: subscriptionId } });
+      const available = await this.balance.lockAvailable(tx, sub.barbershopId);
+      if (available < sub.priceAmount)
+        return { renewed: false, available, recovered: false, barbershopId: sub.barbershopId };
+      const recovered = sub.status === 'PAST_DUE';
+      // Adelanta desde el fin del periodo vigente; si venció, desde hoy.
+      const start =
+        !recovered && sub.currentPeriodEnd && sub.currentPeriodEnd > now
+          ? sub.currentPeriodEnd
+          : now;
+      await tx.subscription.update({
+        where: { id: sub.id },
+        data: {
+          status: 'ACTIVE',
+          currentPeriodStart: start,
+          currentPeriodEnd: addMonths(start, sub.interval === 'YEARLY' ? 12 : 1),
+          pastDueSince: null,
+          graceUntil: null,
+        },
+      });
+      await this.chargeBalanceInTx(
+        tx,
+        sub.id,
+        sub.barbershopId,
+        sub.priceAmount,
+        sub.currency,
+        now,
+      );
+      await this.audit.record(
+        {
+          actorId,
+          action: 'subscription.renewed_with_balance',
+          entityType: 'subscription',
+          entityId: sub.id,
+          changes: { amount: sub.priceAmount },
+        },
+        tx,
+      );
+      if (recovered) await this.notice(tx, sub.id, 'recovered');
+      return { renewed: true, available, recovered, barbershopId: sub.barbershopId };
+    });
+    if (outcome.renewed) {
+      this.entitlements.invalidate(outcome.barbershopId);
+      if (outcome.recovered) await this.enforcement.apply(outcome.barbershopId);
+    }
+    return { renewed: outcome.renewed, available: outcome.available };
   }
 
   /** Cancela: conserva el plan hasta el fin del periodo pagado. Un enlace pendiente se anula. */
@@ -632,6 +833,22 @@ export class SubscriptionsService implements OnModuleInit {
   async runMaintenance(): Promise<{ expired: number; noticed: number; repriced: number }> {
     const now = new Date(this.clock.now());
     let expired = 0;
+    // Planes pagados con saldo: al vencer el periodo se renuevan con el saldo; si no alcanza,
+    // quedan PAST_DUE (con días de gracia) y el dueño puede pagar con saldo o por pasarela.
+    const dueBalance = await this.prisma.subscription.findMany({
+      where: { provider: BALANCE_PROVIDER, status: 'ACTIVE', currentPeriodEnd: { lte: now } },
+      select: { id: true, barbershopId: true },
+      take: 200,
+    });
+    for (const sub of dueBalance) {
+      const { renewed } = await this.renewWithBalance(sub.id, null);
+      if (!renewed) {
+        await this.prisma.$transaction((tx) =>
+          this.markPastDue(tx, sub.id, now, 'Saldo insuficiente'),
+        );
+        this.entitlements.invalidate(sub.barbershopId);
+      }
+    }
     const ending = await this.prisma.subscription.findMany({
       where: {
         OR: [

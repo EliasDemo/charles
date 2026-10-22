@@ -15,9 +15,12 @@ import {
   Max,
   Min,
   ValidateIf,
+  IsLatitude,
+  IsLongitude,
 } from 'class-validator';
 import { StyleRefDto } from '../../barbers/dto/barber.dto';
 import { FACE_SHAPES, type FaceShape } from '../../recommendations/face-shape';
+import { LocationDto } from '../../locations/locations';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -68,6 +71,17 @@ export class UpsertBarberProfileDto {
   @IsString()
   @Length(2, 60)
   district?: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: '211101',
+    description:
+      'Distrito de la lista fija (UBIGEO, ver /locations). Reemplaza a `district` (texto libre).',
+  })
+  @ValidateIf((_o, v) => v !== null && v !== undefined)
+  @Matches(/^[0-9]{6}$/)
+  ubigeo?: string | null;
 
   @ApiPropertyOptional({
     description:
@@ -131,6 +145,9 @@ export class BarberProfileDto {
 
   @ApiProperty({ type: String, nullable: true })
   district!: string | null;
+
+  @ApiProperty({ type: LocationDto, nullable: true, description: 'Distrito de la lista fija.' })
+  location!: LocationDto | null;
 
   @ApiProperty()
   availableForWork!: boolean;
@@ -366,10 +383,49 @@ export class RankingQueryDto {
   @Max(50)
   limit?: number;
 
-  @ApiPropertyOptional({ enum: ['ranking', 'newest'], default: 'ranking' })
+  @ApiPropertyOptional({
+    example: 'San Roman',
+    description: 'Provincia (lista fija; sin tildes ni mayúsculas).',
+  })
   @IsOptional()
-  @IsIn(['ranking', 'newest'])
-  sort?: 'ranking' | 'newest';
+  @Transform(trim)
+  @IsString()
+  @Length(2, 60)
+  province?: string;
+
+  @ApiPropertyOptional({ description: 'Con lng: barberos cerca de este punto (y su distancia).' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsLatitude()
+  lat?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsLongitude()
+  lng?: number;
+
+  @ApiPropertyOptional({
+    minimum: 1,
+    maximum: 200,
+    default: 20,
+    description: 'Radio en km (con lat y lng).',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  radiusKm?: number;
+
+  @ApiPropertyOptional({
+    enum: ['ranking', 'newest', 'distance'],
+    default: 'ranking',
+    description: 'distance: el más cercano primero (requiere lat y lng).',
+  })
+  @IsOptional()
+  @IsIn(['ranking', 'newest', 'distance'])
+  sort?: 'ranking' | 'newest' | 'distance';
 }
 
 export class RankedBarberDto {
@@ -395,6 +451,9 @@ export class RankedBarberDto {
   @ApiProperty({ type: String, nullable: true })
   district!: string | null;
 
+  @ApiProperty({ type: LocationDto, nullable: true, description: 'Distrito de la lista fija.' })
+  location!: LocationDto | null;
+
   @ApiProperty({ type: Number, nullable: true })
   ratingAverage!: number | null;
 
@@ -409,6 +468,14 @@ export class RankedBarberDto {
 
   @ApiProperty()
   availableForWork!: boolean;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description:
+      'Km desde el punto pedido (lat/lng): su barbería actual o el centro de su distrito.',
+  })
+  distanceKm!: number | null;
 
   @ApiProperty({ type: [StyleRefDto] })
   specialties!: StyleRefDto[];

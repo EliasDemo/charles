@@ -43,6 +43,8 @@ import {
   UpdateJobPostingDto,
 } from './dto/jobs.dto';
 import { JobsService } from './jobs.service';
+import { JobOffersController } from './job-offers.controller';
+import { JobOffersService } from './job-offers.service';
 
 const uuid = new ParseUUIDPipe();
 
@@ -221,7 +223,7 @@ export class BarbershopJobsController {
     MessagingModule,
     ImageStorageModule,
   ],
-  controllers: [JobsController, BarbershopJobsController],
-  providers: [JobsService],
+  controllers: [JobsController, BarbershopJobsController, JobOffersController],
+  providers: [JobsService, JobOffersService],
 })
 export class JobsModule {}

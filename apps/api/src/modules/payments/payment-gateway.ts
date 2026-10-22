@@ -35,6 +35,15 @@ export class InvalidSignatureError extends Error {
   }
 }
 
+/**
+ * Marketplace: cuenta de Mercado Pago de la barbería (vinculada por OAuth). Con ella el cobro va
+ * directo a la barbería y Charles retiene su comisión (`marketplace_fee`).
+ */
+export interface SellerCredentials {
+  accessToken: string;
+  providerUserId: string;
+}
+
 export interface CreatePaymentInput {
   /** ID del pago en Charles. Es la referencia del pedido en la pasarela (`orderId` en Izipay). */
   paymentId: string;
@@ -43,6 +52,8 @@ export interface CreatePaymentInput {
   /** Misma clave = mismo cobro en la pasarela: permite reintentar sin cobrar dos veces. */
   idempotencyKey: string;
   description: string;
+  /** Cobro dividido: credenciales de la barbería y comisión de Charles (céntimos). */
+  seller?: SellerCredentials & { marketplaceFee: number };
 }
 
 /** Lo que la app necesita para que el cliente pague (Izipay: formToken, clave pública y servidor). */
@@ -80,6 +91,8 @@ export interface RefundInput {
   amount: number;
   currency: string;
   idempotencyKey: string;
+  /** El pago se cobró con la cuenta de la barbería: se devuelve con ella. */
+  seller?: SellerCredentials;
 }
 
 export interface RefundResult {
@@ -137,11 +150,13 @@ export interface PaymentGateway {
   getPayment(input: {
     paymentId: string;
     providerPaymentId: string | null;
+    seller?: SellerCredentials;
   }): Promise<ProviderPaymentState>;
   refund(input: RefundInput): Promise<RefundResult>;
   getRefund(input: {
     refundId: string;
     providerRefundId: string | null;
+    seller?: SellerCredentials;
   }): Promise<ProviderRefundState>;
   /**
    * Verifica la firma y normaliza. Lanza `InvalidSignatureError` si no es auténtico. Puede

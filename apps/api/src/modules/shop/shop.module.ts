@@ -51,7 +51,13 @@ import {
   CloseCashDto,
   CreateSaleDto,
   CreateShopClientDto,
+  HeatmapDto,
+  HeatmapQueryDto,
   ImportCatalogItemDto,
+  MarketDto,
+  MarketQueryDto,
+  MonthlyQueryDto,
+  MonthlyReportDto,
   InvoicingConfigDto,
   OpenCashDto,
   RankingDto,
@@ -376,6 +382,45 @@ export class ShopController {
     @Query() query: ReportsQueryDto,
   ): Promise<SalesReportDto> {
     return this.reports.sales(user.id, id, query);
+  }
+
+  @Get('reports/monthly')
+  @ApiOperation({
+    summary: 'Ventas por mes (app y local), crecimiento, mejor y peor mes, servicios en alza',
+  })
+  @ApiOkResponse({ type: MonthlyReportDto })
+  monthly(
+    @CurrentUser() user: AuthUser,
+    @Param('id', uuid) id: string,
+    @Query() query: MonthlyQueryDto,
+  ): Promise<MonthlyReportDto> {
+    return this.reports.monthly(user.id, id, query.months);
+  }
+
+  @Get('reports/heatmap')
+  @ApiOperation({
+    summary: 'Días y horas con más atenciones, y horas tranquilas (plan con reportes completos)',
+  })
+  @ApiOkResponse({ type: HeatmapDto })
+  heatmap(
+    @CurrentUser() user: AuthUser,
+    @Param('id', uuid) id: string,
+    @Query() query: HeatmapQueryDto,
+  ): Promise<HeatmapDto> {
+    return this.reports.heatmap(user.id, id, query.days);
+  }
+
+  @Get('reports/market')
+  @ApiOperation({
+    summary: 'Tu barbería frente a su zona: precios, valoración y cortes más pedidos (promedios)',
+  })
+  @ApiOkResponse({ type: MarketDto })
+  market(
+    @CurrentUser() user: AuthUser,
+    @Param('id', uuid) id: string,
+    @Query() query: MarketQueryDto,
+  ): Promise<MarketDto> {
+    return this.reports.market(user.id, id, query.radiusKm);
   }
 
   @Get('reports/sales.csv')

@@ -310,7 +310,9 @@ export class BookingsService {
           );
           const paymentId = await this.payments.createPendingInTx(tx, {
             id: bookingId.id,
+            barbershopId: dto.barbershopId,
             totalAmount: commission.total,
+            commissionAmount: commission.commissionAmount,
             currency: service.currency,
           });
           return { bookingId: bookingId.id, paymentId };

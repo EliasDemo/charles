@@ -19,6 +19,7 @@ import type {
   UpsertBarberProfileDto,
   WorkplaceDto,
 } from './dto/career.dto';
+import { locationOf, LocationsService } from '../locations/locations';
 
 /**
  * Ranking de barberos: promedio bayesiano, para que pocas valoraciones no pesen como muchas.
@@ -43,6 +44,8 @@ const noOwnProfile = (): AppException =>
   );
 
 interface RankRow {
+  district_id: string | null;
+  distance_km: number | null;
   id: string;
   display_name: string;
   headline: string | null;
@@ -62,6 +65,7 @@ interface RankRow {
 @Injectable()
 export class BarberProfilesService {
   constructor(
+    private readonly locations: LocationsService,
     private readonly prisma: PrismaService,
     private readonly barbers: BarbersService,
     private readonly bookings: BookingsReadService,
@@ -93,6 +97,15 @@ export class BarberProfilesService {
       ...(dto.bio !== undefined ? { bio: dto.bio } : {}),
       ...(dto.yearsExperience !== undefined ? { yearsExperience: dto.yearsExperience } : {}),
       ...(dto.district !== undefined ? { district: dto.district } : {}),
+      // Distrito de la lista fija: guarda la referencia y su nombre.
+      ...(dto.ubigeo === null
+        ? { districtId: null }
+        : dto.ubigeo
+          ? (() => {
+              const d = this.locations.resolve(dto.ubigeo);
+              return { districtId: d.id, district: d.district };
+            })()
+          : {}),
       ...(dto.availableForWork !== undefined ? { availableForWork: dto.availableForWork } : {}),
     };
     const id = await this.prisma.$transaction(async (tx) => {
@@ -276,17 +289,47 @@ export class BarberProfilesService {
     if (query.district)
       filters.push(Prisma.sql`p.district ILIKE ${`%${escapeLike(query.district)}%`}`);
     if (query.q) filters.push(Prisma.sql`p.display_name ILIKE ${`%${escapeLike(query.q)}%`}`);
+    if (query.province) {
+      const ids = this.locations.districtIdsOfProvince(query.province);
+      filters.push(
+        ids.length
+          ? Prisma.sql`COALESCE(p.district_id, (SELECT b2.district_id FROM barbers br JOIN barbershops b2 ON b2.id = br.barbershop_id
+               WHERE br.barber_profile_id = p.id AND br.ended_at IS NULL AND br.deleted_at IS NULL AND b2.deleted_at IS NULL
+               ORDER BY br.created_at LIMIT 1)) = ANY(${ids}::uuid[])`
+          : Prisma.sql`false`,
+      );
+    }
+    const near = query.lat !== undefined && query.lng !== undefined;
+    const point = near
+      ? Prisma.sql`ST_SetSRID(ST_MakePoint(${query.lng}::float8, ${query.lat}::float8), 4326)::geography`
+      : null;
+    // Dónde está el barbero: su barbería actual o, si no trabaja en una, el centro de su distrito.
+    const geo = Prisma.sql`COALESCE(
+      (SELECT b3.location FROM barbers br JOIN barbershops b3 ON b3.id = br.barbershop_id
+        WHERE br.barber_profile_id = p.id AND br.ended_at IS NULL AND br.deleted_at IS NULL AND b3.deleted_at IS NULL
+        ORDER BY br.created_at LIMIT 1),
+      (SELECT ST_SetSRID(ST_MakePoint(d.longitude, d.latitude), 4326)::geography FROM peru_districts d
+        WHERE d.id = p.district_id AND d.latitude IS NOT NULL))`;
+    if (point) {
+      filters.push(
+        Prisma.sql`ST_DWithin(${geo}, ${point}, ${(query.radiusKm ?? 20) * 1000}::float8)`,
+      );
+    }
     if (query.style) {
       filters.push(Prisma.sql`EXISTS (
         SELECT 1 FROM barber_profile_specialties ps JOIN service_styles st ON st.id = ps.style_id
          WHERE ps.profile_id = p.id AND st.key = ${query.style} AND st.is_active)`);
     }
     const order =
-      query.sort === 'newest'
-        ? Prisma.sql`p.created_at DESC, p.id`
-        : Prisma.sql`(p.rating_count >= ${RANKING.MIN_RATINGS}) DESC, score DESC, attended DESC, p.id`;
+      query.sort === 'distance' && point
+        ? Prisma.sql`distance_km NULLS LAST, p.id`
+        : query.sort === 'newest'
+          ? Prisma.sql`p.created_at DESC, p.id`
+          : Prisma.sql`(p.rating_count >= ${RANKING.MIN_RATINGS}) DESC, score DESC, attended DESC, p.id`;
     const rows = await this.prisma.$queryRaw<RankRow[]>`
       SELECT p.id::text AS id, p.display_name, p.headline, p.photo_variants, p.district,
+             p.district_id::text AS district_id,
+             ${point ? Prisma.sql`ROUND((ST_Distance(${geo}, ${point}) / 1000)::numeric, 2)::float8` : Prisma.sql`NULL::float8`} AS distance_km,
              p.rating_avg::text AS rating_avg, p.rating_count, p.available_for_work,
              (SELECT COUNT(*)::int FROM bookings b
                WHERE b.barber_profile_id = p.id AND b.status = 'ATTENDED') AS attended,
@@ -310,6 +353,8 @@ export class BarberProfilesService {
         headline: r.headline,
         photoUrl: variantUrl(this.storage, r.photo_variants, 'square'),
         district: r.district,
+        location: locationOf(r.district_id),
+        distanceKm: r.distance_km,
         ratingAverage: r.rating_count > 0 ? Number(r.rating_avg) : null,
         ratingCount: r.rating_count,
         attendedCount: r.attended,
@@ -340,6 +385,7 @@ export class BarberProfilesService {
       photoUrl: variantUrl(this.storage, p.photoVariants, 'square'),
       yearsExperience: p.yearsExperience,
       district: p.district,
+      location: locationOf(p.districtId),
       availableForWork: p.availableForWork,
       ratingAverage: p.ratingCount > 0 ? Number(p.ratingAvg) : null,
       ratingCount: p.ratingCount,

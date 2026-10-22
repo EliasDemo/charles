@@ -529,6 +529,8 @@ model Barbershop {
   address              String
   latitude             Float
   longitude            Float
+  /// Distrito (UBIGEO) donde está la barbería.
+  districtId           String?                               @map("district_id") @db.Uuid
   /// Columna generada en SQL: ST_MakePoint(longitude, latitude)::geography. Índice GiST.
   location             Unsupported("geography(Point,4326)")? @default(dbgenerated("(st_setsrid(st_makepoint(longitude, latitude), 4326))::geography"))
   timezone             String
@@ -579,16 +581,21 @@ model Barbershop {
   jobPostings   JobPosting[]
   videos        Video[]
 
-  subscriptions   Subscription[]
-  shopClients     ShopClient[]
-  cashSessions    CashSession[]
-  localSales      LocalSale[]
-  invoicingConfig InvoicingConfig?
-  invoices        Invoice[]
-  membershipPlans MembershipPlan[]
-  memberships     Membership[]
+  subscriptions    Subscription[]
+  shopClients      ShopClient[]
+  cashSessions     CashSession[]
+  localSales       LocalSale[]
+  invoicingConfig  InvoicingConfig?
+  invoices         Invoice[]
+  membershipPlans  MembershipPlan[]
+  district         PeruDistrict?     @relation(fields: [districtId], references: [id])
+  jobOffers        JobOffer[]
+  sellerAccount    SellerAccount?
+  balanceMovements BalanceMovement[]
+  memberships      Membership[]
 
   @@index([location], type: Gist)
+  @@index([districtId])
   @@map("barbershops")
 }
 
@@ -1099,6 +1106,9 @@ model Payment {
   startedAt         DateTime?     @map("started_at") @db.Timestamptz(3)
   confirmedAt       DateTime?     @map("confirmed_at") @db.Timestamptz(3)
   metadata          Json          @default("{}")
+  /// Pago dividido: a quién llegó el dinero y la comisión de Charles en ese caso.
+  payee             PaymentPayee  @default(PLATFORM)
+  marketplaceFee    Int?          @map("marketplace_fee")
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -1637,6 +1647,8 @@ model BarberProfile {
   yearsExperience  Int?      @map("years_experience") @db.SmallInt
   /// Distrito o zona donde trabaja (texto libre corto, por ejemplo "Miraflores").
   district         String?
+  /// Distrito (UBIGEO) del barbero; `district` guarda su nombre.
+  districtId       String?   @map("district_id") @db.Uuid
   /// "Disponible para trabajar": aparece en la búsqueda de barberos para las barberías.
   availableForWork Boolean   @default(false) @map("available_for_work")
   ratingAvg        Decimal   @default(0) @map("rating_avg") @db.Decimal(3, 2)
@@ -1653,8 +1665,11 @@ model BarberProfile {
   specialties  BarberProfileSpecialty[]
   applications JobApplication[]
   videos       Video[]
+  districtRef  PeruDistrict?            @relation(fields: [districtId], references: [id])
+  jobOffers    JobOffer[]
 
   @@index([availableForWork])
+  @@index([districtId])
   @@map("barber_profiles")
 }
 
@@ -1786,27 +1801,38 @@ enum JobApplicationStatus {
 
 /// Bolsa de trabajo: oferta publicada por una barbería.
 model JobPosting {
-  id               String           @id @default(uuid(7)) @db.Uuid
-  barbershopId     String           @map("barbershop_id") @db.Uuid
+  id               String               @id @default(uuid(7)) @db.Uuid
+  barbershopId     String               @map("barbershop_id") @db.Uuid
   title            String
   description      String
-  employmentType   EmploymentType   @map("employment_type")
-  compensationText String?          @map("compensation_text")
+  employmentType   EmploymentType       @map("employment_type")
+  compensationText String?              @map("compensation_text")
   /// Especialidades buscadas (ids de service_styles).
-  styleIds         String[]         @map("style_ids") @db.Uuid
-  status           JobPostingStatus @default(OPEN)
-  closesAt         DateTime?        @map("closes_at") @db.Timestamptz(3)
-  createdById      String?          @map("created_by") @db.Uuid
-  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  styleIds         String[]             @map("style_ids") @db.Uuid
+  status           JobPostingStatus     @default(OPEN)
+  closesAt         DateTime?            @map("closes_at") @db.Timestamptz(3)
+  payMin           Int?                 @map("pay_min")
+  payMax           Int?                 @map("pay_max")
+  payType          JobPayType?          @map("pay_type")
+  payPeriod        JobPayPeriod?        @map("pay_period")
+  negotiable       Boolean              @default(false)
+  districtId       String?              @map("district_id") @db.Uuid
+  requirements     String[]             @default([])
+  selectionProcess JobSelectionProcess? @map("selection_process")
+  schedule         String?
+  createdById      String?              @map("created_by") @db.Uuid
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   barbershop   Barbershop       @relation(fields: [barbershopId], references: [id])
   createdBy    User?            @relation("JobPostingCreator", fields: [createdById], references: [id], onDelete: SetNull)
   applications JobApplication[]
+  district     PeruDistrict?    @relation(fields: [districtId], references: [id])
 
   @@index([barbershopId, status])
   @@index([status, createdAt])
   @@index([createdById])
+  @@index([districtId])
   @@map("job_postings")
 }
 
@@ -2034,10 +2060,11 @@ model Subscription {
   createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  plan       Plan            @relation(fields: [planId], references: [id])
-  barbershop Barbershop      @relation(fields: [barbershopId], references: [id])
-  payer      User            @relation("SubscriptionPayer", fields: [payerUserId], references: [id])
-  charges    BillingCharge[]
+  plan             Plan              @relation(fields: [planId], references: [id])
+  barbershop       Barbershop        @relation(fields: [barbershopId], references: [id])
+  payer            User              @relation("SubscriptionPayer", fields: [payerUserId], references: [id])
+  charges          BillingCharge[]
+  balanceMovements BalanceMovement[]
 
   @@unique([provider, providerSubscriptionId])
   @@index([barbershopId, status])
@@ -2484,4 +2511,151 @@ model StyleInteraction {
   @@index([imageId])
   @@index([styleId, kind])
   @@map("style_interactions")
+}
+
+// ═════════════════════ Ubicación, bolsa de trabajo y saldos ═════════════════════
+
+/// Distritos del Perú (UBIGEO del INEI): datos de referencia. Fuente: ubigeo-peru-aumentado de
+/// J. M. Castagnetto (licencia MIT), a partir de los códigos de INEI y RENIEC.
+model PeruDistrict {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  ubigeo     String   @unique @db.Char(6)
+  department String
+  province   String
+  district   String
+  latitude   Float?
+  longitude  Float?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershops    Barbershop[]
+  barberProfiles BarberProfile[]
+  jobPostings    JobPosting[]
+
+  @@index([department, province])
+  @@index([province])
+  @@map("peru_districts")
+}
+
+enum JobPayType {
+  FIXED
+  COMMISSION
+  MIXED
+  PER_SERVICE
+}
+
+enum JobPayPeriod {
+  DAY
+  WEEK
+  BIWEEKLY
+  MONTH
+  PER_SERVICE
+}
+
+enum JobSelectionProcess {
+  INTERVIEW
+  TRIAL
+  DIRECT
+}
+
+enum JobOfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  EXPIRED
+}
+
+/// Oferta directa de una barbería a un barbero (él la acepta o la rechaza).
+model JobOffer {
+  id              String         @id @default(uuid(7)) @db.Uuid
+  barbershopId    String         @map("barbershop_id") @db.Uuid
+  barberProfileId String         @map("barber_profile_id") @db.Uuid
+  title           String
+  message         String?
+  employmentType  EmploymentType @map("employment_type")
+  payMin          Int?           @map("pay_min")
+  payMax          Int?           @map("pay_max")
+  payType         JobPayType?    @map("pay_type")
+  payPeriod       JobPayPeriod?  @map("pay_period")
+  schedule        String?
+  status          JobOfferStatus @default(PENDING)
+  expiresAt       DateTime       @map("expires_at") @db.Timestamptz(3)
+  respondedAt     DateTime?      @map("responded_at") @db.Timestamptz(3)
+  responseNote    String?        @map("response_note")
+  createdById     String         @map("created_by") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop    Barbershop    @relation(fields: [barbershopId], references: [id])
+  barberProfile BarberProfile @relation(fields: [barberProfileId], references: [id])
+
+  @@index([barbershopId, status])
+  @@index([barberProfileId, status])
+  @@map("job_offers")
+}
+
+enum SellerAccountStatus {
+  PENDING
+  CONNECTED
+  REVOKED
+}
+
+/// Cuenta de Mercado Pago de la barbería (pago dividido): el cobro va directo a ella y Charles
+/// recibe su comisión. Tokens cifrados.
+model SellerAccount {
+  id                  String              @id @default(uuid(7)) @db.Uuid
+  barbershopId        String              @unique @map("barbershop_id") @db.Uuid
+  provider            String
+  status              SellerAccountStatus @default(PENDING)
+  providerUserId      String?             @map("provider_user_id")
+  publicKey           String?             @map("public_key")
+  accessTokenEnc      String?             @map("access_token_enc")
+  refreshTokenEnc     String?             @map("refresh_token_enc")
+  tokenExpiresAt      DateTime?           @map("token_expires_at") @db.Timestamptz(3)
+  oauthState          String?             @unique @map("oauth_state")
+  oauthStateExpiresAt DateTime?           @map("oauth_state_expires_at") @db.Timestamptz(3)
+  connectedAt         DateTime?           @map("connected_at") @db.Timestamptz(3)
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop Barbershop @relation(fields: [barbershopId], references: [id])
+
+  @@index([provider, providerUserId])
+  @@map("seller_accounts")
+}
+
+enum PaymentPayee {
+  /// Cobrado en la cuenta de Charles: queda como saldo a favor de la barbería.
+  PLATFORM
+  /// Cobrado directo en la cuenta de Mercado Pago de la barbería (pago dividido).
+  SELLER
+}
+
+enum BalanceMovementType {
+  SUBSCRIPTION_PAYMENT
+  PAYOUT
+  ADJUSTMENT
+}
+
+/// Movimientos del saldo a favor de la barbería que no salen de una reserva o membresía: pago del
+/// plan con saldo, liquidaciones (transferencias de Charles) y ajustes. Monto con signo.
+model BalanceMovement {
+  id             String              @id @default(uuid(7)) @db.Uuid
+  barbershopId   String              @map("barbershop_id") @db.Uuid
+  type           BalanceMovementType
+  amount         Int
+  subscriptionId String?             @map("subscription_id") @db.Uuid
+  reference      String?
+  note           String?
+  createdById    String?             @map("created_by") @db.Uuid
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop   Barbershop    @relation(fields: [barbershopId], references: [id])
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([barbershopId, createdAt])
+  @@index([subscriptionId])
+  @@map("balance_movements")
 }

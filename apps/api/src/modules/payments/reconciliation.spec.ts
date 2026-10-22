@@ -82,6 +82,7 @@ describe('ReconciliationService (casos límite)', () => {
       payment: {
         findUnique: jest.fn().mockResolvedValue(options.payment ?? null),
         findMany: jest.fn(() => Promise.resolve(pages.shift() ?? [])),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(options.payment ?? {}),
       },
       refund: {
         findUnique: jest.fn().mockResolvedValue(options.refund ?? null),
@@ -91,7 +92,7 @@ describe('ReconciliationService (casos límite)', () => {
     const audit = { record: jest.fn().mockResolvedValue(undefined) };
     const service = new ReconciliationService(
       prisma as never,
-      { executeRefund: jest.fn() } as never,
+      { executeRefund: jest.fn(), sellerOf: jest.fn().mockResolvedValue(null) } as never,
       audit as never,
       { getPayment: jest.fn(), getRefund: jest.fn(), ...options.gateway } as never,
       { isProduction: options.isProduction ?? false } as never,

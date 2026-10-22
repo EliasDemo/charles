@@ -36,6 +36,7 @@ export const ADMIN_SECTIONS = {
     'sponsors',
     'plans',
     'subscriptions',
+    'balances',
   ],
 } as const;
 
