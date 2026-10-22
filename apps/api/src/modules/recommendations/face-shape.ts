@@ -84,6 +84,11 @@ export function classifyFaceShape(m: FaceMeasurements): FaceShapeResult {
   };
 }
 
+/** [largo/pómulos, frente/pómulos, mandíbula/pómulos]: lo que se guarda para buscar caras parecidas. */
+export function faceProportions(m: FaceMeasurements): [number, number, number] {
+  return proportions(m);
+}
+
 function proportions(m: FaceMeasurements): [number, number, number] {
   return [
     m.faceLength / m.cheekboneWidth,

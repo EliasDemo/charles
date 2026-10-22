@@ -59,7 +59,12 @@ export default tseslint.config(
   // Scripts de Node en JS (sin tsconfig): reglas sin información de tipos.
   { files: ['scripts/**/*.mjs'], ...tseslint.configs.disableTypeChecked },
   {
-    files: ['apps/api/prisma/seed.ts', 'apps/api/prisma/seed-reference.ts', 'scripts/verify.mjs'],
+    files: [
+      'apps/api/prisma/seed.ts',
+      'apps/api/prisma/seed-reference.ts',
+      'apps/api/prisma/seed-plans.ts',
+      'scripts/verify.mjs',
+    ],
     rules: { 'no-console': 'off' },
   },
 );

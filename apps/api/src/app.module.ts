@@ -45,6 +45,11 @@ import { MessagingModule } from './modules/messaging/messaging.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { VideosModule } from './modules/videos/videos.module';
 import { RecommendationsModule } from './modules/recommendations/recommendations.module';
+import { BillingModule } from './modules/billing/billing.module';
+import { EntitlementsModule } from './modules/plans/entitlements.module';
+import { PlansModule } from './modules/plans/plans.module';
+import { MembershipsModule } from './modules/memberships/memberships.module';
+import { ShopModule } from './modules/shop/shop.module';
 
 @Module({
   imports: [
@@ -94,6 +99,11 @@ import { RecommendationsModule } from './modules/recommendations/recommendations
     JobsModule,
     VideosModule,
     RecommendationsModule,
+    EntitlementsModule,
+    BillingModule,
+    PlansModule,
+    MembershipsModule,
+    ShopModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

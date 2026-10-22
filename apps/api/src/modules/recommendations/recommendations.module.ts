@@ -12,6 +12,7 @@ import {
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiProperty,
@@ -31,7 +32,7 @@ import {
   Min,
 } from 'class-validator';
 import { AuditService } from '../../common/audit/audit.service';
-import { type AuthUser, OptionalUser } from '../../common/auth/auth-user';
+import { type AuthUser, CurrentUser, OptionalUser } from '../../common/auth/auth-user';
 import { Public } from '../../common/auth/public.decorator';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -45,6 +46,9 @@ import {
   FaceShapeResultDto,
   HaircutRecommendationDto,
   RecommendHaircutsDto,
+  SimilarFacePhotoDto,
+  SimilarFacesDto,
+  StyleInteractionDto,
 } from './dto/recommendation.dto';
 import { FACE_SHAPES, type FaceShape } from './face-shape';
 import { RecommendationsService } from './recommendations.service';
@@ -101,6 +105,42 @@ export class RecommendationsController {
           )?.faceShape ?? null)
         : null;
     return this.recommendations.recommend(dto, saved);
+  }
+
+  @Post('recommendations/similar-faces')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Etapa 2: fotos de cortes en caras parecidas a la del cliente, cerca',
+    description:
+      'Compara las proporciones de la cara (medidas en el teléfono) con las de las fotos de la ' +
+      'galería que se subieron con medidas. Nada del cliente se guarda.',
+  })
+  @ApiOkResponse({ type: [SimilarFacePhotoDto] })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  similar(@Body() dto: SimilarFacesDto): Promise<SimilarFacePhotoDto[]> {
+    return this.recommendations.similarFaces(dto);
+  }
+}
+
+/** Etapa 2: interacciones de la persona con fotos y cortes (para mejorar las recomendaciones). */
+@ApiTags('recommendations')
+@ApiBearerAuth()
+@Controller('recommendations')
+export class InteractionsController {
+  constructor(private readonly recommendations: RecommendationsService) {}
+
+  @Post('interactions')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Registrar que vio, guardó o reservó un corte (VIEW: una por foto y hora)',
+  })
+  @ApiNoContentResponse()
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  async interaction(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: StyleInteractionDto,
+  ): Promise<void> {
+    await this.recommendations.recordInteraction(user.id, dto);
   }
 }
 
@@ -265,7 +305,7 @@ function toDto(r: {
 
 @Module({
   imports: [SettingsModule, ImageStorageModule, AdminAccessModule],
-  controllers: [RecommendationsController, FaceShapeRulesAdminController],
+  controllers: [RecommendationsController, InteractionsController, FaceShapeRulesAdminController],
   providers: [RecommendationsService],
 })
 export class RecommendationsModule {}

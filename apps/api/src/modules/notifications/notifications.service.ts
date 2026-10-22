@@ -18,6 +18,8 @@ import {
   type BookingContext,
   planAccountDeletion,
   planApplicationUpdate,
+  planMembershipNotice,
+  planSubscriptionNotice,
   planJobApplication,
   planNewMessage,
   planAccountDisabled,
@@ -60,6 +62,8 @@ export const NOTIFICATION_EVENTS = [
   'message.sent',
   'job.application_created',
   'job.application_updated',
+  'billing.subscription',
+  'billing.membership',
 ] as const;
 
 /** Avisos que recibe una cuenta aunque no esté activa (seguridad de la propia cuenta). */
@@ -237,6 +241,69 @@ export class NotificationsService implements OnModuleInit {
           barbershopName: shop.name,
           outcome: message.type === 'barbershop.review_approved' ? 'APPROVED' : 'CHANGES_REQUESTED',
           reason: shop.reviewNotes,
+        });
+      }
+      case 'billing.subscription': {
+        const sub = await this.prisma.subscription.findUnique({
+          where: { id: id('subscriptionId') ?? '' },
+          select: {
+            id: true,
+            checkoutUrl: true,
+            trialEndsAt: true,
+            graceUntil: true,
+            currentPeriodEnd: true,
+            nextPriceAmount: true,
+            nextPriceFrom: true,
+            currency: true,
+            plan: { select: { name: true } },
+            barbershop: {
+              select: {
+                name: true,
+                timezone: true,
+                members: { where: { role: 'OWNER' }, select: { userId: true } },
+              },
+            },
+          },
+        });
+        if (!sub) return [];
+        return planSubscriptionNotice(String(p.notice), {
+          subscriptionId: sub.id,
+          userIds: sub.barbershop.members.map((m) => m.userId),
+          planName: sub.plan.name,
+          barbershopName: sub.barbershop.name,
+          checkoutUrl: sub.checkoutUrl,
+          trialEndsAt: sub.trialEndsAt,
+          graceUntil: sub.graceUntil,
+          currentPeriodEnd: sub.currentPeriodEnd,
+          nextPriceAmount: sub.nextPriceAmount,
+          nextPriceFrom: sub.nextPriceFrom,
+          currency: sub.currency,
+          timezone: sub.barbershop.timezone,
+        });
+      }
+      case 'billing.membership': {
+        const membership = await this.prisma.membership.findUnique({
+          where: { id: id('membershipId') ?? '' },
+          select: {
+            id: true,
+            userId: true,
+            checkoutUrl: true,
+            currentPeriodEnd: true,
+            membershipPlan: { select: { name: true } },
+            barbershop: { select: { name: true, timezone: true } },
+            lots: { where: { expiresAt: { gt: new Date(now) } }, select: { remaining: true } },
+          },
+        });
+        if (!membership) return [];
+        return planMembershipNotice(String(p.notice), {
+          membershipId: membership.id,
+          userId: membership.userId,
+          planName: membership.membershipPlan.name,
+          barbershopName: membership.barbershop.name,
+          checkoutUrl: membership.checkoutUrl,
+          currentPeriodEnd: membership.currentPeriodEnd,
+          credits: membership.lots.reduce((sum, l) => sum + l.remaining, 0),
+          timezone: membership.barbershop.timezone,
         });
       }
       case 'message.sent': {

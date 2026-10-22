@@ -54,6 +54,14 @@ import {
   UpdateSponsorDto,
 } from './dto/sponsor.dto';
 import { SponsorsService } from './sponsors.service';
+import { SponsorPackagesService } from './sponsor-packages.service';
+import {
+  CreatePackagePurchaseDto,
+  CreateSponsorPackageDto,
+  PackagePurchaseDto,
+  SponsorPackageDto,
+  UpdateSponsorPackageDto,
+} from './dto/sponsor-package.dto';
 
 const uuid = new ParseUUIDPipe();
 
@@ -256,9 +264,80 @@ export class SponsorsAdminController {
   }
 }
 
+/** Fase 15: paquetes para auspiciadores y su compra (solo ADMIN). */
+@ApiTags('admin')
+@ApiBearerAuth()
+@ApiForbiddenResponse({ type: ErrorResponseDto })
+@ApiNotFoundResponse({ type: ErrorResponseDto })
+@AdminOnly()
+@UseGuards(AdminAccessGuard)
+@Controller('admin')
+export class SponsorPackagesAdminController {
+  constructor(private readonly packages: SponsorPackagesService) {}
+
+  @Get('sponsor-packages')
+  @ApiOperation({ summary: 'Solo ADMIN: catálogo de paquetes para auspiciadores' })
+  @ApiOkResponse({ type: [SponsorPackageDto] })
+  list(): Promise<SponsorPackageDto[]> {
+    return this.packages.list();
+  }
+
+  @Post('sponsor-packages')
+  @ApiOperation({ summary: 'Solo ADMIN: crear un paquete' })
+  @ApiCreatedResponse({ type: SponsorPackageDto })
+  create(
+    @CurrentStaff() staff: StaffActor,
+    @Body() dto: CreateSponsorPackageDto,
+  ): Promise<SponsorPackageDto> {
+    return this.packages.create(staff.id, dto);
+  }
+
+  @Patch('sponsor-packages/:id')
+  @ApiOperation({ summary: 'Solo ADMIN: editar o desactivar un paquete' })
+  @ApiOkResponse({ type: SponsorPackageDto })
+  update(
+    @CurrentStaff() staff: StaffActor,
+    @Param('id', uuid) id: string,
+    @Body() dto: UpdateSponsorPackageDto,
+  ): Promise<SponsorPackageDto> {
+    return this.packages.update(staff.id, id, dto);
+  }
+
+  @Get('sponsors/:id/package-purchases')
+  @ApiOperation({ summary: 'Solo ADMIN: compras de paquetes de un auspiciador' })
+  @ApiOkResponse({ type: [PackagePurchaseDto] })
+  purchases(@Param('id', uuid) id: string): Promise<PackagePurchaseDto[]> {
+    return this.packages.purchases(id);
+  }
+
+  @Post('sponsors/:id/package-purchases')
+  @ApiOperation({
+    summary: 'Solo ADMIN: vender un paquete (crea la campaña y envía el enlace de pago por correo)',
+  })
+  @ApiCreatedResponse({ type: PackagePurchaseDto })
+  createPurchase(
+    @CurrentStaff() staff: StaffActor,
+    @Param('id', uuid) id: string,
+    @Body() dto: CreatePackagePurchaseDto,
+  ): Promise<PackagePurchaseDto> {
+    return this.packages.createPurchase(staff.id, id, dto);
+  }
+
+  @Post('package-purchases/:id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Solo ADMIN: anular una compra sin pagar' })
+  @ApiOkResponse({ type: PackagePurchaseDto })
+  cancelPurchase(
+    @CurrentStaff() staff: StaffActor,
+    @Param('id', uuid) id: string,
+  ): Promise<PackagePurchaseDto> {
+    return this.packages.cancelPurchase(staff.id, id);
+  }
+}
+
 @Module({
   imports: [AdminAccessModule, ImagesModule],
-  controllers: [SponsorsController, SponsorsAdminController],
-  providers: [SponsorsService],
+  controllers: [SponsorsController, SponsorsAdminController, SponsorPackagesAdminController],
+  providers: [SponsorsService, SponsorPackagesService],
 })
 export class SponsorsModule {}

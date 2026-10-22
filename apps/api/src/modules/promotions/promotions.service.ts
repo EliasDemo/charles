@@ -7,6 +7,7 @@ import { ErrorCode } from '../../common/errors/error-codes';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { BarbershopAccessService } from '../barbershops/barbershop-access.service';
+import { EntitlementsService } from '../plans/entitlements.service';
 import {
   type BookingContext,
   type ChosenDiscount,
@@ -95,6 +96,7 @@ export class PromotionsService {
     private readonly access: BarbershopAccessService,
     private readonly audit: AuditService,
     @Inject(CLOCK) private readonly clock: Clock,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   // ───────────── Descuento de una reserva ─────────────
@@ -150,6 +152,16 @@ export class PromotionsService {
       subtotal: input.subtotal,
       currency: input.currency,
       dayOfWeek: DateTime.fromMillis(input.startAt, { zone: input.timezone }).weekday % 7,
+      clientTier: input.clientId
+        ? ((
+            await db.shopClient.findUnique({
+              where: {
+                barbershopId_userId: { barbershopId: input.barbershopId, userId: input.clientId },
+              },
+              select: { tier: true },
+            })
+          )?.tier ?? 'NONE')
+        : 'NONE',
     };
 
     const blocked = new Map<string, CouponRejection>();
@@ -312,6 +324,8 @@ export class PromotionsService {
     dto: CreatePromotionDto,
   ): Promise<PromotionDto> {
     await this.access.requireMember(actor.userId, barbershopId);
+    await this.entitlements.assertFeature(barbershopId, 'promotions');
+    if (dto.minTier) await this.entitlements.assertFeature(barbershopId, 'client_ranking');
     if (dto.serviceId) {
       const owned = await this.prisma.service.count({
         where: { id: dto.serviceId, barbershopId, deletedAt: null },
@@ -447,7 +461,10 @@ export class PromotionsService {
           endsAt: dto.endsAt ?? null,
           maxRedemptions: dto.maxRedemptions ?? null,
           maxPerUser: dto.maxPerUser ?? null,
-          rules: days.length > 0 ? { daysOfWeek: days } : {},
+          rules: {
+            ...(days.length > 0 ? { daysOfWeek: days } : {}),
+            ...(dto.minTier ? { minTier: dto.minTier } : {}),
+          },
           requiresCoupon: dto.requiresCoupon ?? false,
           createdById: actor.userId,
         },
@@ -636,6 +653,7 @@ export class PromotionsService {
         maxRedemptions: r.maxRedemptions,
         maxPerUser: r.maxPerUser,
         daysOfWeek: parseRules(r.rules).daysOfWeek ?? [],
+        minTier: parseRules(r.rules).minTier ?? null,
         requiresCoupon: r.requiresCoupon,
         isActive: r.isActive,
         status: !r.isActive

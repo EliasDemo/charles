@@ -28,6 +28,7 @@ import { SettingKey, SettingsService } from '../settings/settings.service';
 import { type ClientCard, UsersService } from '../users/users.service';
 import type { ChosenDiscount } from '../promotions/discount-policy';
 import type { BookingQuoteDto, QuoteBookingDto } from '../promotions/dto/promotion.dto';
+import { EntitlementsService } from '../plans/entitlements.service';
 import { couponNotValid, PromotionsService } from '../promotions/promotions.service';
 import { cancellationDecision, NO_SHOW_DEFAULTS, noShowAllowed } from './booking-policy';
 import { type BookingActor, BookingStateMachine, SYSTEM_ACTOR } from './booking-state-machine';
@@ -151,6 +152,7 @@ export class BookingsService {
     @Inject(CLOCK) private readonly clock: Clock,
     private readonly reviewEligibility: ReviewEligibilityService,
     private readonly promotions: PromotionsService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   // ───────────── Crear (RF-RES-001/002, RF-RES-007) ─────────────
@@ -193,7 +195,7 @@ export class BookingsService {
         SettingKey.BOOKING_MAX_PENDING_PER_CLIENT,
         BOOKING_DEFAULTS.maxPendingPerClient,
       ),
-      this.commissionSettings(),
+      this.commissionSettings(dto.barbershopId),
     ]);
     if (dto.styleId) {
       const style = await this.prisma.serviceStyle.count({
@@ -358,7 +360,7 @@ export class BookingsService {
     await this.access.requirePublic(dto.barbershopId);
     const [timezone, commissionSettings] = await Promise.all([
       this.access.timezoneOf(dto.barbershopId),
-      this.commissionSettings(),
+      this.commissionSettings(dto.barbershopId),
     ]);
     const promo = await this.promotions.resolve(
       this.prisma,
@@ -608,14 +610,18 @@ export class BookingsService {
     throw slotNotAvailable();
   }
 
-  /** Ajustes `fees.*` (ADMIN). Si faltan, sin comisión. */
-  private async commissionSettings(): Promise<CommissionSettings> {
-    const [percentBp, fixedAmount, payer] = await Promise.all([
+  /**
+   * Ajustes `fees.*` (ADMIN). Si faltan, sin comisión. Fase 15: el plan de la barbería puede fijar
+   * su propio porcentaje (los planes de pago, menos comisión).
+   */
+  private async commissionSettings(barbershopId: string): Promise<CommissionSettings> {
+    const [settingBp, planBp, fixedAmount, payer] = await Promise.all([
       this.settings.nonNegativeInt(SettingKey.FEES_PERCENT_BP, COMMISSION_DEFAULTS.percentBp),
+      this.entitlements.commissionBp(barbershopId),
       this.settings.nonNegativeInt(SettingKey.FEES_FIXED_AMOUNT, COMMISSION_DEFAULTS.fixedAmount),
       this.settings.oneOf(SettingKey.FEES_PAYER, COMMISSION_PAYERS, COMMISSION_DEFAULTS.payer),
     ]);
-    return { percentBp, fixedAmount, payer };
+    return { percentBp: planBp ?? settingBp, fixedAmount, payer };
   }
 
   /** Reserva previa con la misma clave: la misma petición la devuelve; otra distinta es 409. */

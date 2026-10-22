@@ -21,7 +21,13 @@ export type DiscountFunder = 'CHARLES' | 'BARBERSHOP';
 export interface PromotionRules {
   /** Días de la semana de la cita en la zona de la barbería (0 = domingo). Vacío o ausente: todos. */
   daysOfWeek?: number[];
+  /** Panel de la barbería: solo para clientes de ese nivel del ranking o superior. */
+  minTier?: ClientTierLevel;
 }
+
+export const CLIENT_TIERS = ['BRONZE', 'SILVER', 'GOLD'] as const;
+export type ClientTierLevel = (typeof CLIENT_TIERS)[number];
+const TIER_RANK: Record<string, number> = { NONE: 0, BRONZE: 1, SILVER: 2, GOLD: 3 };
 
 export interface PromotionCandidate {
   id: string;
@@ -42,6 +48,8 @@ export interface BookingContext {
   currency: string;
   /** Día de la semana de la cita en la zona de la barbería (0 = domingo). */
   dayOfWeek: number;
+  /** Nivel del cliente en el ranking de la barbería (NONE si no está). */
+  clientTier?: string;
 }
 
 export interface ChosenDiscount {
@@ -57,6 +65,8 @@ export function appliesTo(promotion: PromotionCandidate, ctx: BookingContext): b
   if (promotion.type === 'FIXED_AMOUNT' && promotion.currency !== ctx.currency) return false;
   const days = promotion.rules.daysOfWeek;
   if (days && days.length > 0 && !days.includes(ctx.dayOfWeek)) return false;
+  const minTier = promotion.rules.minTier;
+  if (minTier && (TIER_RANK[ctx.clientTier ?? 'NONE'] ?? 0) < TIER_RANK[minTier]!) return false;
   return true;
 }
 
@@ -108,8 +118,13 @@ const rank = (funder: DiscountFunder): number => (funder === 'CHARLES' ? 0 : 1);
 export function parseRules(value: unknown): PromotionRules {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
   const days = (value as { daysOfWeek?: unknown }).daysOfWeek;
-  if (!Array.isArray(days)) return {};
-  return {
-    daysOfWeek: days.filter((d): d is number => Number.isInteger(d) && d >= 0 && d <= 6),
-  };
+  const minTier = (value as { minTier?: unknown }).minTier;
+  const rules: PromotionRules = {};
+  if (Array.isArray(days)) {
+    rules.daysOfWeek = days.filter((d): d is number => Number.isInteger(d) && d >= 0 && d <= 6);
+  }
+  if (typeof minTier === 'string' && (CLIENT_TIERS as readonly string[]).includes(minTier)) {
+    rules.minTier = minTier as ClientTierLevel;
+  }
+  return rules;
 }

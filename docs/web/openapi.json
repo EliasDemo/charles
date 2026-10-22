@@ -12045,6 +12045,344 @@
         "tags": ["admin"]
       }
     },
+    "/api/v1/admin/sponsor-packages": {
+      "get": {
+        "operationId": "SponsorPackagesAdminController_list_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SponsorPackageDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: catálogo de paquetes para auspiciadores",
+        "tags": ["admin"]
+      },
+      "post": {
+        "operationId": "SponsorPackagesAdminController_create_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSponsorPackageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SponsorPackageDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: crear un paquete",
+        "tags": ["admin"]
+      }
+    },
+    "/api/v1/admin/sponsor-packages/{id}": {
+      "patch": {
+        "operationId": "SponsorPackagesAdminController_update_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSponsorPackageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SponsorPackageDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: editar o desactivar un paquete",
+        "tags": ["admin"]
+      }
+    },
+    "/api/v1/admin/sponsors/{id}/package-purchases": {
+      "get": {
+        "operationId": "SponsorPackagesAdminController_purchases_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PackagePurchaseDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: compras de paquetes de un auspiciador",
+        "tags": ["admin"]
+      },
+      "post": {
+        "operationId": "SponsorPackagesAdminController_createPurchase_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePackagePurchaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackagePurchaseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: vender un paquete (crea la campaña y envía el enlace de pago por correo)",
+        "tags": ["admin"]
+      }
+    },
+    "/api/v1/admin/package-purchases/{id}/cancel": {
+      "post": {
+        "operationId": "SponsorPackagesAdminController_cancelPurchase_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackagePurchaseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: anular una compra sin pagar",
+        "tags": ["admin"]
+      }
+    },
     "/api/v1/me/barber-profile": {
       "get": {
         "description": "Incluye dónde trabajo y dónde trabajé (workplaces), mis especialidades y mi puesto.",
@@ -14706,6 +15044,88 @@
         "tags": ["recommendations"]
       }
     },
+    "/api/v1/recommendations/similar-faces": {
+      "post": {
+        "description": "Compara las proporciones de la cara (medidas en el teléfono) con las de las fotos de la galería que se subieron con medidas. Nada del cliente se guarda.",
+        "operationId": "RecommendationsController_similar_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimilarFacesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SimilarFacePhotoDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Etapa 2: fotos de cortes en caras parecidas a la del cliente, cerca",
+        "tags": ["recommendations"]
+      }
+    },
+    "/api/v1/recommendations/interactions": {
+      "post": {
+        "operationId": "InteractionsController_interaction_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StyleInteractionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Registrar que vio, guardó o reservó un corte (VIEW: una por foto y hora)",
+        "tags": ["recommendations"]
+      }
+    },
     "/api/v1/admin/face-shape-rules": {
       "get": {
         "operationId": "FaceShapeRulesAdminController_list_v1",
@@ -14765,6 +15185,3218 @@
         ],
         "summary": "Solo ADMIN: crear o cambiar una regla (con motivo, queda en la auditoría)",
         "tags": ["admin"]
+      }
+    },
+    "/api/v1/billing/webhooks/{provider}": {
+      "post": {
+        "operationId": "BillingController_webhook_v1",
+        "parameters": [
+          {
+            "name": "provider",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookReceiptDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Aviso firmado de la pasarela de facturación. Idempotente por evento.",
+        "tags": ["billing"]
+      }
+    },
+    "/api/v1/plans": {
+      "get": {
+        "operationId": "PlansController_list_v1",
+        "parameters": [
+          {
+            "name": "audience",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["BARBERSHOP", "BARBER"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlanDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Planes que se ofrecen, con sus beneficios",
+        "tags": ["plans"]
+      }
+    },
+    "/api/v1/barbershops/{id}/plan": {
+      "get": {
+        "operationId": "BarbershopPlanController_plan_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BarbershopPlanDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "OWNER o MANAGER: plan vigente, límites y uso",
+        "tags": ["plans"]
+      }
+    },
+    "/api/v1/barbershops/{id}/plan/badges": {
+      "get": {
+        "operationId": "BarbershopPlanController_badges_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicPlanBadgesDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Insignias públicas del plan (perfil de la barbería)",
+        "tags": ["plans"]
+      }
+    },
+    "/api/v1/barbershops/{id}/subscription": {
+      "get": {
+        "operationId": "BarbershopPlanController_current_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "OWNER o MANAGER: suscripción vigente o pendiente de pago (null si no hay)",
+        "tags": ["plans"]
+      },
+      "post": {
+        "description": "Crea la suscripción en la pasarela y envía el enlace de pago por correo al dueño. La app no abre el enlace (políticas de Apple y Google). Queda PENDING hasta que el dueño pague.",
+        "operationId": "BarbershopPlanController_subscribe_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "SUBSCRIPTION_EXISTS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "BILLING_UNAVAILABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo OWNER: contratar un plan de pago",
+        "tags": ["plans"]
+      }
+    },
+    "/api/v1/barbershops/{id}/subscription/cancel": {
+      "post": {
+        "operationId": "BarbershopPlanController_cancel_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelSubscriptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo OWNER: cancelar (el plan sigue hasta el fin del periodo pagado)",
+        "tags": ["plans"]
+      }
+    },
+    "/api/v1/barbershops/{id}/subscription/sync": {
+      "post": {
+        "operationId": "BarbershopPlanController_sync_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "OWNER o MANAGER: consultar a la pasarela si ya se pagó",
+        "tags": ["plans"]
+      }
+    },
+    "/api/v1/barbershops/{id}/plan/active-barbers": {
+      "put": {
+        "operationId": "BarbershopPlanController_activeBarbers_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActiveBarbersDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BarbershopPlanDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo OWNER: elegir qué barberos siguen activos cuando el plan limita la cantidad",
+        "tags": ["plans"]
+      }
+    },
+    "/api/v1/barbershops/{id}/featured": {
+      "post": {
+        "operationId": "BarbershopPlanController_featured_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UseFeaturedDaysDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeaturedFromPlanDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "OWNER o MANAGER: usar días destacados incluidos en el plan",
+        "tags": ["plans"]
+      }
+    },
+    "/api/v1/admin/plans": {
+      "get": {
+        "operationId": "PlansAdminController_list_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminPlanDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: todos los planes (también ocultos), con suscripciones vivas",
+        "tags": ["admin"]
+      },
+      "post": {
+        "operationId": "PlansAdminController_create_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePlanDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPlanDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: crear un plan",
+        "tags": ["admin"]
+      }
+    },
+    "/api/v1/admin/plans/entitlements": {
+      "get": {
+        "operationId": "PlansAdminController_catalog_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntitlementDefinitionDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: catálogo de beneficios (claves y tipo)",
+        "tags": ["admin"]
+      }
+    },
+    "/api/v1/admin/plans/{planId}": {
+      "patch": {
+        "operationId": "PlansAdminController_update_v1",
+        "parameters": [
+          {
+            "name": "planId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlanDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPlanDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: editar un plan (precio nuevo: las suscripciones vigentes lo pagan desde su renovación)",
+        "tags": ["admin"]
+      },
+      "delete": {
+        "operationId": "PlansAdminController_remove_v1",
+        "parameters": [
+          {
+            "name": "planId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminReasonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: eliminar un plan sin suscripciones (si las tiene, ocultarlo)",
+        "tags": ["admin"]
+      }
+    },
+    "/api/v1/admin/plans/{planId}/entitlements": {
+      "put": {
+        "operationId": "PlansAdminController_setEntitlements_v1",
+        "parameters": [
+          {
+            "name": "planId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetEntitlementsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPlanDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: beneficios del plan (reemplaza todos)",
+        "tags": ["admin"]
+      }
+    },
+    "/api/v1/admin/subscriptions/summary": {
+      "get": {
+        "operationId": "SubscriptionsAdminController_summary_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingSummaryDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: resumen de facturación (MRR, planes, cobros y comisiones del mes)",
+        "tags": ["admin"]
+      }
+    },
+    "/api/v1/admin/subscriptions": {
+      "get": {
+        "operationId": "SubscriptionsAdminController_list_v1",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["PENDING", "TRIALING", "ACTIVE", "PAST_DUE", "CANCELED", "EXPIRED"]
+            }
+          },
+          {
+            "name": "barbershopId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminSubscriptionDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: suscripciones (las 200 más recientes)",
+        "tags": ["admin"]
+      }
+    },
+    "/api/v1/admin/subscriptions/{subscriptionId}/cancel": {
+      "post": {
+        "operationId": "SubscriptionsAdminController_cancel_v1",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminReasonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSubscriptionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: cancelar de inmediato (la barbería baja al plan gratis)",
+        "tags": ["admin"]
+      }
+    },
+    "/api/v1/admin/subscriptions/{subscriptionId}/extend": {
+      "post": {
+        "operationId": "SubscriptionsAdminController_extend_v1",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtendSubscriptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSubscriptionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo ADMIN: sumar días de cortesía",
+        "tags": ["admin"]
+      }
+    },
+    "/api/v1/barbershops/{id}/membership-plans": {
+      "get": {
+        "operationId": "BarbershopMembershipsController_publicPlans_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MembershipPlanDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Membresías a la venta (vacío si el plan de la barbería no las incluye)",
+        "tags": ["memberships"]
+      },
+      "post": {
+        "operationId": "BarbershopMembershipsController_create_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMembershipPlanDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedMembershipPlanDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo OWNER: crear una membresía (si el plan lo incluye)",
+        "tags": ["memberships"]
+      }
+    },
+    "/api/v1/barbershops/{id}/membership-plans/manage": {
+      "get": {
+        "operationId": "BarbershopMembershipsController_managed_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ManagedMembershipPlanDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "OWNER o MANAGER: todas sus membresías, con miembros activos",
+        "tags": ["memberships"]
+      }
+    },
+    "/api/v1/barbershops/{id}/membership-plans/{planId}": {
+      "patch": {
+        "operationId": "BarbershopMembershipsController_update_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "planId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMembershipPlanDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedMembershipPlanDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo OWNER: editar o dejar de vender una membresía (las vigentes siguen)",
+        "tags": ["memberships"]
+      }
+    },
+    "/api/v1/barbershops/{id}/membership-members": {
+      "get": {
+        "operationId": "BarbershopMembershipsController_members_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShopMemberDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "OWNER o MANAGER: clientes con membresía vigente y sus créditos",
+        "tags": ["memberships"]
+      }
+    },
+    "/api/v1/users/me/memberships": {
+      "get": {
+        "operationId": "MyMembershipsController_mine_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MembershipDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mis membresías (sin las vencidas), con créditos disponibles",
+        "tags": ["memberships"]
+      }
+    },
+    "/api/v1/membership-plans/{planId}/subscribe": {
+      "post": {
+        "description": "Devuelve checkoutUrl (pasarela): la app lo abre. Al pagarse, llegan los créditos.",
+        "operationId": "MyMembershipsController_subscribe_v1",
+        "parameters": [
+          {
+            "name": "planId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "BILLING_UNAVAILABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Suscribirse a una membresía",
+        "tags": ["memberships"]
+      }
+    },
+    "/api/v1/users/me/memberships/{membershipId}/cancel": {
+      "post": {
+        "operationId": "MyMembershipsController_cancel_v1",
+        "parameters": [
+          {
+            "name": "membershipId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancelar (los créditos siguen hasta que vencen; sin devolución del mes)",
+        "tags": ["memberships"]
+      }
+    },
+    "/api/v1/users/me/memberships/{membershipId}/sync": {
+      "post": {
+        "operationId": "MyMembershipsController_sync_v1",
+        "parameters": [
+          {
+            "name": "membershipId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar a la pasarela si ya se pagó (al volver del pago)",
+        "tags": ["memberships"]
+      }
+    },
+    "/api/v1/bookings/{bookingId}/pay-with-membership": {
+      "post": {
+        "operationId": "MyMembershipsController_pay_v1",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayWithMembershipDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "CONFIRMED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "NO_MEMBERSHIP_CREDITS, MEMBERSHIP_NOT_APPLICABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Pagar una reserva pendiente con un crédito de membresía",
+        "tags": ["memberships"]
+      }
+    },
+    "/api/v1/barbershops/{id}/clients": {
+      "get": {
+        "operationId": "ShopController_listClients_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Busca por nombre o usuario.",
+            "schema": {
+              "maxLength": 60,
+              "type": "string"
+            }
+          },
+          {
+            "name": "tier",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["NONE", "BRONZE", "SILVER", "GOLD"]
+            }
+          },
+          {
+            "name": "regular",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "recent",
+              "type": "string",
+              "enum": ["recent", "score", "name"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShopClientDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Clientes de la barbería (búsqueda, nivel, habituales)",
+        "tags": ["shop"]
+      },
+      "post": {
+        "operationId": "ShopController_createClient_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShopClientDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopClientDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Registrar un cliente (del local o con su usuario de la app)",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/clients/ranking": {
+      "get": {
+        "operationId": "ShopController_ranking_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RankingDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ranking de clientes: niveles y los 50 mejores (plan con ranking)",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/clients/ranking/recompute": {
+      "post": {
+        "operationId": "ShopController_recompute_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RankingDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Recalcular el ranking ahora (se recalcula solo cada noche)",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/clients/{clientId}": {
+      "get": {
+        "operationId": "ShopController_client_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopClientDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cliente con su historial (reservas atendidas y ventas)",
+        "tags": ["shop"]
+      },
+      "patch": {
+        "operationId": "ShopController_updateClient_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateShopClientDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopClientDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Editar un cliente (notas, preferencias, habitual, archivar)",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/catalog": {
+      "get": {
+        "operationId": "ShopController_listCatalog_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Catálogo de cortes (servicios con estilo y foto)",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/catalog/sources": {
+      "get": {
+        "operationId": "ShopController_sources_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogSourceDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Fotos de cortes de los barberos de la barbería (para importar)",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/catalog/import": {
+      "post": {
+        "operationId": "ShopController_importItem_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportCatalogItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear un corte del catálogo desde una foto del portafolio de un barbero",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/catalog/{serviceId}": {
+      "patch": {
+        "operationId": "ShopController_updateCatalog_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCatalogItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Estilo y foto de portada de un corte del catálogo",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/cash": {
+      "get": {
+        "operationId": "ShopController_cash_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashSessionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Caja abierta (null si no hay)",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/cash/history": {
+      "get": {
+        "operationId": "ShopController_cashHistory_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CashSessionDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Últimos 30 turnos de caja",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/cash/open": {
+      "post": {
+        "operationId": "ShopController_openCash_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenCashDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashSessionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CASH_SESSION_OPEN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Abrir la caja",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/cash/close": {
+      "post": {
+        "operationId": "ShopController_closeCash_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseCashDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashSessionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cerrar la caja (con el efectivo contado; calcula la diferencia)",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/sales": {
+      "get": {
+        "operationId": "ShopController_listSales_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Desde (incluido). Por defecto, hoy en Lima.",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Hasta (excluido).",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "barberId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SaleDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ventas del local (por defecto, las de hoy)",
+        "tags": ["shop"]
+      },
+      "post": {
+        "description": "Efectivo exige caja abierta. MEMBERSHIP_CREDIT usa un crédito de la membresía del cliente. La boleta se emite al momento si el proveedor responde; si no, se reintenta sola.",
+        "operationId": "ShopController_createSale_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID: reintentar no duplica la venta.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSaleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Registrar una venta en el local (cliente sin reserva), opcionalmente con boleta",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/sales/{saleId}": {
+      "get": {
+        "operationId": "ShopController_sale_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "saleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Una venta, con su boleta",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/sales/{saleId}/void": {
+      "post": {
+        "description": "Devuelve el crédito de membresía. Una boleta ya emitida se anula con nota de crédito en el proveedor.",
+        "operationId": "ShopController_voidSale_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "saleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoidSaleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Anular una venta (con motivo)",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/sales/{saleId}/invoice/retry": {
+      "post": {
+        "operationId": "ShopController_retryInvoice_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "saleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Reintentar la boleta de una venta (pendiente o fallida)",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/invoicing": {
+      "get": {
+        "operationId": "ShopController_invoicing_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoicingConfigDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Configuración de boletas (nunca devuelve credenciales)",
+        "tags": ["shop"]
+      },
+      "put": {
+        "operationId": "ShopController_setInvoicing_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInvoicingConfigDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoicingConfigDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo OWNER: configurar boletas (FAKE de demostración o NUBEFACT con su RUTA y TOKEN)",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/reports/sales": {
+      "get": {
+        "operationId": "ShopController_report_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "description": "Desde (incluido).",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "description": "Hasta (excluido). Máximo 366 días.",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesReportDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Reporte de ventas: app y local, por día, barbero, servicio y medio de pago",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/reports/sales.csv": {
+      "get": {
+        "operationId": "ShopController_reportCsv_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "description": "Desde (incluido).",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "description": "Hasta (excluido). Máximo 366 días.",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Exportar el reporte a CSV (plan con exportación)",
+        "tags": ["shop"]
+      }
+    },
+    "/api/v1/barbershops/{id}/barbers/{barberId}/commission": {
+      "put": {
+        "operationId": "ShopController_commission_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "barberId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BarberCommissionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BarberCommissionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PLAN_LIMIT_REACHED o PLAN_FEATURE_NOT_INCLUDED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solo OWNER: comisión del barbero sobre sus atenciones (para reportes)",
+        "tags": ["shop"]
       }
     }
   },
@@ -17560,6 +21192,19 @@
             "enum": ["OVAL", "ROUND", "SQUARE", "OBLONG", "HEART", "DIAMOND"],
             "nullable": true,
             "description": "Forma de cara de la persona (la marca el barbero). Con estilos, la foto queda como etiqueta confirmada y sirve para recomendar cortes a caras parecidas."
+          },
+          "faceLength": {
+            "type": "number",
+            "description": "Forma de cara, etapa 2: medidas de la cara de la foto tomadas EN EL TELÉFONO (largo, ancho de frente, pómulos y mandíbula, en cualquier unidad). Las cuatro o ninguna. Si no se envía faceShape, se clasifica con ellas (etiqueta sin confirmar). Nunca se envían puntos de la cara."
+          },
+          "foreheadWidth": {
+            "type": "number"
+          },
+          "cheekboneWidth": {
+            "type": "number"
+          },
+          "jawWidth": {
+            "type": "number"
           }
         },
         "required": ["file", "consent"]
@@ -20352,6 +23997,12 @@
               "type": "number"
             }
           },
+          "minTier": {
+            "type": "string",
+            "enum": ["BRONZE", "SILVER", "GOLD"],
+            "nullable": true,
+            "description": "Nivel mínimo del ranking."
+          },
           "requiresCoupon": {
             "type": "boolean"
           },
@@ -20400,6 +24051,7 @@
           "maxRedemptions",
           "maxPerUser",
           "daysOfWeek",
+          "minTier",
           "requiresCoupon",
           "isActive",
           "status",
@@ -20465,6 +24117,11 @@
             "items": {
               "type": "number"
             }
+          },
+          "minTier": {
+            "type": "string",
+            "enum": ["BRONZE", "SILVER", "GOLD"],
+            "description": "Solo barberías con ranking de clientes en su plan: la promoción aplica a clientes de ese nivel o superior (BRONZE < SILVER < GOLD)."
           },
           "requiresCoupon": {
             "type": "boolean",
@@ -22683,6 +26340,15 @@
             "type": "boolean",
             "description": "ACTIVE y dentro de sus fechas: se está mostrando."
           },
+          "impressionsLimit": {
+            "type": "number",
+            "nullable": true,
+            "description": "Fase 15: impresiones del paquete comprado (null: sin tope)."
+          },
+          "impressionsCount": {
+            "type": "number",
+            "description": "Impresiones contadas (una por persona y hora)."
+          },
           "placements": {
             "type": "array",
             "items": {
@@ -22703,6 +26369,8 @@
           "audience",
           "status",
           "live",
+          "impressionsLimit",
+          "impressionsCount",
           "placements",
           "createdAt"
         ]
@@ -22945,6 +26613,228 @@
             "type": "boolean"
           }
         }
+      },
+      "SponsorPackageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "crecimiento"
+          },
+          "name": {
+            "type": "string",
+            "example": "Crecimiento"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "priceAmount": {
+            "type": "number",
+            "description": "Céntimos.",
+            "example": 150000
+          },
+          "currency": {
+            "type": "string",
+            "example": "PEN"
+          },
+          "impressionsLimit": {
+            "type": "number",
+            "nullable": true,
+            "description": "Impresiones incluidas (null: sin tope)."
+          },
+          "placementsLimit": {
+            "type": "number",
+            "description": "Anuncios (espacios) que admite la campaña."
+          },
+          "durationDays": {
+            "type": "number",
+            "description": "Días que dura la campaña desde el pago."
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "description",
+          "priceAmount",
+          "currency",
+          "impressionsLimit",
+          "placementsLimit",
+          "durationDays",
+          "sortOrder",
+          "isActive"
+        ]
+      },
+      "CreateSponsorPackageDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "crecimiento"
+          },
+          "name": {
+            "type": "string",
+            "example": "Crecimiento",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "priceAmount": {
+            "type": "number",
+            "description": "Céntimos."
+          },
+          "impressionsLimit": {
+            "type": "number",
+            "nullable": true
+          },
+          "placementsLimit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "durationDays": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 365
+          },
+          "sortOrder": {
+            "type": "number",
+            "default": 0
+          }
+        },
+        "required": ["code", "name", "priceAmount", "placementsLimit", "durationDays"]
+      },
+      "UpdateSponsorPackageDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "priceAmount": {
+            "type": "number",
+            "description": "Solo para compras nuevas."
+          },
+          "impressionsLimit": {
+            "type": "number",
+            "nullable": true
+          },
+          "placementsLimit": {
+            "type": "number"
+          },
+          "durationDays": {
+            "type": "number"
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PackagePurchaseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sponsorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "package": {
+            "$ref": "#/components/schemas/SponsorPackageDto"
+          },
+          "campaignId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "priceAmount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "PAID", "CANCELED"]
+          },
+          "checkoutUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Enlace de pago (solo PENDING)."
+          },
+          "paidAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sponsorId",
+          "package",
+          "campaignId",
+          "priceAmount",
+          "currency",
+          "status",
+          "checkoutUrl",
+          "paidAt",
+          "createdAt"
+        ]
+      },
+      "CreatePackagePurchaseDto": {
+        "type": "object",
+        "properties": {
+          "packageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "campaignName": {
+            "type": "string",
+            "description": "Nombre de la campaña que se creará.",
+            "minLength": 3,
+            "maxLength": 80
+          },
+          "audience": {
+            "type": "string",
+            "enum": ["CLIENTS", "BARBERSHOPS", "ALL"],
+            "default": "ALL"
+          },
+          "payerEmail": {
+            "type": "string",
+            "description": "Correo al que se envía el enlace de pago.",
+            "maxLength": 254
+          }
+        },
+        "required": ["packageId", "campaignName", "payerEmail"]
       },
       "WorkplaceDto": {
         "type": "object",
@@ -24536,6 +28426,143 @@
         },
         "required": ["faceShape", "haircuts", "disclaimer"]
       },
+      "SimilarFacesDto": {
+        "type": "object",
+        "properties": {
+          "measurements": {
+            "description": "Medidas tomadas en el teléfono (no se guardan).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FaceMeasurementsDto"
+              }
+            ]
+          },
+          "lat": {
+            "type": "number"
+          },
+          "lng": {
+            "type": "number"
+          },
+          "radiusKm": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 12
+          }
+        },
+        "required": ["measurements", "lat", "lng"]
+      },
+      "SimilarFacePhotoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "thumbUrl": {
+            "type": "string"
+          },
+          "largeUrl": {
+            "type": "string"
+          },
+          "faceShape": {
+            "type": "string",
+            "nullable": true,
+            "enum": ["OVAL", "ROUND", "SQUARE", "OBLONG", "HEART", "DIAMOND"]
+          },
+          "sameFaceShape": {
+            "type": "boolean",
+            "description": "De una cara de la misma forma que la del cliente."
+          },
+          "confirmed": {
+            "type": "boolean",
+            "description": "Etiqueta confirmada por el barbero."
+          },
+          "isDemo": {
+            "type": "boolean",
+            "description": "Foto de demostración (stock): muéstrala como \"Ejemplo\"."
+          },
+          "barbershopId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barbershopName": {
+            "type": "string"
+          },
+          "barberProfileId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "barberName": {
+            "type": "string",
+            "nullable": true
+          },
+          "serviceId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid",
+            "description": "Para \"reservar este corte\"."
+          },
+          "distanceMeters": {
+            "type": "number",
+            "description": "Metros hasta la barbería (redondeados)."
+          },
+          "similarity": {
+            "type": "number",
+            "description": "Parecido de la cara de la foto con la del cliente (0 a 1)."
+          },
+          "styleKeys": {
+            "description": "Claves de los cortes de la foto.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "thumbUrl",
+          "largeUrl",
+          "faceShape",
+          "sameFaceShape",
+          "confirmed",
+          "isDemo",
+          "barbershopId",
+          "barbershopName",
+          "barberProfileId",
+          "barberName",
+          "serviceId",
+          "distanceMeters",
+          "similarity",
+          "styleKeys"
+        ]
+      },
+      "StyleInteractionDto": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Foto vista o guardada."
+          },
+          "styleKey": {
+            "type": "string",
+            "description": "Clave del corte.",
+            "maxLength": 60
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["VIEW", "SAVE", "BOOK"]
+          }
+        },
+        "required": ["kind"]
+      },
       "FaceShapeRuleDto": {
         "type": "object",
         "properties": {
@@ -24627,6 +28654,2098 @@
           }
         },
         "required": ["faceShape", "styleId", "score", "reason"]
+      },
+      "PlanEntitlementDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "barbers"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["LIMIT", "TOGGLE"]
+          },
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number",
+            "nullable": true,
+            "description": "LIMIT: máximo (null = ilimitado; 0 = no incluido). TOGGLE: 1 incluido, 0 no."
+          }
+        },
+        "required": ["key", "kind", "label", "value"]
+      },
+      "PlanDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "pro"
+          },
+          "name": {
+            "type": "string",
+            "example": "Pro"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "audience": {
+            "type": "string",
+            "enum": ["BARBERSHOP", "BARBER"],
+            "description": "BARBERSHOP: barberías. BARBER: barberos independientes."
+          },
+          "priceMonthly": {
+            "type": "number",
+            "description": "Céntimos por mes.",
+            "example": 5900
+          },
+          "priceYearly": {
+            "type": "number",
+            "nullable": true,
+            "description": "Céntimos por año (null: sin opción anual)."
+          },
+          "currency": {
+            "type": "string",
+            "example": "PEN"
+          },
+          "trialDays": {
+            "type": "number",
+            "example": 14
+          },
+          "commissionBp": {
+            "type": "number",
+            "nullable": true,
+            "description": "Comisión por reserva en puntos básicos (500 = 5 %). null: la general."
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "entitlements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanEntitlementDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "description",
+          "audience",
+          "priceMonthly",
+          "priceYearly",
+          "currency",
+          "trialDays",
+          "commissionBp",
+          "isDefault",
+          "entitlements"
+        ]
+      },
+      "SubscriptionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "TRIALING", "ACTIVE", "PAST_DUE", "CANCELED", "EXPIRED"]
+          },
+          "interval": {
+            "type": "string",
+            "enum": ["MONTHLY", "YEARLY"]
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PlanDto"
+          },
+          "priceAmount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "nextPriceAmount": {
+            "type": "number",
+            "nullable": true,
+            "description": "Precio desde la próxima renovación."
+          },
+          "nextPriceFrom": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "checkoutUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Enlace de pago (solo mientras está PENDING). La app no lo abre: se envía por correo."
+          },
+          "trialEndsAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "currentPeriodEnd": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "graceUntil": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "Con pago atrasado: fin del periodo de gracia."
+          },
+          "cancelAtPeriodEnd": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "interval",
+          "plan",
+          "priceAmount",
+          "currency",
+          "nextPriceAmount",
+          "nextPriceFrom",
+          "checkoutUrl",
+          "trialEndsAt",
+          "currentPeriodEnd",
+          "graceUntil",
+          "cancelAtPeriodEnd",
+          "createdAt"
+        ]
+      },
+      "PlanUsageDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["LIMIT", "TOGGLE"]
+          },
+          "limit": {
+            "type": "number",
+            "nullable": true,
+            "description": "Límite (null ilimitado) o 1/0."
+          },
+          "used": {
+            "type": "number",
+            "nullable": true,
+            "description": "Usado (solo límites con medición)."
+          }
+        },
+        "required": ["key", "label", "kind", "limit", "used"]
+      },
+      "BarbershopPlanDto": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "nullable": true,
+            "description": "null: sin planes configurados (sin límites).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlanDto"
+              }
+            ]
+          },
+          "subscription": {
+            "nullable": true,
+            "description": "Suscripción vigente o pendiente de pago.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubscriptionDto"
+              }
+            ]
+          },
+          "usage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanUsageDto"
+            }
+          },
+          "suspendedBarbers": {
+            "type": "number",
+            "description": "Barberos que el plan dejó inactivos (se reactivan al subir de plan)."
+          },
+          "hiddenPhotos": {
+            "type": "number",
+            "description": "Fotos que el plan ocultó."
+          }
+        },
+        "required": ["plan", "subscription", "usage", "suspendedBarbers", "hiddenPhotos"]
+      },
+      "PublicPlanBadgesDto": {
+        "type": "object",
+        "properties": {
+          "verified": {
+            "type": "boolean",
+            "description": "Insignia \"Verificada\" del plan."
+          }
+        },
+        "required": ["verified"]
+      },
+      "SubscribeDto": {
+        "type": "object",
+        "properties": {
+          "planCode": {
+            "type": "string",
+            "example": "pro"
+          },
+          "interval": {
+            "type": "string",
+            "enum": ["MONTHLY", "YEARLY"],
+            "default": "MONTHLY"
+          },
+          "replace": {
+            "type": "boolean",
+            "default": false,
+            "description": "true: reemplaza la suscripción vigente (cambio de plan). Si no, 409 SUBSCRIPTION_EXISTS."
+          }
+        },
+        "required": ["planCode"]
+      },
+      "CancelSubscriptionDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        }
+      },
+      "ActiveBarbersDto": {
+        "type": "object",
+        "properties": {
+          "barberIds": {
+            "description": "Barberos que siguen activos (hasta el límite del plan).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["barberIds"]
+      },
+      "UseFeaturedDaysDto": {
+        "type": "object",
+        "properties": {
+          "startsAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Inicio (por defecto, ahora)."
+          },
+          "days": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 31
+          }
+        },
+        "required": ["days"]
+      },
+      "FeaturedFromPlanDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "daysUsed": {
+            "type": "number",
+            "description": "Días del plan usados este mes (incluido este)."
+          },
+          "daysLimit": {
+            "type": "number",
+            "nullable": true,
+            "description": "Días por mes del plan (null: ilimitado)."
+          }
+        },
+        "required": ["id", "startsAt", "endsAt", "daysUsed", "daysLimit"]
+      },
+      "AdminPlanDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "pro"
+          },
+          "name": {
+            "type": "string",
+            "example": "Pro"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "audience": {
+            "type": "string",
+            "enum": ["BARBERSHOP", "BARBER"],
+            "description": "BARBERSHOP: barberías. BARBER: barberos independientes."
+          },
+          "priceMonthly": {
+            "type": "number",
+            "description": "Céntimos por mes.",
+            "example": 5900
+          },
+          "priceYearly": {
+            "type": "number",
+            "nullable": true,
+            "description": "Céntimos por año (null: sin opción anual)."
+          },
+          "currency": {
+            "type": "string",
+            "example": "PEN"
+          },
+          "trialDays": {
+            "type": "number",
+            "example": 14
+          },
+          "commissionBp": {
+            "type": "number",
+            "nullable": true,
+            "description": "Comisión por reserva en puntos básicos (500 = 5 %). null: la general."
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "entitlements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanEntitlementDto"
+            }
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "isVisible": {
+            "type": "boolean"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "liveSubscriptions": {
+            "type": "number",
+            "description": "Suscripciones vivas (en prueba, activas o con pago atrasado)."
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "description",
+          "audience",
+          "priceMonthly",
+          "priceYearly",
+          "currency",
+          "trialDays",
+          "commissionBp",
+          "isDefault",
+          "entitlements",
+          "sortOrder",
+          "isVisible",
+          "isActive",
+          "liveSubscriptions"
+        ]
+      },
+      "EntitlementDefinitionDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "barbers"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["LIMIT", "TOGGLE"]
+          },
+          "label": {
+            "type": "string",
+            "example": "Barberos activos"
+          }
+        },
+        "required": ["key", "kind", "label"]
+      },
+      "CreatePlanDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "pro",
+            "description": "Minúsculas, números y _ (2 a 40)."
+          },
+          "name": {
+            "type": "string",
+            "example": "Pro",
+            "minLength": 2,
+            "maxLength": 40
+          },
+          "description": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 300
+          },
+          "audience": {
+            "type": "string",
+            "enum": ["BARBERSHOP", "BARBER"]
+          },
+          "priceMonthly": {
+            "type": "number",
+            "description": "Céntimos por mes (0 para el plan gratis)."
+          },
+          "priceYearly": {
+            "type": "number",
+            "nullable": true
+          },
+          "trialDays": {
+            "type": "number",
+            "default": 0
+          },
+          "commissionBp": {
+            "type": "number",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "number",
+            "default": 0
+          },
+          "isDefault": {
+            "type": "boolean",
+            "default": false,
+            "description": "Plan por defecto (gratis) de su público."
+          },
+          "isVisible": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": ["code", "name", "audience", "priceMonthly"]
+      },
+      "UpdatePlanDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 40
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 0,
+            "maxLength": 300
+          },
+          "priceMonthly": {
+            "type": "number",
+            "description": "Nuevo precio mensual. Las suscripciones vigentes lo pagan desde su renovación, con aviso previo."
+          },
+          "priceYearly": {
+            "type": "number",
+            "nullable": true
+          },
+          "trialDays": {
+            "type": "number"
+          },
+          "commissionBp": {
+            "type": "number",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "isVisible": {
+            "type": "boolean",
+            "description": "false: se deja de ofrecer (sus suscriptores siguen)."
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "false: no admite suscripciones nuevas."
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 500,
+            "description": "Motivo (auditoría)."
+          }
+        },
+        "required": ["reason"]
+      },
+      "SetEntitlementsDto": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "nullable": true
+            },
+            "example": {
+              "barbers": 6,
+              "gallery_photos": 150,
+              "promotions": 1,
+              "memberships": 0,
+              "messages_month": null
+            },
+            "description": "Clave → valor. LIMIT: número o null (ilimitado). TOGGLE: 1 o 0. Las claves omitidas se quitan (no incluidas)."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 500
+          }
+        },
+        "required": ["values", "reason"]
+      },
+      "AdminReasonDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 500
+          }
+        },
+        "required": ["reason"]
+      },
+      "PlanCountDto": {
+        "type": "object",
+        "properties": {
+          "planCode": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "TRIALING", "ACTIVE", "PAST_DUE", "CANCELED", "EXPIRED"]
+          },
+          "count": {
+            "type": "number"
+          }
+        },
+        "required": ["planCode", "planName", "status", "count"]
+      },
+      "PurposeAmountDto": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": ["SUBSCRIPTION", "SPONSOR_PACKAGE", "MEMBERSHIP"]
+          },
+          "amount": {
+            "type": "number",
+            "description": "Céntimos cobrados en el mes."
+          },
+          "count": {
+            "type": "number"
+          }
+        },
+        "required": ["purpose", "amount", "count"]
+      },
+      "BillingSummaryDto": {
+        "type": "object",
+        "properties": {
+          "mrr": {
+            "type": "number",
+            "description": "Ingreso mensual recurrente de los planes (céntimos; anuales ÷ 12)."
+          },
+          "pastDue": {
+            "type": "number",
+            "description": "Suscripciones con pago atrasado."
+          },
+          "trialing": {
+            "type": "number",
+            "description": "Suscripciones en prueba gratis."
+          },
+          "byPlan": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanCountDto"
+            }
+          },
+          "chargesThisMonth": {
+            "description": "Cobros confirmados del mes calendario.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurposeAmountDto"
+            }
+          },
+          "commissionsThisMonth": {
+            "type": "number",
+            "description": "Comisiones por reservas del mes (céntimos)."
+          }
+        },
+        "required": [
+          "mrr",
+          "pastDue",
+          "trialing",
+          "byPlan",
+          "chargesThisMonth",
+          "commissionsThisMonth"
+        ]
+      },
+      "AdminSubscriptionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "TRIALING", "ACTIVE", "PAST_DUE", "CANCELED", "EXPIRED"]
+          },
+          "interval": {
+            "type": "string",
+            "enum": ["MONTHLY", "YEARLY"]
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PlanDto"
+          },
+          "priceAmount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "nextPriceAmount": {
+            "type": "number",
+            "nullable": true,
+            "description": "Precio desde la próxima renovación."
+          },
+          "nextPriceFrom": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "checkoutUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Enlace de pago (solo mientras está PENDING). La app no lo abre: se envía por correo."
+          },
+          "trialEndsAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "currentPeriodEnd": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "graceUntil": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "Con pago atrasado: fin del periodo de gracia."
+          },
+          "cancelAtPeriodEnd": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "barbershopId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barbershopName": {
+            "type": "string"
+          },
+          "canceledAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "cancelReason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "interval",
+          "plan",
+          "priceAmount",
+          "currency",
+          "nextPriceAmount",
+          "nextPriceFrom",
+          "checkoutUrl",
+          "trialEndsAt",
+          "currentPeriodEnd",
+          "graceUntil",
+          "cancelAtPeriodEnd",
+          "createdAt",
+          "barbershopId",
+          "barbershopName",
+          "canceledAt",
+          "cancelReason"
+        ]
+      },
+      "ExtendSubscriptionDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 500
+          },
+          "days": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 90,
+            "description": "Días de cortesía que se suman al periodo actual."
+          }
+        },
+        "required": ["reason", "days"]
+      },
+      "MembershipPlanServiceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "name"]
+      },
+      "MembershipPlanDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barbershopId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Corte mensual"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "priceAmount": {
+            "type": "number",
+            "description": "Céntimos por mes.",
+            "example": 9000
+          },
+          "currency": {
+            "type": "string",
+            "example": "PEN"
+          },
+          "creditsPerPeriod": {
+            "type": "number",
+            "description": "Créditos por mes (1 crédito = 1 servicio).",
+            "example": 4
+          },
+          "services": {
+            "description": "Servicios que cubre (vacío: todos).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MembershipPlanServiceDto"
+            }
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "barbershopId",
+          "name",
+          "description",
+          "priceAmount",
+          "currency",
+          "creditsPerPeriod",
+          "services",
+          "isActive"
+        ]
+      },
+      "ManagedMembershipPlanDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barbershopId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Corte mensual"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "priceAmount": {
+            "type": "number",
+            "description": "Céntimos por mes.",
+            "example": 9000
+          },
+          "currency": {
+            "type": "string",
+            "example": "PEN"
+          },
+          "creditsPerPeriod": {
+            "type": "number",
+            "description": "Créditos por mes (1 crédito = 1 servicio).",
+            "example": 4
+          },
+          "services": {
+            "description": "Servicios que cubre (vacío: todos).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MembershipPlanServiceDto"
+            }
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "activeMembers": {
+            "type": "number",
+            "description": "Membresías vigentes de clientes."
+          }
+        },
+        "required": [
+          "id",
+          "barbershopId",
+          "name",
+          "description",
+          "priceAmount",
+          "currency",
+          "creditsPerPeriod",
+          "services",
+          "isActive",
+          "activeMembers"
+        ]
+      },
+      "CreateMembershipPlanDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Corte mensual",
+            "minLength": 3,
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "priceAmount": {
+            "type": "number",
+            "description": "Céntimos por mes (mínimo S/ 10)."
+          },
+          "creditsPerPeriod": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "serviceIds": {
+            "description": "Servicios que cubre (vacío: todos).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["name", "priceAmount", "creditsPerPeriod"]
+      },
+      "UpdateMembershipPlanDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "priceAmount": {
+            "type": "number",
+            "description": "Solo para membresías nuevas; las vigentes conservan su precio."
+          },
+          "creditsPerPeriod": {
+            "type": "number",
+            "description": "Solo para membresías nuevas."
+          },
+          "serviceIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "false: deja de venderse (las vigentes siguen)."
+          }
+        }
+      },
+      "ShopMemberDto": {
+        "type": "object",
+        "properties": {
+          "membershipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "description": "Usuario de la app del cliente."
+          },
+          "planName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "ACTIVE", "PAST_DUE", "CANCELED", "EXPIRED"]
+          },
+          "credits": {
+            "type": "number"
+          },
+          "currentPeriodEnd": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "membershipId",
+          "username",
+          "planName",
+          "status",
+          "credits",
+          "currentPeriodEnd"
+        ]
+      },
+      "MembershipDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/MembershipPlanDto"
+          },
+          "barbershopName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "ACTIVE", "PAST_DUE", "CANCELED", "EXPIRED"]
+          },
+          "priceAmount": {
+            "type": "number",
+            "description": "Precio que paga (fijo desde que se suscribió)."
+          },
+          "currency": {
+            "type": "string"
+          },
+          "credits": {
+            "type": "number",
+            "description": "Créditos disponibles ahora."
+          },
+          "nextCreditsExpireAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "Vence el próximo lote de créditos."
+          },
+          "checkoutUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Enlace de pago (solo PENDING)."
+          },
+          "currentPeriodEnd": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "cancelAtPeriodEnd": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "plan",
+          "barbershopName",
+          "status",
+          "priceAmount",
+          "currency",
+          "credits",
+          "nextCreditsExpireAt",
+          "checkoutUrl",
+          "currentPeriodEnd",
+          "cancelAtPeriodEnd",
+          "createdAt"
+        ]
+      },
+      "PayWithMembershipDto": {
+        "type": "object",
+        "properties": {
+          "membershipId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["membershipId"]
+      },
+      "ShopClientDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Ana"
+          },
+          "username": {
+            "type": "string",
+            "nullable": true,
+            "description": "Usuario en la app (si tiene cuenta)."
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "preferences": {
+            "type": "string",
+            "nullable": true,
+            "description": "Preferencias (corte, máquina, etc.)."
+          },
+          "isRegular": {
+            "type": "boolean"
+          },
+          "tier": {
+            "type": "string",
+            "enum": ["NONE", "BRONZE", "SILVER", "GOLD"]
+          },
+          "score": {
+            "type": "number"
+          },
+          "visitsCount": {
+            "type": "number"
+          },
+          "totalSpent": {
+            "type": "number",
+            "description": "Céntimos gastados (en la ventana del ranking)."
+          },
+          "firstVisitAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "lastVisitAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "username",
+          "phone",
+          "notes",
+          "preferences",
+          "isRegular",
+          "tier",
+          "score",
+          "visitsCount",
+          "totalSpent",
+          "firstVisitAt",
+          "lastVisitAt",
+          "createdAt"
+        ]
+      },
+      "CreateShopClientDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "description": "Nombre (obligatorio si no se indica el usuario de la app).",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "username": {
+            "type": "string",
+            "description": "Usuario de la app, para vincularlo (su historial de reservas se suma)."
+          },
+          "phone": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "preferences": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "isRegular": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "RankingTierCountDto": {
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": ["NONE", "BRONZE", "SILVER", "GOLD"]
+          },
+          "count": {
+            "type": "number"
+          },
+          "minScore": {
+            "type": "number",
+            "nullable": true,
+            "description": "Puntaje mínimo del nivel."
+          }
+        },
+        "required": ["tier", "count", "minScore"]
+      },
+      "RankingDto": {
+        "type": "object",
+        "properties": {
+          "tiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RankingTierCountDto"
+            }
+          },
+          "top": {
+            "description": "Los 50 mejores clientes.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShopClientDto"
+            }
+          },
+          "windowDays": {
+            "type": "number",
+            "description": "Días que considera el puntaje."
+          },
+          "rankedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": ["tiers", "top", "windowDays", "rankedAt"]
+      },
+      "ClientVisitDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": ["BOOKING", "SALE"]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "services": {
+            "description": "Servicios.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "barberName": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalAmount": {
+            "type": "number"
+          }
+        },
+        "required": ["source", "id", "at", "services", "barberName", "totalAmount"]
+      },
+      "ShopClientDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Ana"
+          },
+          "username": {
+            "type": "string",
+            "nullable": true,
+            "description": "Usuario en la app (si tiene cuenta)."
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "preferences": {
+            "type": "string",
+            "nullable": true,
+            "description": "Preferencias (corte, máquina, etc.)."
+          },
+          "isRegular": {
+            "type": "boolean"
+          },
+          "tier": {
+            "type": "string",
+            "enum": ["NONE", "BRONZE", "SILVER", "GOLD"]
+          },
+          "score": {
+            "type": "number"
+          },
+          "visitsCount": {
+            "type": "number"
+          },
+          "totalSpent": {
+            "type": "number",
+            "description": "Céntimos gastados (en la ventana del ranking)."
+          },
+          "firstVisitAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "lastVisitAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "visits": {
+            "description": "Últimas 30 visitas (reservas atendidas y ventas).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClientVisitDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "username",
+          "phone",
+          "notes",
+          "preferences",
+          "isRegular",
+          "tier",
+          "score",
+          "visitsCount",
+          "totalSpent",
+          "firstVisitAt",
+          "lastVisitAt",
+          "createdAt",
+          "visits"
+        ]
+      },
+      "UpdateShopClientDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500
+          },
+          "preferences": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "isRegular": {
+            "type": "boolean"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "true: lo archiva (deja de contar en el límite del plan)."
+          }
+        }
+      },
+      "CatalogItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID del servicio."
+          },
+          "name": {
+            "type": "string"
+          },
+          "priceAmount": {
+            "type": "number"
+          },
+          "durationMinutes": {
+            "type": "number"
+          },
+          "isAvailable": {
+            "type": "boolean"
+          },
+          "styleKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "styleName": {
+            "type": "string",
+            "nullable": true
+          },
+          "coverUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "fromBarberName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Barbero de la foto de portada."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "priceAmount",
+          "durationMinutes",
+          "isAvailable",
+          "styleKey",
+          "styleName",
+          "coverUrl",
+          "fromBarberName"
+        ]
+      },
+      "CatalogSourceDto": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID de la foto del portafolio."
+          },
+          "imageUrl": {
+            "type": "string"
+          },
+          "barberName": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string",
+            "nullable": true
+          },
+          "styleKeys": {
+            "description": "Claves de los estilos de la foto.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["imageId", "imageUrl", "barberName", "caption", "styleKeys"]
+      },
+      "ImportCatalogItemDto": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Foto del portafolio de un barbero de la barbería."
+          },
+          "name": {
+            "type": "string",
+            "description": "Por defecto, el nombre del estilo de la foto.",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "priceAmount": {
+            "type": "number",
+            "description": "Céntimos."
+          },
+          "durationMinutes": {
+            "type": "number",
+            "minimum": 5,
+            "maximum": 480
+          }
+        },
+        "required": ["imageId", "priceAmount", "durationMinutes"]
+      },
+      "UpdateCatalogItemDto": {
+        "type": "object",
+        "properties": {
+          "styleKey": {
+            "type": "string",
+            "nullable": true,
+            "description": "Clave del estilo (null lo quita).",
+            "maxLength": 60
+          },
+          "coverImageId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid",
+            "description": "Foto de portada."
+          }
+        }
+      },
+      "CashSessionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "openedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "openingAmount": {
+            "type": "number"
+          },
+          "closedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "expectedAmount": {
+            "type": "number",
+            "description": "Efectivo esperado: apertura + ventas en efectivo del turno."
+          },
+          "countedAmount": {
+            "type": "number",
+            "nullable": true
+          },
+          "difference": {
+            "type": "number",
+            "nullable": true,
+            "description": "Contado − esperado."
+          },
+          "salesCount": {
+            "type": "number",
+            "description": "Ventas del turno (no anuladas)."
+          },
+          "salesTotal": {
+            "type": "number",
+            "description": "Total vendido en el turno (todos los medios)."
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "openedAt",
+          "openingAmount",
+          "closedAt",
+          "expectedAmount",
+          "countedAmount",
+          "difference",
+          "salesCount",
+          "salesTotal",
+          "note"
+        ]
+      },
+      "OpenCashDto": {
+        "type": "object",
+        "properties": {
+          "openingAmount": {
+            "type": "number",
+            "description": "Efectivo inicial (céntimos)."
+          }
+        },
+        "required": ["openingAmount"]
+      },
+      "CloseCashDto": {
+        "type": "object",
+        "properties": {
+          "countedAmount": {
+            "type": "number",
+            "description": "Efectivo contado al cerrar (céntimos)."
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "required": ["countedAmount"]
+      },
+      "SaleLineDto": {
+        "type": "object",
+        "properties": {
+          "serviceId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unitAmount": {
+            "type": "number"
+          },
+          "totalAmount": {
+            "type": "number"
+          }
+        },
+        "required": ["serviceId", "description", "quantity", "unitAmount", "totalAmount"]
+      },
+      "InvoiceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "number": {
+            "type": "string",
+            "example": "B001-00000012"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "ISSUED", "REJECTED", "FAILED", "VOIDED"]
+          },
+          "totalAmount": {
+            "type": "number"
+          },
+          "taxAmount": {
+            "type": "number",
+            "description": "IGV incluido en el total."
+          },
+          "pdfUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastError": {
+            "type": "string",
+            "nullable": true
+          },
+          "issuedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "status",
+          "totalAmount",
+          "taxAmount",
+          "pdfUrl",
+          "lastError",
+          "issuedAt"
+        ]
+      },
+      "SaleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "shopClientId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "clientName": {
+            "type": "string",
+            "nullable": true
+          },
+          "barberId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "barberName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SaleLineDto"
+            }
+          },
+          "subtotalAmount": {
+            "type": "number"
+          },
+          "discountAmount": {
+            "type": "number"
+          },
+          "totalAmount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "enum": ["CASH", "YAPE", "CARD", "TRANSFER", "MEMBERSHIP_CREDIT"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["COMPLETED", "VOIDED"]
+          },
+          "voidReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoice": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InvoiceDto"
+              }
+            ]
+          },
+          "soldAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "shopClientId",
+          "clientName",
+          "barberId",
+          "barberName",
+          "lines",
+          "subtotalAmount",
+          "discountAmount",
+          "totalAmount",
+          "currency",
+          "paymentMethod",
+          "status",
+          "voidReason",
+          "invoice",
+          "soldAt"
+        ]
+      },
+      "SaleLineInputDto": {
+        "type": "object",
+        "properties": {
+          "serviceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Servicio de la barbería (o descripción libre)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Obligatoria si no hay servicio.",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "quantity": {
+            "type": "number",
+            "default": 1
+          },
+          "unitAmount": {
+            "type": "number",
+            "description": "Céntimos. Por defecto, el precio del servicio."
+          }
+        }
+      },
+      "CustomerDocDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["DNI", "CE", "RUC", "NONE"]
+          },
+          "number": {
+            "type": "string",
+            "description": "DNI 8 dígitos, CE hasta 12, RUC 11."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          }
+        },
+        "required": ["type"]
+      },
+      "CreateSaleDto": {
+        "type": "object",
+        "properties": {
+          "shopClientId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Cliente del panel (o venta anónima)."
+          },
+          "barberId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SaleLineInputDto"
+            }
+          },
+          "discountAmount": {
+            "type": "number",
+            "description": "Descuento en céntimos (no supera el subtotal).",
+            "default": 0
+          },
+          "paymentMethod": {
+            "type": "string",
+            "enum": ["CASH", "YAPE", "CARD", "TRANSFER", "MEMBERSHIP_CREDIT"]
+          },
+          "membershipId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Con MEMBERSHIP_CREDIT: membresía del cliente (usa 1 crédito)."
+          },
+          "issueInvoice": {
+            "type": "boolean",
+            "default": false,
+            "description": "Emitir boleta electrónica."
+          },
+          "customer": {
+            "description": "Datos del comprador para la boleta.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomerDocDto"
+              }
+            ]
+          }
+        },
+        "required": ["lines", "paymentMethod"]
+      },
+      "VoidSaleDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 300
+          }
+        },
+        "required": ["reason"]
+      },
+      "InvoicingConfigDto": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": ["FAKE", "NUBEFACT"]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "series": {
+            "type": "string",
+            "example": "B001"
+          },
+          "nextNumber": {
+            "type": "number"
+          },
+          "hasCredentials": {
+            "type": "boolean",
+            "description": "Hay ruta y token guardados (nunca se devuelven)."
+          }
+        },
+        "required": ["provider", "enabled", "series", "nextNumber", "hasCredentials"]
+      },
+      "UpdateInvoicingConfigDto": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": ["FAKE", "NUBEFACT"]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "series": {
+            "type": "string",
+            "example": "B001",
+            "description": "Serie de boletas (B + 3 letras o números)."
+          },
+          "apiUrl": {
+            "type": "string",
+            "description": "NUBEFACT: RUTA de la cuenta (https).",
+            "maxLength": 300
+          },
+          "token": {
+            "type": "string",
+            "description": "NUBEFACT: TOKEN de la cuenta.",
+            "minLength": 10,
+            "maxLength": 200
+          }
+        },
+        "required": ["provider", "enabled", "series"]
+      },
+      "ReportDayDto": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "example": "2026-10-20"
+          },
+          "appAmount": {
+            "type": "number"
+          },
+          "localAmount": {
+            "type": "number"
+          },
+          "count": {
+            "type": "number"
+          }
+        },
+        "required": ["day", "appAmount", "localAmount", "count"]
+      },
+      "ReportBarberDto": {
+        "type": "object",
+        "properties": {
+          "barberId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barberName": {
+            "type": "string"
+          },
+          "count": {
+            "type": "number"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "commissionBp": {
+            "type": "number",
+            "nullable": true,
+            "description": "Porcentaje de comisión (puntos básicos)."
+          },
+          "commissionAmount": {
+            "type": "number",
+            "description": "Comisión del barbero (céntimos)."
+          }
+        },
+        "required": [
+          "barberId",
+          "barberName",
+          "count",
+          "amount",
+          "commissionBp",
+          "commissionAmount"
+        ]
+      },
+      "ReportServiceDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "count": {
+            "type": "number"
+          },
+          "amount": {
+            "type": "number"
+          }
+        },
+        "required": ["name", "count", "amount"]
+      },
+      "ReportMethodDto": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["CASH", "YAPE", "CARD", "TRANSFER", "MEMBERSHIP_CREDIT"]
+          },
+          "amount": {
+            "type": "number"
+          },
+          "count": {
+            "type": "number"
+          }
+        },
+        "required": ["method", "amount", "count"]
+      },
+      "SalesReportDto": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "to": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "appAmount": {
+            "type": "number",
+            "description": "Reservas atendidas pagadas en la app (céntimos)."
+          },
+          "localAmount": {
+            "type": "number",
+            "description": "Ventas en el local (céntimos)."
+          },
+          "totalAmount": {
+            "type": "number"
+          },
+          "count": {
+            "type": "number",
+            "description": "Atenciones (reservas atendidas + ventas)."
+          },
+          "averageTicket": {
+            "type": "number",
+            "description": "Ticket promedio (céntimos)."
+          },
+          "newClients": {
+            "type": "number",
+            "description": "Clientes que vinieron por primera vez en el periodo."
+          },
+          "returningClients": {
+            "type": "number",
+            "description": "Clientes que ya habían venido antes."
+          },
+          "byDay": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportDayDto"
+            }
+          },
+          "byBarber": {
+            "description": "Vacío si el plan no incluye reportes completos.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportBarberDto"
+            }
+          },
+          "byService": {
+            "description": "Vacío si el plan no incluye reportes completos.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportServiceDto"
+            }
+          },
+          "byMethod": {
+            "description": "Ventas en el local por medio de pago.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportMethodDto"
+            }
+          },
+          "full": {
+            "type": "boolean",
+            "description": "El plan incluye reportes completos."
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "appAmount",
+          "localAmount",
+          "totalAmount",
+          "count",
+          "averageTicket",
+          "newClients",
+          "returningClients",
+          "byDay",
+          "byBarber",
+          "byService",
+          "byMethod",
+          "full"
+        ]
+      },
+      "BarberCommissionDto": {
+        "type": "object",
+        "properties": {
+          "commissionBp": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 10000
+          }
+        },
+        "required": ["commissionBp"]
       }
     }
   }

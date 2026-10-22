@@ -371,13 +371,17 @@ model User {
   mfaRecoveryCodes MfaRecoveryCode[]
 
   barberProfile          BarberProfile?
-  conversations          Conversation[]    @relation("ConversationUser")
-  messagesSent           Message[]         @relation("MessageSender")
-  messageReports         MessageReport[]   @relation("MessageReporter")
-  messageReportsResolved MessageReport[]   @relation("MessageReportResolver")
-  jobPostingsCreated     JobPosting[]      @relation("JobPostingCreator")
-  videosUploaded         Video[]           @relation("VideoUploader")
-  featuredCreated        FeaturedListing[] @relation("FeaturedCreator")
+  conversations          Conversation[]     @relation("ConversationUser")
+  messagesSent           Message[]          @relation("MessageSender")
+  messageReports         MessageReport[]    @relation("MessageReporter")
+  messageReportsResolved MessageReport[]    @relation("MessageReportResolver")
+  jobPostingsCreated     JobPosting[]       @relation("JobPostingCreator")
+  videosUploaded         Video[]            @relation("VideoUploader")
+  featuredCreated        FeaturedListing[]  @relation("FeaturedCreator")
+  subscriptionsPaid      Subscription[]     @relation("SubscriptionPayer")
+  shopClients            ShopClient[]       @relation("ShopClientUser")
+  clientMemberships      Membership[]       @relation("MembershipUser")
+  styleInteractions      StyleInteraction[] @relation("StyleInteractionUser")
 
   @@index([phoneHash])
   @@map("users")
@@ -575,6 +579,15 @@ model Barbershop {
   jobPostings   JobPosting[]
   videos        Video[]
 
+  subscriptions   Subscription[]
+  shopClients     ShopClient[]
+  cashSessions    CashSession[]
+  localSales      LocalSale[]
+  invoicingConfig InvoicingConfig?
+  invoices        Invoice[]
+  membershipPlans MembershipPlan[]
+  memberships     Membership[]
+
   @@index([location], type: Gist)
   @@map("barbershops")
 }
@@ -660,6 +673,10 @@ model Barber {
   bio             String?
   photoUrl        String?   @map("photo_url")
   isActive        Boolean   @default(true) @map("is_active")
+  /// Fase 15: inactivo por exceder el límite del plan (se reactiva al subir de plan).
+  planSuspendedAt DateTime? @map("plan_suspended_at") @db.Timestamptz(3)
+  /// Panel: comisión del barbero sobre sus ventas, en puntos básicos.
+  commissionBp    Int?      @map("commission_bp")
   /// Fase 11: promedio y cantidad de valoraciones visibles; se recalculan en la misma transacción.
   ratingAvg       Decimal   @default(0) @map("rating_avg") @db.Decimal(3, 2)
   ratingCount     Int       @default(0) @map("rating_count")
@@ -683,6 +700,7 @@ model Barber {
   reviews     Review[]
   invitations BarbershopInvitation[]
   images      Image[]
+  localSales  LocalSale[]
   specialties BarberSpecialty[]
 
   barberProfile BarberProfile? @relation(fields: [barberProfileId], references: [id])
@@ -703,18 +721,27 @@ model Service {
   durationMinutes Int       @map("duration_minutes")
   isAvailable     Boolean   @default(true) @map("is_available")
   categoryId      String    @map("category_id") @db.Uuid
+  /// Catálogo de cortes: estilo y foto de portada (propia o del portafolio de un barbero).
+  styleId         String?   @map("style_id") @db.Uuid
+  coverImageId    String?   @map("cover_image_id") @db.Uuid
   metadata        Json      @default("{}")
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  barbershop Barbershop      @relation(fields: [barbershopId], references: [id])
-  category   ServiceCategory @relation(fields: [categoryId], references: [id])
-  barbers    BarberService[]
-  bookings   Booking[]
-  images     Image[]
+  barbershop      Barbershop              @relation(fields: [barbershopId], references: [id])
+  category        ServiceCategory         @relation(fields: [categoryId], references: [id])
+  barbers         BarberService[]
+  bookings        Booking[]
+  images          Image[]
+  style           ServiceStyle?           @relation(fields: [styleId], references: [id])
+  coverImage      Image?                  @relation("ServiceCover", fields: [coverImageId], references: [id], onDelete: SetNull)
+  saleLines       LocalSaleLine[]
+  membershipPlans MembershipPlanService[]
 
   @@index([barbershopId])
+  @@index([styleId])
+  @@index([coverImageId])
   @@index([categoryId])
   @@map("services")
 }
@@ -760,6 +787,8 @@ model ServiceStyle {
 
   faceShapeRules FaceShapeRule[]
   bookings       Booking[]
+  services       Service[]
+  interactions   StyleInteraction[]
 
   @@index([categoryId])
   @@map("service_styles")
@@ -785,43 +814,52 @@ model BarberSpecialty {
 /// en el almacenamiento). La galería exige el consentimiento de la persona fotografiada, declarado
 /// por quien sube. Se oculta sola con N reportes abiertos (se calcula, no se guarda).
 model Image {
-  id               String     @id @default(uuid(7)) @db.Uuid
+  id                String     @id @default(uuid(7)) @db.Uuid
   /// null: foto del portafolio que el barbero subió desde su perfil (sin barbería).
-  barbershopId     String?    @map("barbershop_id") @db.Uuid
+  barbershopId      String?    @map("barbershop_id") @db.Uuid
   /// Carrera del barbero: portafolio (sus cortes). Es del barbero, no de la barbería.
-  barberProfileId  String?    @map("barber_profile_id") @db.Uuid
-  barberId         String?    @map("barber_id") @db.Uuid
-  kind             ImageKind
-  variants         Json
-  uploadedById     String     @map("uploaded_by") @db.Uuid
-  consentGiven     Boolean    @default(false) @map("consent_given")
-  consentByUserId  String?    @map("consent_by_user_id") @db.Uuid
-  consentTimestamp DateTime?  @map("consent_timestamp") @db.Timestamptz(3)
-  caption          String?
+  barberProfileId   String?    @map("barber_profile_id") @db.Uuid
+  barberId          String?    @map("barber_id") @db.Uuid
+  kind              ImageKind
+  variants          Json
+  uploadedById      String     @map("uploaded_by") @db.Uuid
+  consentGiven      Boolean    @default(false) @map("consent_given")
+  consentByUserId   String?    @map("consent_by_user_id") @db.Uuid
+  consentTimestamp  DateTime?  @map("consent_timestamp") @db.Timestamptz(3)
+  caption           String?
   /// Forma de cara de la persona fotografiada (la marca el barbero). Solo en cortes (GALLERY).
-  faceShape        FaceShape? @map("face_shape")
+  faceShape         FaceShape? @map("face_shape")
   /// Etiquetas (estilos y forma) confirmadas por el barbero: ejemplo válido para recomendar y entrenar.
-  labelConfirmed   Boolean    @default(false) @map("label_confirmed")
+  labelConfirmed    Boolean    @default(false) @map("label_confirmed")
   /// Foto de demostración (stock): nunca se presenta como trabajo real.
-  isDemo           Boolean    @default(false) @map("is_demo")
+  isDemo            Boolean    @default(false) @map("is_demo")
   /// Atribución de la foto de demostración (fotógrafo y enlace en la fuente).
-  demoSource       Json?      @map("demo_source")
+  demoSource        Json?      @map("demo_source")
   /// Servicio para "reservar este estilo" desde la foto.
-  serviceId        String?    @map("service_id") @db.Uuid
-  pinnedAt         DateTime?  @map("pinned_at") @db.Timestamptz(3)
+  serviceId         String?    @map("service_id") @db.Uuid
+  pinnedAt          DateTime?  @map("pinned_at") @db.Timestamptz(3)
+  /// Fase 15: oculta por exceder el límite de fotos del plan (vuelve al subir de plan).
+  planHiddenAt      DateTime?  @map("plan_hidden_at") @db.Timestamptz(3)
+  /// Forma de cara, etapa 2: proporciones medidas en el teléfono (largo, frente y mandíbula
+  /// sobre pómulos), para buscar caras parecidas.
+  faceRatioLength   Float?     @map("face_ratio_length") @db.Real
+  faceRatioForehead Float?     @map("face_ratio_forehead") @db.Real
+  faceRatioJaw      Float?     @map("face_ratio_jaw") @db.Real
   /// Retirada por soporte (moderación): no se muestra aunque no tenga reportes.
-  removedAt        DateTime?  @map("removed_at") @db.Timestamptz(3)
-  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt        DateTime?  @map("deleted_at") @db.Timestamptz(3)
+  removedAt         DateTime?  @map("removed_at") @db.Timestamptz(3)
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt         DateTime?  @map("deleted_at") @db.Timestamptz(3)
 
-  barbershop Barbershop?   @relation(fields: [barbershopId], references: [id], onDelete: Restrict)
-  barber     Barber?       @relation(fields: [barberId], references: [id])
-  uploadedBy User          @relation("ImageUploader", fields: [uploadedById], references: [id])
-  consentBy  User?         @relation("ImageConsent", fields: [consentByUserId], references: [id])
-  service    Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-  styles     ImageStyle[]
-  reports    ImageReport[]
+  barbershop   Barbershop?        @relation(fields: [barbershopId], references: [id], onDelete: Restrict)
+  barber       Barber?            @relation(fields: [barberId], references: [id])
+  uploadedBy   User               @relation("ImageUploader", fields: [uploadedById], references: [id])
+  consentBy    User?              @relation("ImageConsent", fields: [consentByUserId], references: [id])
+  service      Service?           @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  styles       ImageStyle[]
+  reports      ImageReport[]
+  coverOf      Service[]          @relation("ServiceCover")
+  interactions StyleInteraction[]
 
   barberProfile BarberProfile? @relation(fields: [barberProfileId], references: [id])
 
@@ -988,6 +1026,7 @@ model Booking {
   payments            Payment[]
   review              Review?
   promotionRedemption PromotionRedemption?
+  creditUse           MembershipCreditUse?
   cancellationReview  BarbershopCancellationReview?
 
   barberProfile BarberProfile? @relation(fields: [barberProfileId], references: [id])
@@ -1429,28 +1468,33 @@ model Sponsor {
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  campaigns SponsorCampaign[]
-  products  SponsorProduct[]
+  campaigns        SponsorCampaign[]
+  products         SponsorProduct[]
+  packagePurchases SponsorPackagePurchase[]
 
   @@map("sponsors")
 }
 
 model SponsorCampaign {
-  id        String                @id @default(uuid(7)) @db.Uuid
-  sponsorId String                @map("sponsor_id") @db.Uuid
-  name      String
-  startsAt  DateTime              @map("starts_at") @db.Timestamptz(3)
-  endsAt    DateTime              @map("ends_at") @db.Timestamptz(3)
-  target    Json                  @default("{}")
+  id               String                @id @default(uuid(7)) @db.Uuid
+  sponsorId        String                @map("sponsor_id") @db.Uuid
+  name             String
+  startsAt         DateTime              @map("starts_at") @db.Timestamptz(3)
+  endsAt           DateTime              @map("ends_at") @db.Timestamptz(3)
+  target           Json                  @default("{}")
   /// Fase 13: a quién se muestra (clientes, barberías o ambos).
-  audience  SponsorAudience       @default(ALL)
-  status    SponsorCampaignStatus @default(DRAFT)
-  createdAt DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt DateTime?             @map("deleted_at") @db.Timestamptz(3)
+  audience         SponsorAudience       @default(ALL)
+  status           SponsorCampaignStatus @default(DRAFT)
+  /// Fase 15: tope de impresiones del paquete comprado (null: sin tope).
+  impressionsLimit Int?                  @map("impressions_limit")
+  impressionsCount Int                   @default(0) @map("impressions_count")
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?             @map("deleted_at") @db.Timestamptz(3)
 
-  sponsor    Sponsor            @relation(fields: [sponsorId], references: [id])
-  placements SponsorPlacement[]
+  sponsor         Sponsor                 @relation(fields: [sponsorId], references: [id])
+  placements      SponsorPlacement[]
+  packagePurchase SponsorPackagePurchase?
 
   @@index([sponsorId])
   @@index([status, startsAt, endsAt])
@@ -1526,6 +1570,8 @@ model FeaturedListing {
   /// Fase 13: quién lo asignó (ADMIN) y si se retiró antes de tiempo.
   createdById  String?   @map("created_by") @db.Uuid
   note         String?
+  /// Fase 15: días destacados del plan de la barbería (no los asigna ADMIN).
+  fromPlan     Boolean   @default(false) @map("from_plan")
   cancelledAt  DateTime? @map("cancelled_at") @db.Timestamptz(3)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -1880,4 +1926,562 @@ model FaceShapeRule {
   @@unique([faceShape, styleId])
   @@index([styleId])
   @@map("face_shape_rules")
+}
+
+// ═════════════════════ Fase 15: planes y suscripciones ═════════════════════
+
+enum PlanAudience {
+  BARBERSHOP
+  BARBER
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  PENDING
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+enum BillingPurpose {
+  SUBSCRIPTION
+  SPONSOR_PACKAGE
+  MEMBERSHIP
+}
+
+enum BillingChargeStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELED
+}
+
+/// Plan de suscripción (datos, no código). Uno por público puede ser el plan por defecto (gratis).
+model Plan {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  code         String       @unique
+  name         String
+  description  String?
+  audience     PlanAudience
+  /// Céntimos por mes y por año (null: sin opción anual).
+  priceMonthly Int          @map("price_monthly")
+  priceYearly  Int?         @map("price_yearly")
+  currency     String       @default("PEN") @db.Char(3)
+  trialDays    Int          @default(0) @map("trial_days") @db.SmallInt
+  /// Comisión por reserva en puntos básicos (500 = 5 %). null: la general (`fees.percent_bp`).
+  commissionBp Int?         @map("commission_bp")
+  sortOrder    Int          @default(0) @map("sort_order")
+  isVisible    Boolean      @default(true) @map("is_visible")
+  isActive     Boolean      @default(true) @map("is_active")
+  isDefault    Boolean      @default(false) @map("is_default")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  entitlements  PlanEntitlement[]
+  subscriptions Subscription[]
+
+  @@index([audience, sortOrder])
+  @@map("plans")
+}
+
+/// Beneficio de un plan. Límites: valor numérico (null = ilimitado). Interruptores: 1 o 0.
+model PlanEntitlement {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  planId    String   @map("plan_id") @db.Uuid
+  key       String
+  value     Int?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, key])
+  @@map("plan_entitlements")
+}
+
+/// Suscripción de una barbería (o de un barbero independiente: barbería INDEPENDENT) a un plan.
+model Subscription {
+  id                     String             @id @default(uuid(7)) @db.Uuid
+  planId                 String             @map("plan_id") @db.Uuid
+  barbershopId           String             @map("barbershop_id") @db.Uuid
+  payerUserId            String             @map("payer_user_id") @db.Uuid
+  interval               BillingInterval
+  status                 SubscriptionStatus @default(PENDING)
+  /// Precio vigente (céntimos); un cambio de precio aplica desde la renovación siguiente.
+  priceAmount            Int                @map("price_amount")
+  currency               String             @db.Char(3)
+  nextPriceAmount        Int?               @map("next_price_amount")
+  nextPriceFrom          DateTime?          @map("next_price_from") @db.Timestamptz(3)
+  provider               String
+  providerSubscriptionId String?            @map("provider_subscription_id")
+  checkoutUrl            String?            @map("checkout_url")
+  trialEndsAt            DateTime?          @map("trial_ends_at") @db.Timestamptz(3)
+  currentPeriodStart     DateTime?          @map("current_period_start") @db.Timestamptz(3)
+  currentPeriodEnd       DateTime?          @map("current_period_end") @db.Timestamptz(3)
+  pastDueSince           DateTime?          @map("past_due_since") @db.Timestamptz(3)
+  graceUntil             DateTime?          @map("grace_until") @db.Timestamptz(3)
+  cancelAtPeriodEnd      Boolean            @default(false) @map("cancel_at_period_end")
+  canceledAt             DateTime?          @map("canceled_at") @db.Timestamptz(3)
+  cancelReason           String?            @map("cancel_reason")
+  endedAt                DateTime?          @map("ended_at") @db.Timestamptz(3)
+  metadata               Json               @default("{}")
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  plan       Plan            @relation(fields: [planId], references: [id])
+  barbershop Barbershop      @relation(fields: [barbershopId], references: [id])
+  payer      User            @relation("SubscriptionPayer", fields: [payerUserId], references: [id])
+  charges    BillingCharge[]
+
+  @@unique([provider, providerSubscriptionId])
+  @@index([barbershopId, status])
+  @@index([planId])
+  @@index([payerUserId])
+  @@index([status, graceUntil])
+  @@map("subscriptions")
+}
+
+/// Cobro de facturación de Charles (suscripción, paquete de auspiciador o membresía).
+model BillingCharge {
+  id                String              @id @default(uuid(7)) @db.Uuid
+  purpose           BillingPurpose
+  subscriptionId    String?             @map("subscription_id") @db.Uuid
+  membershipId      String?             @map("membership_id") @db.Uuid
+  sponsorPurchaseId String?             @map("sponsor_purchase_id") @db.Uuid
+  amount            Int
+  currency          String              @db.Char(3)
+  status            BillingChargeStatus @default(PENDING)
+  provider          String
+  providerPaymentId String?             @map("provider_payment_id")
+  failureReason     String?             @map("failure_reason")
+  paidAt            DateTime?           @map("paid_at") @db.Timestamptz(3)
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  subscription    Subscription?           @relation(fields: [subscriptionId], references: [id])
+  membership      Membership?             @relation(fields: [membershipId], references: [id])
+  sponsorPurchase SponsorPackagePurchase? @relation(fields: [sponsorPurchaseId], references: [id])
+  creditLot       MembershipCreditLot?
+
+  @@unique([provider, providerPaymentId])
+  @@index([subscriptionId])
+  @@index([membershipId])
+  @@index([sponsorPurchaseId])
+  @@map("billing_charges")
+}
+
+/// Avisos de la pasarela de facturación ya procesados (idempotencia).
+model BillingEvent {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  provider        String
+  providerEventId String   @map("provider_event_id")
+  kind            String
+  payload         Json     @default("{}")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([provider, providerEventId])
+  @@map("billing_events")
+}
+
+enum SponsorPurchaseStatus {
+  PENDING
+  PAID
+  CANCELED
+}
+
+/// Paquete publicitario para auspiciadores (catálogo de ADMIN).
+model SponsorPackage {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  code             String   @unique
+  name             String
+  description      String?
+  priceAmount      Int      @map("price_amount")
+  currency         String   @default("PEN") @db.Char(3)
+  /// Impresiones incluidas (null: sin tope).
+  impressionsLimit Int?     @map("impressions_limit")
+  placementsLimit  Int      @map("placements_limit") @db.SmallInt
+  durationDays     Int      @map("duration_days") @db.SmallInt
+  sortOrder        Int      @default(0) @map("sort_order")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  purchases SponsorPackagePurchase[]
+
+  @@map("sponsor_packages")
+}
+
+/// Compra de un paquete: al pagarse, activa la campaña con sus topes.
+model SponsorPackagePurchase {
+  id            String                @id @default(uuid(7)) @db.Uuid
+  sponsorId     String                @map("sponsor_id") @db.Uuid
+  packageId     String                @map("package_id") @db.Uuid
+  campaignId    String?               @unique @map("campaign_id") @db.Uuid
+  priceAmount   Int                   @map("price_amount")
+  currency      String                @db.Char(3)
+  status        SponsorPurchaseStatus @default(PENDING)
+  checkoutUrl   String?               @map("checkout_url")
+  /// Correo al que se envió el enlace de pago (cifrado).
+  payerEmailEnc String?               @map("payer_email_enc")
+  paidAt        DateTime?             @map("paid_at") @db.Timestamptz(3)
+  createdById   String                @map("created_by") @db.Uuid
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sponsor  Sponsor          @relation(fields: [sponsorId], references: [id])
+  package  SponsorPackage   @relation(fields: [packageId], references: [id])
+  campaign SponsorCampaign? @relation(fields: [campaignId], references: [id])
+  charges  BillingCharge[]
+
+  @@index([sponsorId])
+  @@index([packageId])
+  @@map("sponsor_package_purchases")
+}
+
+// ═════════════════════ Panel de gestión de la barbería ═════════════════════
+
+enum ClientTier {
+  NONE
+  BRONZE
+  SILVER
+  GOLD
+}
+
+/// Cliente de una barbería (con cuenta en la app o registrado en el local). Sus datos los ve solo
+/// esa barbería.
+model ShopClient {
+  id           String     @id @default(uuid(7)) @db.Uuid
+  barbershopId String     @map("barbershop_id") @db.Uuid
+  userId       String?    @map("user_id") @db.Uuid
+  displayName  String     @map("display_name")
+  phoneEnc     String?    @map("phone_enc")
+  notes        String?
+  preferences  String?
+  isRegular    Boolean    @default(false) @map("is_regular")
+  tier         ClientTier @default(NONE)
+  score        Int        @default(0)
+  visitsCount  Int        @default(0) @map("visits_count")
+  totalSpent   Int        @default(0) @map("total_spent")
+  firstVisitAt DateTime?  @map("first_visit_at") @db.Timestamptz(3)
+  lastVisitAt  DateTime?  @map("last_visit_at") @db.Timestamptz(3)
+  rankedAt     DateTime?  @map("ranked_at") @db.Timestamptz(3)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  archivedAt   DateTime?  @map("archived_at") @db.Timestamptz(3)
+
+  barbershop Barbershop  @relation(fields: [barbershopId], references: [id])
+  user       User?       @relation("ShopClientUser", fields: [userId], references: [id])
+  sales      LocalSale[]
+
+  @@unique([barbershopId, userId])
+  @@index([barbershopId, tier, score])
+  @@index([userId])
+  @@map("shop_clients")
+}
+
+enum SalePaymentMethod {
+  CASH
+  YAPE
+  CARD
+  TRANSFER
+  MEMBERSHIP_CREDIT
+}
+
+enum SaleStatus {
+  COMPLETED
+  VOIDED
+}
+
+/// Caja del local: un solo turno abierto por barbería.
+model CashSession {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  barbershopId   String    @map("barbershop_id") @db.Uuid
+  openedById     String    @map("opened_by") @db.Uuid
+  openedAt       DateTime  @map("opened_at") @db.Timestamptz(3)
+  openingAmount  Int       @map("opening_amount")
+  closedById     String?   @map("closed_by") @db.Uuid
+  closedAt       DateTime? @map("closed_at") @db.Timestamptz(3)
+  expectedAmount Int?      @map("expected_amount")
+  countedAmount  Int?      @map("counted_amount")
+  note           String?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop Barbershop  @relation(fields: [barbershopId], references: [id])
+  sales      LocalSale[]
+
+  @@index([barbershopId, openedAt])
+  @@map("cash_sessions")
+}
+
+/// Venta en el local (con o sin reserva previa).
+model LocalSale {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  barbershopId   String            @map("barbershop_id") @db.Uuid
+  shopClientId   String?           @map("shop_client_id") @db.Uuid
+  barberId       String?           @map("barber_id") @db.Uuid
+  cashSessionId  String?           @map("cash_session_id") @db.Uuid
+  membershipId   String?           @map("membership_id") @db.Uuid
+  subtotalAmount Int               @map("subtotal_amount")
+  discountAmount Int               @default(0) @map("discount_amount")
+  totalAmount    Int               @map("total_amount")
+  currency       String            @db.Char(3)
+  paymentMethod  SalePaymentMethod @map("payment_method")
+  status         SaleStatus        @default(COMPLETED)
+  voidReason     String?           @map("void_reason")
+  voidedAt       DateTime?         @map("voided_at") @db.Timestamptz(3)
+  voidedById     String?           @map("voided_by") @db.Uuid
+  createdById    String            @map("created_by") @db.Uuid
+  idempotencyKey String            @map("idempotency_key")
+  soldAt         DateTime          @map("sold_at") @db.Timestamptz(3)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop  Barbershop           @relation(fields: [barbershopId], references: [id])
+  shopClient  ShopClient?          @relation(fields: [shopClientId], references: [id])
+  barber      Barber?              @relation(fields: [barberId], references: [id])
+  cashSession CashSession?         @relation(fields: [cashSessionId], references: [id])
+  membership  Membership?          @relation(fields: [membershipId], references: [id])
+  lines       LocalSaleLine[]
+  invoice     Invoice?
+  creditUse   MembershipCreditUse?
+
+  @@unique([barbershopId, idempotencyKey])
+  @@index([barbershopId, soldAt])
+  @@index([shopClientId])
+  @@index([barberId])
+  @@index([cashSessionId])
+  @@index([membershipId])
+  @@map("local_sales")
+}
+
+model LocalSaleLine {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  saleId      String   @map("sale_id") @db.Uuid
+  serviceId   String?  @map("service_id") @db.Uuid
+  description String
+  quantity    Int      @db.SmallInt
+  unitAmount  Int      @map("unit_amount")
+  totalAmount Int      @map("total_amount")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sale    LocalSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  service Service?  @relation(fields: [serviceId], references: [id])
+
+  @@index([saleId])
+  @@index([serviceId])
+  @@map("local_sale_lines")
+}
+
+enum InvoiceStatus {
+  PENDING
+  ISSUED
+  REJECTED
+  FAILED
+  VOIDED
+}
+
+/// Emisión de boletas de una barbería (su propia cuenta en el proveedor autorizado).
+model InvoicingConfig {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  barbershopId String   @unique @map("barbershop_id") @db.Uuid
+  provider     String
+  enabled      Boolean  @default(false)
+  series       String   @db.VarChar(4)
+  nextNumber   Int      @default(1) @map("next_number")
+  /// Credenciales del proveedor (cifradas): ruta y token de Nubefact.
+  apiUrlEnc    String?  @map("api_url_enc")
+  tokenEnc     String?  @map("token_enc")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop Barbershop @relation(fields: [barbershopId], references: [id])
+
+  @@map("invoicing_configs")
+}
+
+/// Boleta electrónica de una venta en el local.
+model Invoice {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  barbershopId    String        @map("barbershop_id") @db.Uuid
+  saleId          String        @unique @map("sale_id") @db.Uuid
+  series          String        @db.VarChar(4)
+  number          Int
+  status          InvoiceStatus @default(PENDING)
+  customerName    String?       @map("customer_name")
+  customerDocType String?       @map("customer_doc_type")
+  customerDocEnc  String?       @map("customer_doc_enc")
+  totalAmount     Int           @map("total_amount")
+  taxAmount       Int           @map("tax_amount")
+  currency        String        @db.Char(3)
+  provider        String
+  providerData    Json          @default("{}") @map("provider_data")
+  pdfUrl          String?       @map("pdf_url")
+  attempts        Int           @default(0)
+  lastError       String?       @map("last_error")
+  issuedAt        DateTime?     @map("issued_at") @db.Timestamptz(3)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  barbershop Barbershop @relation(fields: [barbershopId], references: [id])
+  sale       LocalSale  @relation(fields: [saleId], references: [id])
+
+  @@unique([barbershopId, series, number])
+  @@index([status, updatedAt])
+  @@map("invoices")
+}
+
+// ═════════════════════ Fase 16: membresías ═════════════════════
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+/// Membresía que ofrece una barbería: créditos por mes para los servicios elegidos.
+model MembershipPlan {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  barbershopId     String    @map("barbershop_id") @db.Uuid
+  name             String
+  description      String?
+  priceAmount      Int       @map("price_amount")
+  currency         String    @db.Char(3)
+  creditsPerPeriod Int       @map("credits_per_period") @db.SmallInt
+  isActive         Boolean   @default(true) @map("is_active")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  barbershop  Barbershop              @relation(fields: [barbershopId], references: [id])
+  services    MembershipPlanService[]
+  memberships Membership[]
+
+  @@index([barbershopId])
+  @@map("membership_plans")
+}
+
+model MembershipPlanService {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  membershipPlanId String   @map("membership_plan_id") @db.Uuid
+  serviceId        String   @map("service_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  membershipPlan MembershipPlan @relation(fields: [membershipPlanId], references: [id], onDelete: Cascade)
+  service        Service        @relation(fields: [serviceId], references: [id])
+
+  @@unique([membershipPlanId, serviceId])
+  @@index([serviceId])
+  @@map("membership_plan_services")
+}
+
+/// Membresía de un cliente (cobro mensual con la pasarela; créditos por periodo pagado).
+model Membership {
+  id                     String           @id @default(uuid(7)) @db.Uuid
+  membershipPlanId       String           @map("membership_plan_id") @db.Uuid
+  barbershopId           String           @map("barbershop_id") @db.Uuid
+  userId                 String           @map("user_id") @db.Uuid
+  status                 MembershipStatus @default(PENDING)
+  priceAmount            Int              @map("price_amount")
+  currency               String           @db.Char(3)
+  creditsPerPeriod       Int              @map("credits_per_period") @db.SmallInt
+  provider               String
+  providerSubscriptionId String?          @map("provider_subscription_id")
+  checkoutUrl            String?          @map("checkout_url")
+  currentPeriodStart     DateTime?        @map("current_period_start") @db.Timestamptz(3)
+  currentPeriodEnd       DateTime?        @map("current_period_end") @db.Timestamptz(3)
+  cancelAtPeriodEnd      Boolean          @default(false) @map("cancel_at_period_end")
+  canceledAt             DateTime?        @map("canceled_at") @db.Timestamptz(3)
+  endedAt                DateTime?        @map("ended_at") @db.Timestamptz(3)
+  createdAt              DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  membershipPlan MembershipPlan        @relation(fields: [membershipPlanId], references: [id])
+  barbershop     Barbershop            @relation(fields: [barbershopId], references: [id])
+  user           User                  @relation("MembershipUser", fields: [userId], references: [id])
+  lots           MembershipCreditLot[]
+  charges        BillingCharge[]
+  sales          LocalSale[]
+
+  @@unique([provider, providerSubscriptionId])
+  @@index([userId, status])
+  @@index([barbershopId, status])
+  @@index([membershipPlanId])
+  @@map("memberships")
+}
+
+/// Créditos otorgados por un periodo pagado; vencen al final del periodo siguiente.
+model MembershipCreditLot {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  membershipId String   @map("membership_id") @db.Uuid
+  chargeId     String?  @unique @map("charge_id") @db.Uuid
+  granted      Int      @db.SmallInt
+  remaining    Int      @db.SmallInt
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  membership Membership            @relation(fields: [membershipId], references: [id])
+  charge     BillingCharge?        @relation(fields: [chargeId], references: [id])
+  uses       MembershipCreditUse[]
+
+  @@index([membershipId, expiresAt])
+  @@map("membership_credit_lots")
+}
+
+/// Uso de un crédito: en una reserva o en una venta del local. Se devuelve si se anula.
+model MembershipCreditUse {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  lotId      String    @map("lot_id") @db.Uuid
+  bookingId  String?   @unique @map("booking_id") @db.Uuid
+  saleId     String?   @unique @map("sale_id") @db.Uuid
+  restoredAt DateTime? @map("restored_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  lot     MembershipCreditLot @relation(fields: [lotId], references: [id])
+  booking Booking?            @relation(fields: [bookingId], references: [id])
+  sale    LocalSale?          @relation(fields: [saleId], references: [id])
+
+  @@index([lotId])
+  @@map("membership_credit_uses")
+}
+
+// ═════════════════════ Forma de cara, etapa 2 ═════════════════════
+
+enum StyleInteractionKind {
+  VIEW
+  SAVE
+  BOOK
+}
+
+/// Interacción de una persona con una foto o un corte (para recomendar mejor).
+model StyleInteraction {
+  id        String               @id @default(uuid(7)) @db.Uuid
+  userId    String               @map("user_id") @db.Uuid
+  imageId   String?              @map("image_id") @db.Uuid
+  styleId   String?              @map("style_id") @db.Uuid
+  kind      StyleInteractionKind
+  createdAt DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user  User          @relation("StyleInteractionUser", fields: [userId], references: [id])
+  image Image?        @relation(fields: [imageId], references: [id])
+  style ServiceStyle? @relation(fields: [styleId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([imageId])
+  @@index([styleId, kind])
+  @@map("style_interactions")
 }

@@ -24,6 +24,7 @@ import {
   type RefundQuote,
   refundQuote,
 } from './refund-policy';
+import { restoreCredit } from '../memberships/membership-credits';
 
 export interface PaymentStartDto {
   paymentId: string;
@@ -38,6 +39,8 @@ export interface PaymentStartDto {
 export type ResultSource = 'WEBHOOK' | 'RECONCILIATION';
 
 export const REFUND_REQUESTED_EVENT = 'refund.requested';
+/** Fase 16: medio de pago de una reserva pagada con un crédito de membresía. */
+export const MEMBERSHIP_CREDIT_METHOD = 'MEMBERSHIP_CREDIT';
 
 const REFUND_REASON_BY: Record<CancelledBy, RefundReason> = {
   CLIENT: 'CLIENT_CANCELLATION',
@@ -315,6 +318,16 @@ export class PaymentsService {
       },
       select: { id: true },
     });
+    // Fase 16: pagada con crédito de membresía. No hay dinero que devolver: vuelve el crédito.
+    const paidWith = await tx.payment.findUnique({
+      where: { id: input.paymentId },
+      select: { method: true, bookingId: true },
+    });
+    if (paidWith?.method === MEMBERSHIP_CREDIT_METHOD) {
+      await restoreCredit(tx, { bookingId: paidWith.bookingId }, this.clock.now());
+      await this.applyRefundResult(tx, refund.id, 'SUCCEEDED');
+      return refund.id;
+    }
     await this.outbox.publish(tx, REFUND_REQUESTED_EVENT, {
       refundId: refund.id,
       paymentId: input.paymentId,

@@ -115,6 +115,39 @@ export class GalleryUploadDto extends ImageUploadDto {
   @ValidateIf((_o, v) => v !== null)
   @IsIn(FACE_SHAPES)
   faceShape?: FaceShape | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Forma de cara, etapa 2: medidas de la cara de la foto tomadas EN EL TELÉFONO (largo, ancho ' +
+      'de frente, pómulos y mandíbula, en cualquier unidad). Las cuatro o ninguna. Si no se envía ' +
+      'faceShape, se clasifica con ellas (etiqueta sin confirmar). Nunca se envían puntos de la cara.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @Min(0.0001)
+  @Max(100000)
+  faceLength?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @Min(0.0001)
+  @Max(100000)
+  foreheadWidth?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @Min(0.0001)
+  @Max(100000)
+  cheekboneWidth?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @Min(0.0001)
+  @Max(100000)
+  jawWidth?: number;
 }
 
 export class UpdateGalleryImageDto {

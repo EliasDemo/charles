@@ -19,6 +19,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { MoneyDto } from '../../barbershops/dto/barbershop.dto';
+import { CLIENT_TIERS } from '../discount-policy';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -103,6 +104,16 @@ export class CreatePromotionDto {
   @Min(0, { each: true })
   @Max(6, { each: true })
   daysOfWeek?: number[];
+
+  @ApiPropertyOptional({
+    enum: CLIENT_TIERS,
+    description:
+      'Solo barberías con ranking de clientes en su plan: la promoción aplica a clientes de ese ' +
+      'nivel o superior (BRONZE < SILVER < GOLD).',
+  })
+  @IsOptional()
+  @IsIn(CLIENT_TIERS)
+  minTier?: (typeof CLIENT_TIERS)[number];
 
   @ApiPropertyOptional({
     default: false,
@@ -212,6 +223,9 @@ export class PromotionDto {
 
   @ApiProperty({ type: [Number] })
   daysOfWeek!: number[];
+
+  @ApiProperty({ enum: CLIENT_TIERS, nullable: true, description: 'Nivel mínimo del ranking.' })
+  minTier!: (typeof CLIENT_TIERS)[number] | null;
 
   @ApiProperty()
   requiresCoupon!: boolean;

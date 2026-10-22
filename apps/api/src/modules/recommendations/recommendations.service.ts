@@ -15,9 +15,13 @@ import type {
   RecommendedHaircutDto,
   RecommendedPhotoDto,
   RecommendHaircutsDto,
+  SimilarFacePhotoDto,
+  SimilarFacesDto,
+  StyleInteractionDto,
 } from './dto/recommendation.dto';
 import {
   classifyFaceShape,
+  faceProportions,
   type FaceMeasurements,
   type FaceShape,
   validMeasurements,
@@ -143,6 +147,119 @@ export class RecommendationsService {
     return { faceShape, haircuts, disclaimer: RECOMMENDATION_DISCLAIMER };
   }
 
+  // ───────────── Etapa 2 ─────────────
+
+  /**
+   * Fotos de cortes en caras parecidas a la del cliente: compara las 3 proporciones de la cara
+   * (medidas en el teléfono al subir la foto) con las del cliente. Nada del cliente se guarda.
+   */
+  async similarFaces(dto: SimilarFacesDto): Promise<SimilarFacePhotoDto[]> {
+    if (!validMeasurements(dto.measurements)) throw invalid('measurements', 'plausibleFace');
+    const target = faceProportions(dto.measurements);
+    const radiusKm = Math.min(
+      dto.radiusKm ??
+        (await this.settings.positiveInt(SettingKey.SEARCH_DEFAULT_RADIUS_KM, DEFAULT_RADIUS_KM)),
+      MAX_RADIUS_KM,
+    );
+    const shops = await this.nearbyShops(dto.lat, dto.lng, radiusKm * 1000);
+    if (shops.length === 0) return [];
+    const shopById = new Map(shops.map((s) => [s.id, s]));
+    const threshold = await this.settings.positiveInt(
+      SettingKey.IMAGES_REPORT_HIDE_THRESHOLD,
+      IMAGE_DEFAULTS.reportHideThreshold,
+    );
+    const rows = await this.prisma.image.findMany({
+      where: {
+        kind: 'GALLERY',
+        deletedAt: null,
+        removedAt: null,
+        planHiddenAt: null,
+        consentGiven: true,
+        faceRatioLength: { not: null },
+        barbershopId: { in: [...shopById.keys()] },
+      },
+      include: {
+        styles: { select: { style: { select: { key: true } } } },
+        barberProfile: { select: { id: true, displayName: true, deletedAt: true } },
+        _count: { select: { reports: { where: { status: { not: 'RESOLVED' } } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 1000,
+    });
+    const shape = classifyFaceShape(dto.measurements).shape;
+    return rows
+      .filter((r) => !isHiddenByReports(r._count.reports, threshold))
+      .map((r) => {
+        const d2 =
+          (r.faceRatioLength! - target[0]) ** 2 +
+          1.6 * (r.faceRatioForehead! - target[1]) ** 2 +
+          1.6 * (r.faceRatioJaw! - target[2]) ** 2;
+        return { r, similarity: Math.round((1 / (1 + d2 * 40)) * 1000) / 1000 };
+      })
+      .sort((a, b) => b.similarity - a.similarity || Number(a.r.isDemo) - Number(b.r.isDemo))
+      .slice(0, dto.limit ?? 12)
+      .map(({ r, similarity }) => {
+        const v = r.variants as StoredVariants;
+        const shop = shopById.get(r.barbershopId!)!;
+        const profile = r.barberProfile && !r.barberProfile.deletedAt ? r.barberProfile : null;
+        return {
+          id: r.id,
+          thumbUrl: variantUrl(this.storage, v, 'thumb')!,
+          largeUrl: variantUrl(this.storage, v, 'large')!,
+          faceShape: r.faceShape,
+          sameFaceShape: r.faceShape === shape,
+          confirmed: r.labelConfirmed,
+          isDemo: r.isDemo,
+          barbershopId: shop.id,
+          barbershopName: shop.name,
+          barberProfileId: profile?.id ?? null,
+          barberName: profile?.displayName ?? null,
+          serviceId: r.serviceId,
+          distanceMeters: shop.distance,
+          similarity,
+          styleKeys: r.styles.map((s) => s.style.key),
+        };
+      });
+  }
+
+  /** Registra que la persona vio, guardó o reservó un corte (una vista por foto y hora). */
+  async recordInteraction(userId: string, dto: StyleInteractionDto): Promise<void> {
+    if (!dto.imageId && !dto.styleKey) throw invalid('imageId', 'imageOrStyle');
+    const style = dto.styleKey
+      ? await this.prisma.serviceStyle.findFirst({
+          where: { key: dto.styleKey, isActive: true },
+          select: { id: true },
+        })
+      : null;
+    if (dto.styleKey && !style) throw invalid('styleKey', 'activeStyle');
+    if (dto.imageId) {
+      const image = await this.prisma.image.count({ where: { id: dto.imageId, deletedAt: null } });
+      if (!image) throw invalid('imageId', 'existingImage');
+    }
+    const now = this.clock.now();
+    if (dto.kind === 'VIEW') {
+      const recent = await this.prisma.styleInteraction.count({
+        where: {
+          userId,
+          kind: 'VIEW',
+          imageId: dto.imageId ?? null,
+          styleId: style?.id ?? null,
+          createdAt: { gt: new Date(now - 3_600_000) },
+        },
+      });
+      if (recent > 0) return;
+    }
+    await this.prisma.styleInteraction.create({
+      data: {
+        userId,
+        imageId: dto.imageId ?? null,
+        styleId: style?.id ?? null,
+        kind: dto.kind,
+        createdAt: new Date(now),
+      },
+    });
+  }
+
   // ───────────── Internos ─────────────
 
   private async nearbyShops(lat: number, lng: number, radiusMeters: number): Promise<NearbyShop[]> {
@@ -174,6 +291,7 @@ export class RecommendationsService {
         kind: 'GALLERY',
         deletedAt: null,
         removedAt: null,
+        planHiddenAt: null,
         consentGiven: true,
         barbershopId: { in: [...shopById.keys()] },
         styles: { some: { styleId: { in: styleIds } } },

@@ -65,6 +65,15 @@ export const SettingKey = {
   NOTIFICATIONS_QUIET_END: 'notifications.quiet_end',
   NOTIFICATIONS_RETENTION_DAYS: 'notifications.retention_days',
   NOTIFICATIONS_MAX_DEVICES_PER_USER: 'notifications.max_devices_per_user',
+  /** Fase 15: días de gracia tras un cobro fallido y aviso previo de un cambio de precio. */
+  BILLING_GRACE_DAYS: 'billing.grace_days',
+  BILLING_TRIAL_NOTICE_DAYS: 'billing.trial_notice_days',
+  BILLING_PRICE_CHANGE_NOTICE_DAYS: 'billing.price_change_notice_days',
+  /** Panel: puntajes mínimos de cada nivel del ranking de clientes y ventana en días. */
+  RANKING_GOLD_MIN: 'ranking.gold_min_score',
+  RANKING_SILVER_MIN: 'ranking.silver_min_score',
+  RANKING_BRONZE_MIN: 'ranking.bronze_min_score',
+  RANKING_WINDOW_DAYS: 'ranking.window_days',
 } as const;
 
 /** Lectura de `app_settings` (clave/valor). Las políticas pendientes valen JSON `null`. */

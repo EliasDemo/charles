@@ -256,7 +256,12 @@ export class MercadoPagoGateway implements PaymentGateway {
       `/v1/payments/${encodeURIComponent(dataId)}`,
     );
     const amount = fromMercadoPagoAmount(payment.transaction_amount);
-    if (!payment.external_reference || amount === null) {
+    // Sin referencia, o de facturación (`sub:`, `mem:`, `spk:`): no es el pago de una reserva.
+    if (
+      !payment.external_reference ||
+      amount === null ||
+      payment.external_reference.includes(':')
+    ) {
       return ignoredEvent(`payment:${dataId}:${payment.status ?? ''}`);
     }
     const approved = payment.status === 'approved';

@@ -47,7 +47,7 @@ function wrap(parser: RequestHandler): RequestHandler {
  * firma se calcula sobre el texto exacto.
  */
 export const RAW_BODY_PATH =
-  /^\/api\/v\d+\/(payments\/webhooks\/[^/?]+|bookings\/[^/?]+\/payment\/verify)(\?|$)/;
+  /^\/api\/v\d+\/(payments\/webhooks\/[^/?]+|billing\/webhooks\/[^/?]+|bookings\/[^/?]+\/payment\/verify)(\?|$)/;
 
 export type RequestWithRawBody = Request & { rawBody?: Buffer };
 

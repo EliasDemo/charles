@@ -37,10 +37,20 @@ export type NotificationType =
   | 'BARBERSHOP_CHANGES_REQUESTED'
   | 'NEW_MESSAGE'
   | 'JOB_APPLICATION_RECEIVED'
-  | 'JOB_APPLICATION_UPDATED';
+  | 'JOB_APPLICATION_UPDATED'
+  | 'PLAN_UPDATE'
+  | 'MEMBERSHIP_UPDATE';
 
 export type ResourceType =
-  'booking' | 'review' | 'ticket' | 'barbershop' | 'account' | 'conversation' | 'job_application';
+  | 'booking'
+  | 'review'
+  | 'ticket'
+  | 'barbershop'
+  | 'account'
+  | 'conversation'
+  | 'job_application'
+  | 'subscription'
+  | 'membership';
 
 export interface Text {
   title: string;
@@ -592,6 +602,145 @@ export function planApplicationUpdate(input: {
         text: `${input.barbershopName} ${text} («${input.postingTitle}»).`,
       },
       resource: { type: 'job_application', id: input.applicationId },
+    },
+  ];
+}
+
+// ───────────── Fases 15 y 16: planes y membresías ─────────────
+
+const longDate = (at: Date, timezone: string): string =>
+  DateTime.fromJSDate(at).setZone(timezone).setLocale('es').toFormat("d 'de' LLLL 'de' yyyy");
+
+export interface SubscriptionNoticeContext {
+  subscriptionId: string;
+  /** OWNER de la barbería (quien paga y decide). */
+  userIds: string[];
+  planName: string;
+  barbershopName: string;
+  checkoutUrl: string | null;
+  trialEndsAt: Date | null;
+  graceUntil: Date | null;
+  currentPeriodEnd: Date | null;
+  nextPriceAmount: number | null;
+  nextPriceFrom: Date | null;
+  currency: string;
+  timezone: string;
+}
+
+/** Avisos del plan de una barbería. Son de pagos: se envían siempre (obligatorios). */
+export function planSubscriptionNotice(
+  notice: string,
+  ctx: SubscriptionNoticeContext,
+): PlannedNotification[] {
+  const date = (d: Date | null) => (d ? longDate(d, ctx.timezone) : '');
+  const texts: Record<string, Text | undefined> = {
+    checkout_ready: {
+      title: 'Completa el pago de tu plan',
+      body: `Para activar el plan ${ctx.planName} de ${ctx.barbershopName}, completa el pago en este enlace: ${ctx.checkoutUrl ?? ''}`,
+    },
+    activated: {
+      title: `Plan ${ctx.planName} activo`,
+      body: ctx.trialEndsAt
+        ? `${ctx.barbershopName} ya tiene el plan ${ctx.planName}. Tu prueba gratis termina el ${date(ctx.trialEndsAt)}.`
+        : `${ctx.barbershopName} ya tiene el plan ${ctx.planName}.`,
+    },
+    trial_ending: {
+      title: 'Tu prueba gratis termina pronto',
+      body: `La prueba del plan ${ctx.planName} de ${ctx.barbershopName} termina el ${date(ctx.trialEndsAt)}. Luego se cobrará automáticamente.`,
+    },
+    payment_failed: {
+      title: 'No pudimos cobrar tu plan',
+      body: `El cobro del plan ${ctx.planName} de ${ctx.barbershopName} falló. Actualiza tu medio de pago antes del ${date(ctx.graceUntil)} para no perder los beneficios.`,
+    },
+    recovered: {
+      title: 'Pago recibido',
+      body: `Recibimos el pago del plan ${ctx.planName} de ${ctx.barbershopName}. Todo sigue funcionando.`,
+    },
+    canceled: {
+      title: 'Plan cancelado',
+      body: ctx.currentPeriodEnd
+        ? `Cancelaste el plan ${ctx.planName} de ${ctx.barbershopName}. Sus beneficios siguen hasta el ${date(ctx.currentPeriodEnd)}.`
+        : `Cancelaste el plan ${ctx.planName} de ${ctx.barbershopName}.`,
+    },
+    expired: {
+      title: 'Tu plan terminó',
+      body: `El plan ${ctx.planName} de ${ctx.barbershopName} terminó y pasaste al plan gratis. No se borró nada: lo que excede el nuevo límite quedó inactivo y vuelve si mejoras tu plan.`,
+    },
+    price_change: {
+      title: 'Cambio de precio de tu plan',
+      body:
+        ctx.nextPriceAmount !== null
+          ? `Desde el ${date(ctx.nextPriceFrom)}, el plan ${ctx.planName} costará ${formatMoney(ctx.nextPriceAmount, ctx.currency)}. Puedes cancelarlo cuando quieras.`
+          : `El precio del plan ${ctx.planName} cambiará en tu próxima renovación.`,
+    },
+  };
+  const text = texts[notice];
+  if (!text) return [];
+  return ctx.userIds.map((userId) => ({
+    userId,
+    type: 'PLAN_UPDATE' as const,
+    channels: ALL,
+    mandatory: true,
+    urgent: notice === 'payment_failed',
+    push: { title: 'Tu plan', body: 'Hay novedades en el plan de tu barbería.' },
+    detail: text,
+    email: { subject: text.title, text: text.body },
+    resource: { type: 'subscription' as const, id: ctx.subscriptionId },
+  }));
+}
+
+export interface MembershipNoticeContext {
+  membershipId: string;
+  userId: string;
+  planName: string;
+  barbershopName: string;
+  checkoutUrl: string | null;
+  currentPeriodEnd: Date | null;
+  credits: number;
+  timezone: string;
+}
+
+/** Avisos de la membresía de un cliente. */
+export function planMembershipNotice(
+  notice: string,
+  ctx: MembershipNoticeContext,
+): PlannedNotification[] {
+  const date = (d: Date | null) => (d ? longDate(d, ctx.timezone) : '');
+  const texts: Record<string, Text | undefined> = {
+    checkout_ready: {
+      title: 'Completa el pago de tu membresía',
+      body: `Para activar «${ctx.planName}» en ${ctx.barbershopName}, completa el pago: ${ctx.checkoutUrl ?? ''}`,
+    },
+    credits_granted: {
+      title: 'Tus créditos están listos',
+      body: `Tienes ${ctx.credits} crédito${ctx.credits === 1 ? '' : 's'} de «${ctx.planName}» en ${ctx.barbershopName}. Reserva cuando quieras.`,
+    },
+    payment_failed: {
+      title: 'No pudimos cobrar tu membresía',
+      body: `El cobro de «${ctx.planName}» en ${ctx.barbershopName} falló. Actualiza tu medio de pago para seguir recibiendo créditos.`,
+    },
+    canceled: {
+      title: 'Membresía cancelada',
+      body: `Cancelaste «${ctx.planName}» en ${ctx.barbershopName}. Tus créditos siguen disponibles hasta el ${date(ctx.currentPeriodEnd)}.`,
+    },
+    expired: {
+      title: 'Tu membresía terminó',
+      body: `La membresía «${ctx.planName}» en ${ctx.barbershopName} terminó.`,
+    },
+  };
+  const text = texts[notice];
+  if (!text) return [];
+  return [
+    {
+      userId: ctx.userId,
+      type: 'MEMBERSHIP_UPDATE',
+      channels: ALL,
+      mandatory: true,
+      urgent: false,
+      push: { title: 'Tu membresía', body: 'Hay novedades en tu membresía.' },
+      detail: text,
+      email: { subject: text.title, text: text.body },
+      resource: { type: 'membership', id: ctx.membershipId },
     },
   ];
 }

@@ -27,7 +27,16 @@ export const ADMIN_SECTIONS = {
     'tickets',
     'message-reports',
   ],
-  ADMIN_ONLY: ['roles', 'settings', 'catalog', 'promotions', 'featured', 'sponsors'],
+  ADMIN_ONLY: [
+    'roles',
+    'settings',
+    'catalog',
+    'promotions',
+    'featured',
+    'sponsors',
+    'plans',
+    'subscriptions',
+  ],
 } as const;
 
 const DEFAULT_ZONE = 'America/Lima';

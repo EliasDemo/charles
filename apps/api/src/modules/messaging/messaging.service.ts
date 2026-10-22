@@ -22,6 +22,7 @@ import type {
   ReportMessageDto,
   ResolveMessageReportDto,
 } from './dto/messaging.dto';
+import { EntitlementsService } from '../plans/entitlements.service';
 
 const DEFAULT_LIMIT = 20;
 const PREVIEW_LENGTH = 120;
@@ -74,6 +75,7 @@ export class MessagingService {
     private readonly audit: AuditService,
     @Inject(IMAGE_STORAGE) private readonly storage: ImageStorage,
     @Inject(CLOCK) private readonly clock: Clock,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   // ───────────── Lado de la persona ─────────────
@@ -212,6 +214,17 @@ export class MessagingService {
 
   async send(viewer: Viewer, conversationId: string, body: string): Promise<MessageDto> {
     const conversation = await this.find(viewer, conversationId);
+    if (viewer.side === 'BARBERSHOP') {
+      // Fase 15: mensajes enviados por la barbería en el mes, según su plan.
+      const sent = await this.prisma.message.count({
+        where: {
+          side: 'BARBERSHOP',
+          createdAt: { gte: this.entitlements.monthStart() },
+          conversation: { barbershopId: viewer.barbershopId },
+        },
+      });
+      await this.entitlements.assertWithin(viewer.barbershopId, 'messages_month', sent);
+    }
     const message = await this.prisma.$transaction(async (tx) => {
       const [row] = await tx.$queryRaw<{ blocked_by: string | null }[]>`
         SELECT blocked_by::text AS blocked_by FROM conversations

@@ -9,6 +9,9 @@ import {
   Max,
   Min,
   ValidateNested,
+  IsUUID,
+  IsString,
+  MaxLength,
 } from 'class-validator';
 import { StyleRefDto } from '../../barbers/dto/barber.dto';
 import { FACE_SHAPES, type FaceShape } from '../face-shape';
@@ -262,4 +265,69 @@ export class HaircutRecommendationDto {
       'La forma de cara es una aproximación y muchas caras son mixtas: tómalo como una sugerencia.',
   })
   disclaimer!: string;
+}
+
+// ───────────── Etapa 2: caras parecidas e interacciones ─────────────
+
+export class SimilarFacesDto {
+  @ApiProperty({
+    type: FaceMeasurementsDto,
+    description: 'Medidas tomadas en el teléfono (no se guardan).',
+  })
+  @ValidateNested()
+  @Type(() => FaceMeasurementsDto)
+  measurements!: FaceMeasurementsDto;
+
+  @ApiProperty()
+  @Type(() => Number)
+  @IsLatitude()
+  lat!: number;
+
+  @ApiProperty()
+  @Type(() => Number)
+  @IsLongitude()
+  lng!: number;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(50)
+  radiusKm?: number;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 30, default: 12 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(30)
+  limit?: number;
+}
+
+export class SimilarFacePhotoDto extends RecommendedPhotoDto {
+  @ApiProperty({ description: 'Parecido de la cara de la foto con la del cliente (0 a 1).' })
+  similarity!: number;
+
+  @ApiProperty({ type: [String], description: 'Claves de los cortes de la foto.' })
+  styleKeys!: string[];
+}
+
+export const INTERACTION_KINDS = ['VIEW', 'SAVE', 'BOOK'] as const;
+
+export class StyleInteractionDto {
+  @ApiPropertyOptional({ format: 'uuid', description: 'Foto vista o guardada.' })
+  @IsOptional()
+  @IsUUID()
+  imageId?: string;
+
+  @ApiPropertyOptional({ description: 'Clave del corte.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  styleKey?: string;
+
+  @ApiProperty({ enum: INTERACTION_KINDS })
+  @IsIn(INTERACTION_KINDS)
+  kind!: (typeof INTERACTION_KINDS)[number];
 }

@@ -13,6 +13,12 @@ import {
   forbidden,
   notFound,
 } from '../barbershops/barbershop-access.service';
+import { EntitlementsService } from '../plans/entitlements.service';
+import {
+  classifyFaceShape,
+  faceProportions,
+  validMeasurements,
+} from '../recommendations/face-shape';
 import { UsersService } from '../users/users.service';
 import { type BarbershopMedia, barbershopMedia, NO_MEDIA } from './barbershop-media';
 import type {
@@ -112,6 +118,7 @@ export class ImagesService {
     @Inject(IMAGE_STORAGE) private readonly storage: ImageStorage,
     @Inject(CLOCK) private readonly clock: Clock,
     private readonly users: UsersService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   // ───────────── Foto de perfil de la cuenta ─────────────
@@ -226,7 +233,16 @@ export class ImagesService {
   async uploadPortfolio(
     userId: string,
     file: Buffer | undefined,
-    dto: { caption?: string; styleIds?: string[]; consent: boolean; faceShape?: FaceShape | null },
+    dto: {
+      caption?: string;
+      styleIds?: string[];
+      consent: boolean;
+      faceShape?: FaceShape | null;
+      faceLength?: number;
+      foreheadWidth?: number;
+      cheekboneWidth?: number;
+      jawWidth?: number;
+    },
     ip: string | null,
   ): Promise<PortfolioItemDto> {
     const profile = await this.requireOwnProfile(userId);
@@ -238,6 +254,7 @@ export class ImagesService {
       IMAGE_DEFAULTS.galleryMaxPerBarber,
     );
     if ((await this.countPortfolio(this.prisma, profile.id)) >= max) throw galleryFull(max);
+    const face = faceFromMeasures(dto);
     const variants = await this.store(file, 'GALLERY');
     const now = new Date(this.clock.now());
     let id: string;
@@ -257,8 +274,12 @@ export class ImagesService {
             consentTimestamp: now,
             caption: dto.caption ?? null,
             styles: { create: styleIds.map((styleId) => ({ styleId })) },
-            faceShape: dto.faceShape ?? null,
-            labelConfirmed: styleIds.length > 0,
+            faceShape: dto.faceShape ?? face?.shape ?? null,
+            // Solo la marca del experto confirma; la clasificación automática no.
+            labelConfirmed: styleIds.length > 0 && (dto.faceShape != null || face === null),
+            faceRatioLength: face?.ratios[0] ?? null,
+            faceRatioForehead: face?.ratios[1] ?? null,
+            faceRatioJaw: face?.ratios[2] ?? null,
           },
           select: { id: true },
         });
@@ -527,6 +548,21 @@ export class ImagesService {
     );
     // Comprobación temprana (sin subir nada); la definitiva va en la transacción.
     if ((await this.countGallery(this.prisma, barberId)) >= max) throw galleryFull(max);
+    // Fase 15: fotos de la galería de la barbería según su plan.
+    await this.entitlements.assertWithin(
+      barbershopId,
+      'gallery_photos',
+      await this.prisma.image.count({
+        where: {
+          barbershopId,
+          kind: 'GALLERY',
+          deletedAt: null,
+          removedAt: null,
+          planHiddenAt: null,
+        },
+      }),
+    );
+    const face = faceFromMeasures(dto);
 
     const variants = await this.store(file, 'GALLERY');
     const now = new Date(this.clock.now());
@@ -554,8 +590,11 @@ export class ImagesService {
             styles: { create: styleIds.map((styleId) => ({ styleId })) },
             // Forma de cara: quien sube es la barbería o el barbero (el experto): sus etiquetas
             // quedan confirmadas si eligió al menos un estilo.
-            faceShape: dto.faceShape ?? null,
-            labelConfirmed: styleIds.length > 0,
+            faceShape: dto.faceShape ?? face?.shape ?? null,
+            labelConfirmed: styleIds.length > 0 && (dto.faceShape != null || face === null),
+            faceRatioLength: face?.ratios[0] ?? null,
+            faceRatioForehead: face?.ratios[1] ?? null,
+            faceRatioJaw: face?.ratios[2] ?? null,
           },
           select: { id: true },
         });
@@ -701,13 +740,13 @@ export class ImagesService {
       ? []
       : visible(
           await this.prisma.image.findMany({
-            where: { ...where, pinnedAt: { not: null }, removedAt: null },
+            where: { ...where, pinnedAt: { not: null }, removedAt: null, planHiddenAt: null },
             include: galleryInclude,
             orderBy: [{ pinnedAt: 'desc' }, { id: 'desc' }],
           }),
         );
     const { rows, nextCursor } = await this.pageGallery(
-      { ...where, pinnedAt: null, removedAt: null },
+      { ...where, pinnedAt: null, removedAt: null, planHiddenAt: null },
       query,
       visible,
     );
@@ -1188,3 +1227,32 @@ const galleryFull = (max: number): AppException =>
   );
 
 export { galleryInclude, type GalleryRow };
+
+/** Etapa 2: forma y proporciones de la cara a partir de las medidas enviadas por el teléfono. */
+function faceFromMeasures(dto: {
+  faceLength?: number;
+  foreheadWidth?: number;
+  cheekboneWidth?: number;
+  jawWidth?: number;
+}): {
+  shape: ReturnType<typeof classifyFaceShape>['shape'];
+  ratios: [number, number, number];
+} | null {
+  const values = [dto.faceLength, dto.foreheadWidth, dto.cheekboneWidth, dto.jawWidth];
+  if (values.every((v) => v === undefined)) return null;
+  const m = {
+    faceLength: dto.faceLength ?? 0,
+    foreheadWidth: dto.foreheadWidth ?? 0,
+    cheekboneWidth: dto.cheekboneWidth ?? 0,
+    jawWidth: dto.jawWidth ?? 0,
+  };
+  if (values.some((v) => v === undefined) || !validMeasurements(m)) {
+    throw new AppException(
+      ErrorCode.VALIDATION_ERROR,
+      'Los datos enviados no son válidos.',
+      HttpStatus.BAD_REQUEST,
+      [{ field: 'faceLength', constraints: ['validFaceMeasurements'] }],
+    );
+  }
+  return { shape: classifyFaceShape(m).shape, ratios: faceProportions(m) };
+}

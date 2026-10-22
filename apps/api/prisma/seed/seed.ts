@@ -3,6 +3,7 @@ import type { EncryptionService } from '../../src/common/crypto/encryption.servi
 import { PasswordHasher } from '../../src/common/crypto/password-hasher';
 import type { Prisma, PrismaClient } from '../../src/generated/prisma/client';
 import { type ServiceCategoryKey, seedServiceCategories, seedServiceStyles } from './categories';
+import { seedDemoPlans } from './plans';
 
 /**
  * Datos de prueba ficticios (CLAUDE.md §1.5): correos @example.com, teléfonos y documentos
@@ -508,6 +509,7 @@ export async function seed({ prisma, encryption, password, jsonNull }: SeedDeps)
   }
   const passwordHash = await PasswordHasher.hash(password);
   await seedServiceCategories(prisma);
+  await seedDemoPlans(prisma);
   await seedServiceStyles(prisma);
   const categoryIds = new Map(
     (await prisma.serviceCategory.findMany({ select: { id: true, key: true } })).map((c) => [

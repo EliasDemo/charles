@@ -273,6 +273,16 @@ export class CampaignDto {
   @ApiProperty({ description: 'ACTIVE y dentro de sus fechas: se está mostrando.' })
   live!: boolean;
 
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: 'Fase 15: impresiones del paquete comprado (null: sin tope).',
+  })
+  impressionsLimit!: number | null;
+
+  @ApiProperty({ description: 'Impresiones contadas (una por persona y hora).' })
+  impressionsCount!: number;
+
   @ApiProperty({ type: [PlacementDto] })
   placements!: PlacementDto[];
 

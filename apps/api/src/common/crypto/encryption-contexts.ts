@@ -26,6 +26,14 @@ export const EncryptedField = {
   SEARCH_CURSOR: 'charles/search.cursor/v1',
   /** Secreto TOTP del segundo factor del personal. */
   USER_MFA_SECRET: 'charles/user.mfa-secret/v1',
+  /** Panel de la barbería: teléfono de un cliente registrado en el local. */
+  SHOP_CLIENT_PHONE: 'charles/shop-client.phone/v1',
+  /** Boletas: credenciales del proveedor de la barbería y documento del comprador. */
+  INVOICING_API_URL: 'charles/invoicing.api-url/v1',
+  INVOICING_TOKEN: 'charles/invoicing.token/v1',
+  INVOICE_CUSTOMER_DOC: 'charles/invoice.customer-doc/v1',
+  /** Fase 15: correo de pago de un auspiciador. */
+  SPONSOR_PAYER_EMAIL: 'charles/sponsor.payer-email/v1',
 } as const;
 
 export type EncryptedField = (typeof EncryptedField)[keyof typeof EncryptedField];

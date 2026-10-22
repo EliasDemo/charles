@@ -18,6 +18,7 @@ import { BookingsReadService } from '../bookings/bookings-read.service';
 import { ServicesService } from '../services/services.service';
 import { IMAGE_STORAGE, type ImageStorage } from '../images/image-storage';
 import { variantUrl } from '../images/image-variants';
+import { EntitlementsService } from '../plans/entitlements.service';
 import { UsersService } from '../users/users.service';
 import type {
   BarberManageDto,
@@ -83,6 +84,7 @@ export class BarbersService {
     private readonly encryption: EncryptionService,
     private readonly audit: AuditService,
     @Inject(IMAGE_STORAGE) private readonly storage: ImageStorage,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   /** Barberos activos de una barbería visible, solo con datos públicos. */
@@ -174,6 +176,8 @@ export class BarbersService {
           ? undefined
           : this.encryption.encryptNullable(dto.phone, EncryptedField.BARBER_PHONE),
       isActive: dto.isActive,
+      // Reactivarlo a mano anula la suspensión por plan.
+      ...(dto.isActive === true ? { planSuspendedAt: null } : {}),
     };
     // El teléfono se compara en claro (el cifrado cambia siempre por el IV aleatorio).
     const changes = auditChanges(
@@ -659,6 +663,17 @@ export class BarbersService {
   ): Promise<void> {
     const [shop] = await tx.$queryRaw<{ type: string }[]>`
       SELECT "type"::text AS "type" FROM "barbershops" WHERE "id" = ${barbershopId}::uuid FOR UPDATE`;
+    // Fase 15: límite de barberos activos del plan (la fila ya está bloqueada).
+    const active = await tx.barber.count({
+      where: {
+        barbershopId,
+        isActive: true,
+        deletedAt: null,
+        endedAt: null,
+        ...(exceptBarberId ? { id: { not: exceptBarberId } } : {}),
+      },
+    });
+    await this.entitlements.assertWithin(barbershopId, 'barbers', active);
     if (shop?.type !== 'INDEPENDENT') return;
     const others = await tx.barber.count({
       where: {

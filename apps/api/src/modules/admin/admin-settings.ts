@@ -101,6 +101,13 @@ export const SETTING_RULES: Readonly<Record<string, SettingRule>> = {
   [SettingKey.FEES_PAYER]: {
     schema: { type: 'string', minLength: 6, maxLength: 10, pattern: /^(CLIENT|BARBERSHOP)$/ },
   },
+  [SettingKey.BILLING_GRACE_DAYS]: int(1, 30),
+  [SettingKey.BILLING_TRIAL_NOTICE_DAYS]: int(1, 14),
+  [SettingKey.BILLING_PRICE_CHANGE_NOTICE_DAYS]: int(7, 90),
+  [SettingKey.RANKING_GOLD_MIN]: int(1, 100_000),
+  [SettingKey.RANKING_SILVER_MIN]: int(1, 100_000),
+  [SettingKey.RANKING_BRONZE_MIN]: int(1, 100_000),
+  [SettingKey.RANKING_WINDOW_DAYS]: int(30, 730),
   'payments.commission_policy': readOnly(
     'Reemplazado por fees.percent_bp, fees.fixed_amount y fees.payer.',
   ),

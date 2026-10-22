@@ -22,6 +22,21 @@ export const ErrorCode = {
   USERNAME_TAKEN: 'USERNAME_TAKEN',
   /** El nombre de usuario se cambió hace menos de 30 días (409). */
   USERNAME_CHANGE_TOO_SOON: 'USERNAME_CHANGE_TOO_SOON',
+  /** Fase 15: se alcanzó un límite del plan, o el plan no incluye la función (403). */
+  PLAN_LIMIT_REACHED: 'PLAN_LIMIT_REACHED',
+  PLAN_FEATURE_NOT_INCLUDED: 'PLAN_FEATURE_NOT_INCLUDED',
+  /** Fase 15: ya hay una suscripción viva para esa barbería (409). */
+  SUBSCRIPTION_EXISTS: 'SUBSCRIPTION_EXISTS',
+  /** La pasarela de cobros recurrentes no respondió (503, reintentable). */
+  BILLING_UNAVAILABLE: 'BILLING_UNAVAILABLE',
+  /** Panel: caja cerrada, venta ya anulada o boleta no emitible (409). */
+  CASH_SESSION_REQUIRED: 'CASH_SESSION_REQUIRED',
+  CASH_SESSION_OPEN: 'CASH_SESSION_OPEN',
+  SALE_ALREADY_VOIDED: 'SALE_ALREADY_VOIDED',
+  INVOICING_NOT_CONFIGURED: 'INVOICING_NOT_CONFIGURED',
+  /** Fase 16: sin créditos disponibles o la membresía no cubre el servicio (409). */
+  NO_MEMBERSHIP_CREDITS: 'NO_MEMBERSHIP_CREDITS',
+  MEMBERSHIP_NOT_APPLICABLE: 'MEMBERSHIP_NOT_APPLICABLE',
   /** Cambio de contraseña: la contraseña actual no es correcta (400, no cierra la sesión). */
   WRONG_PASSWORD: 'WRONG_PASSWORD',
   ACCOUNT_DISABLED: 'ACCOUNT_DISABLED',

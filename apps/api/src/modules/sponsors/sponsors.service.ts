@@ -117,7 +117,7 @@ export class SponsorsService {
     const exists = await this.prisma.sponsorPlacement.count({ where: { id: placementId } });
     if (!exists) throw notFound('El anuncio');
     const now = this.clock.now();
-    await this.prisma.sponsorEvent.createMany({
+    const { count: inserted } = await this.prisma.sponsorEvent.createMany({
       data: [
         {
           placementId,
@@ -129,6 +129,24 @@ export class SponsorsService {
       ],
       skipDuplicates: true,
     });
+    if (inserted > 0 && type === 'IMPRESSION') await this.countImpression(placementId);
+  }
+
+  /** Fase 15: suma la impresión a la campaña y la termina al llegar al tope del paquete. */
+  private async countImpression(placementId: string): Promise<void> {
+    const placement = await this.prisma.sponsorPlacement.findUnique({
+      where: { id: placementId },
+      select: { campaignId: true },
+    });
+    if (!placement) return;
+    await this.prisma.$executeRaw`
+      UPDATE sponsor_campaigns
+         SET impressions_count = impressions_count + 1,
+             status = CASE
+               WHEN impressions_limit IS NOT NULL AND impressions_count + 1 >= impressions_limit
+               THEN 'ENDED'::"SponsorCampaignStatus" ELSE status END,
+             updated_at = now()
+       WHERE id = ${placement.campaignId}::uuid`;
   }
 
   async publicSponsor(id: string): Promise<PublicSponsorDto> {
@@ -281,6 +299,24 @@ export class SponsorsService {
   ): Promise<CampaignDto> {
     await this.requireCampaign(campaignId);
     await this.prisma.$transaction(async (tx) => {
+      // Fase 15: una campaña de un paquete admite hasta `placementsLimit` anuncios.
+      const purchase = await tx.sponsorPackagePurchase.findUnique({
+        where: { campaignId },
+        select: { package: { select: { placementsLimit: true } } },
+      });
+      if (purchase) {
+        const [lock] = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id::text FROM sponsor_campaigns WHERE id = ${campaignId}::uuid FOR UPDATE`;
+        const count = await tx.sponsorPlacement.count({ where: { campaignId } });
+        if (lock && count >= purchase.package.placementsLimit) {
+          throw new AppException(
+            ErrorCode.PLAN_LIMIT_REACHED,
+            'El paquete de esta campaña no admite más anuncios.',
+            HttpStatus.FORBIDDEN,
+            [{ key: 'placements', limit: purchase.package.placementsLimit, used: count }],
+          );
+        }
+      }
       const created = await tx.sponsorPlacement.create({
         data: {
           campaignId,
@@ -490,6 +526,8 @@ export class SponsorsService {
     audience: 'CLIENTS' | 'BARBERSHOPS' | 'ALL';
     status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ENDED';
     createdAt: Date;
+    impressionsLimit?: number | null;
+    impressionsCount?: number;
     placements: {
       id: string;
       slotKey: string;
@@ -509,6 +547,8 @@ export class SponsorsService {
       audience: c.audience,
       status: c.status,
       live: c.status === 'ACTIVE' && c.startsAt.getTime() <= now && c.endsAt.getTime() > now,
+      impressionsLimit: c.impressionsLimit ?? null,
+      impressionsCount: c.impressionsCount ?? 0,
       placements: c.placements.map((p): PlacementDto => ({
         id: p.id,
         slotKey: p.slotKey,
