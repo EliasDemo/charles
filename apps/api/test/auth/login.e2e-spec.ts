@@ -62,7 +62,7 @@ describe('RF-AUT-002 Inicio de sesión (e2e)', () => {
     expect(strip(wrong.body)).toEqual(strip(missing.body));
     expect(wrong.body).toMatchObject({
       code: 'INVALID_CREDENTIALS',
-      message: 'El correo o la contraseña no son correctos.',
+      message: 'El usuario, el correo o la contraseña no son correctos.',
     });
   });
 

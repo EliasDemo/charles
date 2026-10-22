@@ -870,7 +870,8 @@ describe('RF-RES-001…008 Reservas, máquina de estados, outbox y expiración (
         .expect(200);
       expect(shopList.body.items[0].client).toEqual({
         id: me.userId,
-        name: 'Persona de Prueba',
+        name: 'Persona',
+        username: expect.any(String),
         photoUrl: null,
       });
       const raw = JSON.stringify(shopList.body);

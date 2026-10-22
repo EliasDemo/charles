@@ -182,8 +182,26 @@ describe('RF-OPE-001…003 Operación de la plataforma (/admin) — Fase 12 (e2e
         .get(`${API}/admin/users?email=${encodeURIComponent(target.email)}`, agent.token)
         .expect(200);
       expect(Object.keys(found.body).sort()).toEqual(
-        ['createdAt', 'deleted', 'emailVerified', 'fullName', 'id', 'roles', 'status'].sort(),
+        [
+          'createdAt',
+          'deleted',
+          'emailVerified',
+          'fullName',
+          'id',
+          'roles',
+          'status',
+          'username',
+        ].sort(),
       );
+      // También por nombre de usuario (sin distinguir mayúsculas).
+      const byUsername = await agent.client
+        .get(`${API}/admin/users?username=${found.body.username.toUpperCase()}`, agent.token)
+        .expect(200);
+      expect(byUsername.body.id).toBe(target.userId);
+      await agent.client
+        .get(`${API}/admin/users?username=nadie_${Date.now()}`, agent.token)
+        .expect(404);
+      await agent.client.get(`${API}/admin/users`, agent.token).expect(400);
       expect(JSON.stringify(found.body)).not.toContain(target.email);
       await agent.client
         .get(`${API}/admin/users?email=nadie-${randomUUID()}@example.com`, agent.token)

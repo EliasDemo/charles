@@ -522,6 +522,8 @@ export async function seed({ prisma, encryption, password, jsonNull }: SeedDeps)
       update: {},
       create: {
         id: user.id,
+        // Usuario de demostración: la parte del correo antes de "@" (cliente.demo, barbero.demo...).
+        username: user.email.split('@')[0]!.toLowerCase(),
         emailEnc: encryption.encrypt(user.email, EncryptedField.USER_EMAIL),
         emailHash: encryption.blindIndex(user.email, BlindIndexKind.EMAIL),
         passwordHash,

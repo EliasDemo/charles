@@ -2,7 +2,7 @@
 
 Punto de partida para retomar el trabajo en una conversación nueva. **Léelo antes de hacer nada**, junto con `CLAUDE.md` y `docs/pendientes-produccion.md`. Se actualiza al cerrar cada fase (CLAUDE.md §1).
 
-Última actualización: Recomendación por forma de cara, Etapa 1 (reglas, clasificador, ranking por corte, fotos de demostración).
+Última actualización: nombre de usuario (registro, inicio de sesión con usuario o correo, nombres públicos sin el nombre real).
 
 ## Resumen
 
@@ -37,6 +37,7 @@ Punto de partida para retomar el trabajo en una conversación nueva. **Léelo an
 | 8B   | Pagos con Izipay: formulario web (tarjeta y Yape), IPN firmada, consulta, devoluciones; comisión configurable                                                                                                                | (ver `git log`)                                                                                |
 | —    | Mercado Pago (Checkout Pro): pasarela activa para pruebas reales; Izipay se mantiene                                                                                                                                         | (ver `git log`)                                                                                |
 | —    | charlesweb (web de administración, `D:\barberia\charlesweb`): etapas 1–5 con pruebas Playwright                                                                                                                              | (commits en ese repositorio)                                                                   |
+| —    | Nombre de usuario: obligatorio y único, inicio de sesión con usuario o correo, cambio cada 30 días, el público ve el usuario y no el nombre real; búsqueda por usuario en administración                                     | (ver `git log`)                                                                                |
 | —    | Forma de cara, Etapa 1: clasificador por proporciones (sin IA externa), reglas forma ↔ corte editables, recomendación con fotos de caras parecidas cerca, ranking por corte con pesos configurables, fotos de demo (Pixabay) | (ver `git log`)                                                                                |
 | 13   | Promociones y cupones (un solo descuento, el mayor), destacados en la búsqueda, auspiciadores con campañas, anuncios, productos y métricas                                                                                   | (ver `git log`)                                                                                |
 | —    | Carrera del barbero: perfil profesional propio (varias barberías, se lleva su progreso), ranking, correo interno, bolsa de trabajo, videos de 30 s                                                                           | (ver `git log`)                                                                                |
@@ -54,6 +55,16 @@ Implementada según el plan aprobado (detalle en CLAUDE.md §8, "Pagos con Izipa
 - **Decisiones del usuario:** tarjeta y Yape; formulario web en la app; comisión configurable por ADMIN (por defecto la barbería, en 0); la comisión de Izipay en devoluciones la asume la barbería; la barbería usa DNI o RUC (el RUC de Izipay es el de Charles).
 - **Hallazgo:** un rechazo de la pasarela cancelaba la reserva. Con Izipay se registra como intento fallido y el cliente puede reintentar hasta que venza.
 - **Por validar con cuenta real:** ver `docs/izipay/referencia.md` §8.
+
+### Nombre de usuario: cerrado
+
+Plan aprobado ("correcto"). Migración `20261024000000_username` (aplicada en `charles` y `charles_test`): `users.username` citext único con CHECK de formato y `username_changed_at`; las cuentas existentes recibieron uno automático (nombre + 4 caracteres del id).
+
+- Reglas en `src/modules/users/username.ts` (formato, reservados). Registro: `username` obligatorio; `GET /auth/username-available`.
+- Inicio de sesión: campo `login` (usuario o correo); `email` queda obsoleto pero aceptado. El bloqueo por intentos usa la misma clave de cuenta entre usuario y correo.
+- Público: valoraciones (`authorName`), valoraciones del perfil profesional y mensajes del cliente muestran el usuario. La barbería ve en la agenda y reservas el nombre de pila y `username` (`ClientRefDto.username`), y en mensajes "usuario · nombre".
+- Administración: `GET /admin/users?username=`; `StaffUserDto.username`. charlesweb: Cuentas busca por correo o usuario.
+- Errores nuevos: `USERNAME_TAKEN`, `USERNAME_CHANGE_TOO_SOON`.
 
 ### Forma de cara, Etapa 1: cerrada
 

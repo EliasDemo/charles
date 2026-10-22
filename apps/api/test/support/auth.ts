@@ -22,6 +22,11 @@ export function uniqueEmail(): string {
 }
 
 /** IP aleatoria (rango de pruebas 198.18.0.0/15) para aislar límites y bloqueos por IP. */
+/** Usuario único para pruebas (formato válido: minúsculas, números y guion bajo). */
+export function uniqueUsername(): string {
+  return `u_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+}
+
 export function randomIp(): string {
   return `198.18.${randomInt(0, 256)}.${randomInt(1, 255)}`;
 }
@@ -77,6 +82,7 @@ export class AuthClient {
 
   register(overrides: Record<string, unknown> = {}) {
     return this.post('/api/v1/auth/register', {
+      username: uniqueUsername(),
       fullName: 'Persona de Prueba',
       email: uniqueEmail(),
       password: randomPassword(),

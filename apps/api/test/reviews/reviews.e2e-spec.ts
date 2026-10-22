@@ -25,6 +25,7 @@ interface Person {
   client: AuthClient;
   token: string;
   userId: string;
+  username: string;
 }
 
 describe('RF-FAV-001…003, RF-VAL-001…003 Favoritos y valoraciones — Fase 11 (e2e)', () => {
@@ -55,7 +56,12 @@ describe('RF-FAV-001…003, RF-VAL-001…003 Favoritos y valoraciones — Fase 1
     await client
       .post(`${API}/auth/email-verification/confirm`, { code }, tokens.accessToken)
       .expect(204);
-    return { client, token: tokens.accessToken, userId: tokens.user.id };
+    return {
+      client,
+      token: tokens.accessToken,
+      userId: tokens.user.id,
+      username: tokens.user.username,
+    };
   }
 
   /** Barbería con dos barberos, horario lunes 09:00–18:00. */
@@ -234,7 +240,8 @@ describe('RF-FAV-001…003, RF-VAL-001…003 Favoritos y valoraciones — Fase 1
         expect.objectContaining({
           rating: 5,
           comment: 'Muy buen corte',
-          authorName: 'Ana R.',
+          // En público se ve el usuario, nunca el nombre real.
+          authorName: a.person.username,
           serviceName: 'Corte clásico',
           barber: { id: shop.barberIds[0], displayName: 'Carlos' },
           bookingId: a.id,
@@ -421,8 +428,8 @@ describe('RF-FAV-001…003, RF-VAL-001…003 Favoritos y valoraciones — Fase 1
 
       const all = await publicList(shop.shopId);
       expect(all.body.items.map((r: { authorName: string }) => r.authorName)).toEqual([
-        'Beto P.',
-        'Ana R.',
+        b.person.username,
+        a.person.username,
       ]);
       const body = JSON.stringify(all.body);
       expect(body).not.toMatch(/Rodríguez|Pérez|email|phone|clientId|status/);
@@ -443,11 +450,11 @@ describe('RF-FAV-001…003, RF-VAL-001…003 Favoritos y valoraciones — Fase 1
       expect(byBarber.body.items).toHaveLength(1);
       const byRating = await publicList(shop.shopId, '?rating=3');
       expect(byRating.body.items.map((r: { authorName: string }) => r.authorName)).toEqual([
-        'Beto P.',
+        b.person.username,
       ]);
       const page = await publicList(shop.shopId, '?limit=1');
       const next = await publicList(shop.shopId, `?limit=1&cursor=${page.body.nextCursor}`);
-      expect(next.body.items[0].authorName).toBe('Ana R.');
+      expect(next.body.items[0].authorName).toBe(a.person.username);
       expect(next.body.nextCursor).toBeNull();
     });
 
@@ -535,9 +542,13 @@ describe('RF-FAV-001…003, RF-VAL-001…003 Favoritos y valoraciones — Fase 1
         'VISIBLE',
       );
       // La barbería también puede reportar la valoración.
-      await report({ client: shop.owner.client, token: shop.owner.token, userId: '' }, reviewId, {
-        reason: 'FAKE',
-      }).expect(204);
+      await report(
+        { client: shop.owner.client, token: shop.owner.token, userId: '', username: '' },
+        reviewId,
+        {
+          reason: 'FAKE',
+        },
+      ).expect(204);
       expect((await prisma.review.findUniqueOrThrow({ where: { id: reviewId } })).status).toBe(
         'UNDER_REVIEW',
       );
@@ -558,10 +569,14 @@ describe('RF-FAV-001…003, RF-VAL-001…003 Favoritos y valoraciones — Fase 1
       await shop.owner.client
         .put(`${API}/reviews/${reviewId}/response`, { text: 'Respuesta' }, shop.owner.token)
         .expect(200);
-      await report({ client: shop.owner.client, token: shop.owner.token, userId: '' }, reviewId, {
-        target: 'RESPONSE',
-        reason: 'SPAM',
-      }).expect(403);
+      await report(
+        { client: shop.owner.client, token: shop.owner.token, userId: '', username: '' },
+        reviewId,
+        {
+          target: 'RESPONSE',
+          reason: 'SPAM',
+        },
+      ).expect(403);
       // El autor de la valoración sí puede reportar la respuesta.
       await report(a.person, reviewId, { target: 'RESPONSE', reason: 'OFFENSIVE' }).expect(204);
       await report(await verified(), reviewId, { target: 'RESPONSE', reason: 'OFFENSIVE' }).expect(

@@ -56,6 +56,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/username-available": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Comprobar si un nombre de usuario está libre (para el registro) */
+        get: operations["AuthController_usernameAvailable_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/register": {
         parameters: {
             query?: never;
@@ -82,7 +99,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** RF-AUT-002: inicio de sesión con correo y contraseña */
+        /** RF-AUT-002: inicio de sesión con usuario o correo y contraseña */
         post: operations["AuthController_login_v1"];
         delete?: never;
         options?: never;
@@ -2152,7 +2169,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** RF-OPE-001: buscar una cuenta por correo exacto (datos mínimos) */
+        /** RF-OPE-001: buscar una cuenta por correo o nombre de usuario exactos (datos mínimos) */
         get: operations["AdminUsersController_find_v1"];
         put?: never;
         post?: never;
@@ -3883,6 +3900,16 @@ export interface components {
         ProfileDto: {
             /** Format: uuid */
             id: string;
+            /**
+             * @description Público (lo ven otras personas).
+             * @example ana.perez
+             */
+            username: string;
+            /**
+             * Format: date-time
+             * @description Desde cuándo puede volver a cambiar el usuario (null: ya puede).
+             */
+            usernameChangeableAt: string | null;
             fullName: string;
             /** Format: email */
             email: string;
@@ -3907,6 +3934,11 @@ export interface components {
             createdAt: string;
         };
         UpdateProfileDto: {
+            /**
+             * @description Cambiar el nombre de usuario (una vez cada 30 días).
+             * @example ana.perez
+             */
+            username?: string;
             /** @example Ana Pérez */
             fullName?: string;
             /**
@@ -3945,8 +3977,24 @@ export interface components {
              */
             privacyUrl: string | null;
         };
+        UsernameAvailabilityDto: {
+            available: boolean;
+            /**
+             * @description Motivo cuando no está disponible.
+             * @enum {string|null}
+             */
+            reason: "INVALID" | "RESERVED" | "TAKEN" | null;
+        };
         RegisterDto: {
-            /** @example Ana Pérez */
+            /**
+             * @description Nombre de usuario (público y para iniciar sesión): 3 a 20 caracteres, minúsculas, números, punto y guion bajo, sin empezar ni terminar en punto o guion bajo ni dos seguidos.
+             * @example ana.perez
+             */
+            username: string;
+            /**
+             * @description Nombre real: no se muestra en público.
+             * @example Ana Pérez
+             */
             fullName: string;
             /** @example ana@example.com */
             email: string;
@@ -3964,8 +4012,17 @@ export interface components {
             message: string;
         };
         LoginDto: {
-            /** @example ana@example.com */
-            email: string;
+            /**
+             * @description Nombre de usuario o correo (con "@" se toma como correo).
+             * @example ana.perez
+             */
+            login?: string;
+            /**
+             * @deprecated
+             * @description Obsoleto: usa `login`. Se acepta mientras la app se actualiza.
+             * @example ana@example.com
+             */
+            email?: string;
             password: string;
             /**
              * @description Nombre del dispositivo.
@@ -3976,6 +4033,8 @@ export interface components {
         SessionUserDto: {
             /** Format: uuid */
             id: string;
+            /** @example ana.perez */
+            username: string;
             fullName: string;
             roles: components["schemas"]["Role"][];
             emailVerified: boolean;
@@ -4651,8 +4710,8 @@ export interface components {
             rating: number;
             comment: string | null;
             /**
-             * @description Nombre e inicial del apellido.
-             * @example Ana R.
+             * @description Nombre de usuario del cliente (nunca su nombre real); "Cuenta eliminada" si la borró.
+             * @example ana.perez
              */
             authorName: string;
             /** @description Servicio tal como se reservó. */
@@ -4690,8 +4749,8 @@ export interface components {
             rating: number;
             comment: string | null;
             /**
-             * @description Nombre e inicial del apellido.
-             * @example Ana R.
+             * @description Nombre de usuario del cliente (nunca su nombre real); "Cuenta eliminada" si la borró.
+             * @example ana.perez
              */
             authorName: string;
             /** @description Servicio tal como se reservó. */
@@ -4716,8 +4775,8 @@ export interface components {
             rating: number;
             comment: string | null;
             /**
-             * @description Nombre e inicial del apellido.
-             * @example Ana R.
+             * @description Nombre de usuario del cliente (nunca su nombre real); "Cuenta eliminada" si la borró.
+             * @example ana.perez
              */
             authorName: string;
             /** @description Servicio tal como se reservó. */
@@ -5451,6 +5510,11 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string | null;
+            /**
+             * @description Nombre de usuario (name es el nombre de pila).
+             * @example ana.perez
+             */
+            username: string;
             /** @description Foto de perfil; null si no tiene. */
             photoUrl: string | null;
         };
@@ -6019,6 +6083,8 @@ export interface components {
         StaffUserDto: {
             /** Format: uuid */
             id: string;
+            /** @example ana.perez */
+            username: string;
             fullName: string;
             /** @enum {string} */
             status: "ACTIVE" | "DISABLED";
@@ -6824,7 +6890,7 @@ export interface components {
             id: string;
             rating: number;
             comment: string | null;
-            /** @description Nombre del cliente (o "Cuenta eliminada"). */
+            /** @description Nombre de usuario del cliente (o "Cuenta eliminada"). */
             clientName: string;
             barbershopName: string;
             serviceName: string;
@@ -7398,6 +7464,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TermsDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AuthController_usernameAvailable_v1: {
+        parameters: {
+            query: {
+                username: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsernameAvailabilityDto"];
                 };
             };
             429: {
@@ -12754,9 +12849,11 @@ export interface operations {
     };
     AdminUsersController_find_v1: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Correo exacto. */
-                email: string;
+                email?: string;
+                /** @description Nombre de usuario exacto. */
+                username?: string;
             };
             header?: never;
             path?: never;

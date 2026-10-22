@@ -45,11 +45,21 @@ export class ReasonDto {
 }
 
 export class FindUserQueryDto {
-  @ApiProperty({ description: 'Correo exacto.' })
+  @ApiPropertyOptional({ description: 'Correo exacto.' })
+  @IsOptional()
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   @IsEmail()
   @MaxLength(254)
-  email!: string;
+  email?: string;
+
+  @ApiPropertyOptional({ description: 'Nombre de usuario exacto.' })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
+  @IsString()
+  @MaxLength(20)
+  username?: string;
 }
 
 export class ContactAccessDto extends ReasonDto {
@@ -234,6 +244,9 @@ export class RefPersonDto {
 export class StaffUserDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
+
+  @ApiProperty({ example: 'ana.perez' })
+  username!: string;
 
   @ApiProperty()
   fullName!: string;

@@ -160,7 +160,11 @@ export class PublicReviewDto {
   @ApiProperty({ nullable: true, type: String })
   comment!: string | null;
 
-  @ApiProperty({ example: 'Ana R.', description: 'Nombre e inicial del apellido.' })
+  @ApiProperty({
+    example: 'ana.perez',
+    description:
+      'Nombre de usuario del cliente (nunca su nombre real); "Cuenta eliminada" si la borró.',
+  })
   authorName!: string;
 
   @ApiProperty({ description: 'Servicio tal como se reservó.' })

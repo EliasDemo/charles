@@ -241,7 +241,7 @@ export class BarberProfilesService {
         rating: true,
         comment: true,
         createdAt: true,
-        client: { select: { fullName: true } },
+        client: { select: { username: true, anonymizedAt: true } },
         barbershop: { select: { name: true } },
         booking: { select: { serviceNameSnapshot: true } },
       },
@@ -252,7 +252,7 @@ export class BarberProfilesService {
         id: r.id,
         rating: r.rating,
         comment: r.comment,
-        clientName: firstName(r.client.fullName),
+        clientName: r.client.anonymizedAt ? 'Cuenta eliminada' : r.client.username,
         barbershopName: r.barbershop.name,
         serviceName: r.booking.serviceNameSnapshot,
         createdAt: r.createdAt,
@@ -447,11 +447,6 @@ function toWorkplace(
     since: r.createdAt,
     until,
   };
-}
-
-/** Solo el nombre de pila: el perfil público no expone el nombre completo de los clientes. */
-function firstName(fullName: string): string {
-  return fullName.trim().split(/\s+/)[0] ?? fullName;
 }
 
 function escapeLike(value: string): string {

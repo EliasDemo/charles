@@ -28,7 +28,7 @@ export const REGISTER_ACCEPTED: AcceptedResponseDto = {
 const invalidCredentials = (): AppException =>
   new AppException(
     ErrorCode.INVALID_CREDENTIALS,
-    'El correo o la contraseña no son correctos.',
+    'El usuario, el correo o la contraseña no son correctos.',
     HttpStatus.UNAUTHORIZED,
   );
 
@@ -84,6 +84,8 @@ export class AuthService {
       );
     }
 
+    // El nombre de usuario es público: decir que está ocupado no revela nada privado.
+    await this.users.assertUsernameAvailable(dto.username);
     const passwordHash = await PasswordHasher.hash(dto.password);
     const emailHash = this.users.emailHash(dto.email);
     // Correo de una cuenta deshabilitada por soporte que se eliminó: no se registra hasta que
@@ -96,6 +98,7 @@ export class AuthService {
       : await this.users.createClient(
           {
             fullName: dto.fullName,
+            username: dto.username,
             email: dto.email,
             phone: dto.phone ?? null,
             passwordHash,
@@ -178,15 +181,40 @@ export class AuthService {
   }
 
   /** Bloqueo por intentos y contraseña; el estado de la cuenta lo decide quien llama. */
+  usernameAvailability(
+    username: string,
+  ): Promise<{ available: boolean; reason: 'INVALID' | 'RESERVED' | 'TAKEN' | null }> {
+    return this.users.usernameAvailability(username);
+  }
+
   private async verifyCredentials(
     dto: LoginDto,
     ctx: RequestContext,
   ): Promise<NonNullable<Awaited<ReturnType<UsersService['findCredentialsByEmailHash']>>>> {
-    const emailHash = this.users.emailHash(dto.email);
-    const subject = { accountKey: emailHash.toString('hex'), ip: ctx.ip };
+    // Usuario o correo: con "@" es correo. `email` (obsoleto) sigue aceptándose.
+    const identifier = (dto.login ?? dto.email ?? '').trim();
+    if (!identifier) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Los datos enviados no son válidos.',
+        HttpStatus.BAD_REQUEST,
+        [{ field: 'login', constraints: ['isNotEmpty'] }],
+      );
+    }
+    const byEmail = identifier.includes('@');
+    const user = byEmail
+      ? await this.users.findCredentialsByEmailHash(this.users.emailHash(identifier))
+      : await this.users.findCredentialsByUsername(identifier);
+    // El bloqueo por intentos es por cuenta: con usuario se usa la clave de su correo si existe.
+    const accountKey = byEmail
+      ? this.users.emailHash(identifier).toString('hex')
+      : user
+        ? ((await this.users.emailHashOf(user.id))?.toString('hex') ??
+          `u:${identifier.toLowerCase()}`)
+        : `u:${identifier.toLowerCase()}`;
+    const subject = { accountKey, ip: ctx.ip };
     await this.attempts.assertNotLocked(subject);
 
-    const user = await this.users.findCredentialsByEmailHash(emailHash);
     const passwordOk = await PasswordHasher.verify(
       user && !user.isDeleted ? user.passwordHash : await this.getDummyHash(),
       dto.password,
@@ -194,7 +222,7 @@ export class AuthService {
 
     if (!user || user.isDeleted || !passwordOk) {
       const { accountLockSeconds } = await this.attempts.recordFailure(subject);
-      if (accountLockSeconds > 0) {
+      if (accountLockSeconds > 0 && !subject.accountKey.startsWith('u:')) {
         await this.mail.enqueue({
           type: 'account-locked',
           emailHashHex: subject.accountKey,
@@ -261,6 +289,7 @@ export class AuthService {
       refreshTokenExpiresAt,
       user: {
         id: user.id,
+        username: user.username,
         fullName: user.fullName,
         roles: user.roles,
         emailVerified: user.emailVerified,

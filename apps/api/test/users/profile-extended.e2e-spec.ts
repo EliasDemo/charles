@@ -183,7 +183,12 @@ describe('Perfil de la cuenta: datos, foto y contraseña (e2e)', () => {
       .get(`${API}/barbershops/${shop.shopId}/agenda?date=${MONDAY}`, shop.owner.token)
       .expect(200);
     const item = agenda.body.items.find((i: { bookingId: string }) => i.bookingId === booking.id);
-    expect(item.client).toEqual({ id: client.userId, name: expect.any(String), photoUrl: photo });
+    expect(item.client).toEqual({
+      id: client.userId,
+      name: expect.any(String),
+      username: expect.any(String),
+      photoUrl: photo,
+    });
     const raw = JSON.stringify(agenda.body);
     expect(raw).not.toContain('1990-05-05');
     expect(raw).not.toContain('"gender"');

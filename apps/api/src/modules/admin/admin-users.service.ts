@@ -46,9 +46,25 @@ export class AdminUsersService {
     private readonly mfa: MfaService,
   ) {}
 
-  /** Búsqueda exacta por correo (índice ciego). La auditoría no guarda el correo. */
-  async findByEmail(staff: StaffActor, email: string): Promise<StaffUserView> {
-    const id = await this.users.findIdByEmailHash(this.users.emailHash(email));
+  /**
+   * Búsqueda exacta por correo (índice ciego) o por nombre de usuario. La auditoría no guarda lo
+   * buscado.
+   */
+  async find(
+    staff: StaffActor,
+    query: { email?: string; username?: string },
+  ): Promise<StaffUserView> {
+    if (!query.email && !query.username) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Los datos enviados no son válidos.',
+        HttpStatus.BAD_REQUEST,
+        [{ field: 'email', constraints: ['emailOrUsername'] }],
+      );
+    }
+    const id = query.email
+      ? await this.users.findIdByEmailHash(this.users.emailHash(query.email))
+      : ((await this.users.findCredentialsByUsername(query.username!))?.id ?? null);
     await this.audit.record({
       actorId: staff.id,
       action: 'user.looked_up',

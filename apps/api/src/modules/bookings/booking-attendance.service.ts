@@ -376,6 +376,7 @@ export class BookingAttendanceService {
           id: b.clientId,
           name: clientNames.get(b.clientId)?.name ?? null,
           photoUrl: clientNames.get(b.clientId)?.photoUrl ?? null,
+          username: clientNames.get(b.clientId)?.username ?? '',
         },
         awaitingPayment: b.status === 'PENDING_PAYMENT',
         pendingAttention,

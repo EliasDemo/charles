@@ -18,6 +18,10 @@ export const ErrorCode = {
   SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
   // Autenticación (Fase 3)
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  /** Nombre de usuario ya en uso (409). */
+  USERNAME_TAKEN: 'USERNAME_TAKEN',
+  /** El nombre de usuario se cambió hace menos de 30 días (409). */
+  USERNAME_CHANGE_TOO_SOON: 'USERNAME_CHANGE_TOO_SOON',
   /** Cambio de contraseña: la contraseña actual no es correcta (400, no cierra la sesión). */
   WRONG_PASSWORD: 'WRONG_PASSWORD',
   ACCOUNT_DISABLED: 'ACCOUNT_DISABLED',

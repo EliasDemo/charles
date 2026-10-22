@@ -139,6 +139,48 @@
         "tags": ["auth"]
       }
     },
+    "/api/v1/auth/username-available": {
+      "get": {
+        "operationId": "AuthController_usernameAvailable_v1",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 40,
+              "example": "ana.perez",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsernameAvailabilityDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Comprobar si un nombre de usuario está libre (para el registro)",
+        "tags": ["auth"]
+      }
+    },
     "/api/v1/auth/register": {
       "post": {
         "operationId": "AuthController_register_v1",
@@ -245,7 +287,7 @@
             }
           }
         },
-        "summary": "RF-AUT-002: inicio de sesión con correo y contraseña",
+        "summary": "RF-AUT-002: inicio de sesión con usuario o correo y contraseña",
         "tags": ["auth"]
       }
     },
@@ -8517,11 +8559,21 @@
         "parameters": [
           {
             "name": "email",
-            "required": true,
+            "required": false,
             "in": "query",
             "description": "Correo exacto.",
             "schema": {
               "maxLength": 254,
+              "type": "string"
+            }
+          },
+          {
+            "name": "username",
+            "required": false,
+            "in": "query",
+            "description": "Nombre de usuario exacto.",
+            "schema": {
+              "maxLength": 20,
               "type": "string"
             }
           }
@@ -8563,7 +8615,7 @@
             "bearer": []
           }
         ],
-        "summary": "RF-OPE-001: buscar una cuenta por correo exacto (datos mínimos)",
+        "summary": "RF-OPE-001: buscar una cuenta por correo o nombre de usuario exactos (datos mínimos)",
         "tags": ["admin"]
       }
     },
@@ -14834,6 +14886,17 @@
             "type": "string",
             "format": "uuid"
           },
+          "username": {
+            "type": "string",
+            "example": "ana.perez",
+            "description": "Público (lo ven otras personas)."
+          },
+          "usernameChangeableAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "Desde cuándo puede volver a cambiar el usuario (null: ya puede)."
+          },
           "fullName": {
             "type": "string"
           },
@@ -14889,6 +14952,8 @@
         },
         "required": [
           "id",
+          "username",
+          "usernameChangeableAt",
           "fullName",
           "email",
           "emailVerified",
@@ -14905,6 +14970,11 @@
       "UpdateProfileDto": {
         "type": "object",
         "properties": {
+          "username": {
+            "type": "string",
+            "example": "ana.perez",
+            "description": "Cambiar el nombre de usuario (una vez cada 30 días)."
+          },
           "fullName": {
             "type": "string",
             "example": "Ana Pérez",
@@ -14970,12 +15040,33 @@
         },
         "required": ["version", "termsUrl", "privacyUrl"]
       },
+      "UsernameAvailabilityDto": {
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "enum": ["INVALID", "RESERVED", "TAKEN"],
+            "nullable": true,
+            "description": "Motivo cuando no está disponible."
+          }
+        },
+        "required": ["available", "reason"]
+      },
       "RegisterDto": {
         "type": "object",
         "properties": {
+          "username": {
+            "type": "string",
+            "example": "ana.perez",
+            "description": "Nombre de usuario (público y para iniciar sesión): 3 a 20 caracteres, minúsculas, números, punto y guion bajo, sin empezar ni terminar en punto o guion bajo ni dos seguidos."
+          },
           "fullName": {
             "type": "string",
             "example": "Ana Pérez",
+            "description": "Nombre real: no se muestra en público.",
             "minLength": 2,
             "maxLength": 120
           },
@@ -15008,6 +15099,7 @@
           }
         },
         "required": [
+          "username",
           "fullName",
           "email",
           "password",
@@ -15028,9 +15120,18 @@
       "LoginDto": {
         "type": "object",
         "properties": {
+          "login": {
+            "type": "string",
+            "example": "ana.perez",
+            "description": "Nombre de usuario o correo (con \"@\" se toma como correo).",
+            "minLength": 1,
+            "maxLength": 254
+          },
           "email": {
             "type": "string",
             "example": "ana@example.com",
+            "deprecated": true,
+            "description": "Obsoleto: usa `login`. Se acepta mientras la app se actualiza.",
             "maxLength": 254
           },
           "password": {
@@ -15044,7 +15145,7 @@
             "maxLength": 100
           }
         },
-        "required": ["email", "password"]
+        "required": ["password"]
       },
       "SessionUserDto": {
         "type": "object",
@@ -15052,6 +15153,10 @@
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "example": "ana.perez"
           },
           "fullName": {
             "type": "string"
@@ -15066,7 +15171,7 @@
             "type": "boolean"
           }
         },
-        "required": ["id", "fullName", "roles", "emailVerified"]
+        "required": ["id", "username", "fullName", "roles", "emailVerified"]
       },
       "AuthTokensDto": {
         "type": "object",
@@ -17017,8 +17122,8 @@
           },
           "authorName": {
             "type": "string",
-            "example": "Ana R.",
-            "description": "Nombre e inicial del apellido."
+            "example": "ana.perez",
+            "description": "Nombre de usuario del cliente (nunca su nombre real); \"Cuenta eliminada\" si la borró."
           },
           "serviceName": {
             "type": "string",
@@ -17130,8 +17235,8 @@
           },
           "authorName": {
             "type": "string",
-            "example": "Ana R.",
-            "description": "Nombre e inicial del apellido."
+            "example": "ana.perez",
+            "description": "Nombre de usuario del cliente (nunca su nombre real); \"Cuenta eliminada\" si la borró."
           },
           "serviceName": {
             "type": "string",
@@ -17210,8 +17315,8 @@
           },
           "authorName": {
             "type": "string",
-            "example": "Ana R.",
-            "description": "Nombre e inicial del apellido."
+            "example": "ana.perez",
+            "description": "Nombre de usuario del cliente (nunca su nombre real); \"Cuenta eliminada\" si la borró."
           },
           "serviceName": {
             "type": "string",
@@ -19205,13 +19310,18 @@
             "type": "string",
             "nullable": true
           },
+          "username": {
+            "type": "string",
+            "example": "ana.perez",
+            "description": "Nombre de usuario (name es el nombre de pila)."
+          },
           "photoUrl": {
             "type": "string",
             "nullable": true,
             "description": "Foto de perfil; null si no tiene."
           }
         },
-        "required": ["id", "name", "photoUrl"]
+        "required": ["id", "name", "username", "photoUrl"]
       },
       "PriceLineType": {
         "type": "string",
@@ -20904,6 +21014,10 @@
             "type": "string",
             "format": "uuid"
           },
+          "username": {
+            "type": "string",
+            "example": "ana.perez"
+          },
           "fullName": {
             "type": "string"
           },
@@ -20929,7 +21043,16 @@
             "type": "boolean"
           }
         },
-        "required": ["id", "fullName", "status", "roles", "emailVerified", "createdAt", "deleted"]
+        "required": [
+          "id",
+          "username",
+          "fullName",
+          "status",
+          "roles",
+          "emailVerified",
+          "createdAt",
+          "deleted"
+        ]
       },
       "ContactAccessDto": {
         "type": "object",
@@ -23224,7 +23347,7 @@
           },
           "clientName": {
             "type": "string",
-            "description": "Nombre del cliente (o \"Cuenta eliminada\")."
+            "description": "Nombre de usuario del cliente (o \"Cuenta eliminada\")."
           },
           "barbershopName": {
             "type": "string"

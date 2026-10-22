@@ -361,7 +361,8 @@ describe('RF-ATE-001…003 Atención, inasistencias, corrección y agenda — Fa
       // Solo el nombre del cliente.
       expect(byId[due.id]!.client).toEqual({
         id: due.person.userId,
-        name: 'Persona de Prueba',
+        name: 'Persona',
+        username: expect.any(String),
         photoUrl: null,
       });
       expect(JSON.stringify(res.body)).not.toMatch(/@example|phone|email|document/i);

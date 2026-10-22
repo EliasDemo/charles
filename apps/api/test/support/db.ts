@@ -76,6 +76,7 @@ export function fixtures(prisma: PrismaClient) {
         data: {
           emailEnc: 'v1:fixture',
           emailHash: data.emailHash ?? hash(),
+          username: `fx_${randomBytes(6).toString('hex')}`,
           passwordHash: 'fixture',
           fullName: 'Usuario de prueba',
           phoneHash: data.phoneHash ?? null,

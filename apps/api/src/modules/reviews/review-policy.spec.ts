@@ -1,29 +1,6 @@
-import {
-  normalizeText,
-  publicAuthorName,
-  reachesReportThreshold,
-  withinReviewWindow,
-} from './review-policy';
+import { normalizeText, reachesReportThreshold, withinReviewWindow } from './review-policy';
 
 describe('RF-VAL-002 reglas de valoraciones', () => {
-  describe('nombre público ("Ana R.")', () => {
-    it.each([
-      ['Ana Rodríguez', 'Ana R.'],
-      ['  ana   maría   rodríguez  ', 'ana R.'],
-      ['Ana', 'Ana'],
-      ['José Ñahui', 'José Ñ.'],
-      ['Ana  élida', 'Ana É.'],
-      ['', 'Cliente'],
-      ['   ', 'Cliente'],
-    ])('%j → %j', (input, expected) => {
-      expect(publicAuthorName(input)).toBe(expected);
-    });
-
-    it('nunca contiene el apellido completo', () => {
-      expect(publicAuthorName('Ana Rodríguez')).not.toContain('Rodríguez');
-    });
-  });
-
   describe('texto plano', () => {
     it('recorta, colapsa espacios y conserva saltos simples', () => {
       expect(normalizeText('  Muy   bien \r\n\r\n\r\n  gracias  ')).toBe('Muy bien\n\ngracias');

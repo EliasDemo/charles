@@ -15,6 +15,7 @@ import {
 } from 'class-validator';
 import { Gender, NotificationChannel, Role } from '../../../generated/prisma/enums';
 import { FACE_SHAPES, type FaceShape } from '../../recommendations/face-shape';
+import { USERNAME_PATTERN } from '../username';
 
 /** Fecha de calendario `YYYY-MM-DD` (la validez real y la edad se comprueban en el servicio). */
 export const BIRTH_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -43,6 +44,18 @@ export class NotificationPreferencesDto {
 
 /** RF-CLI-002: nombre, teléfono, preferencias, fecha de nacimiento y género. El correo no se cambia. */
 export class UpdateProfileDto {
+  @ApiPropertyOptional({
+    example: 'ana.perez',
+    description: `Cambiar el nombre de usuario (una vez cada 30 días).`,
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
+  @IsString()
+  @Matches(USERNAME_PATTERN)
+  username?: string;
+
   @ApiPropertyOptional({ example: 'Ana Pérez' })
   @IsOptional()
   @Transform(trim)
@@ -116,6 +129,16 @@ export class UpdateProfileDto {
 export class ProfileDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
+
+  @ApiProperty({ example: 'ana.perez', description: 'Público (lo ven otras personas).' })
+  username!: string;
+
+  @ApiProperty({
+    type: Date,
+    nullable: true,
+    description: 'Desde cuándo puede volver a cambiar el usuario (null: ya puede).',
+  })
+  usernameChangeableAt!: Date | null;
 
   @ApiProperty()
   fullName!: string;

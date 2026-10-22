@@ -26,11 +26,11 @@ import type {
   UpdateReviewDto,
 } from './dto/review.dto';
 import { ReviewModerationService } from './review-moderation.service';
-import { publicAuthorName, REVIEW_DEFAULTS, withinReviewWindow } from './review-policy';
+import { REVIEW_DEFAULTS, withinReviewWindow } from './review-policy';
 import { ReviewRatings } from './review-ratings';
 
 const reviewInclude = {
-  client: { select: { fullName: true, anonymizedAt: true } },
+  client: { select: { username: true, anonymizedAt: true } },
   barber: { select: { id: true, displayName: true } },
   booking: { select: { serviceNameSnapshot: true } },
   barbershop: { select: { id: true, name: true } },
@@ -410,7 +410,8 @@ export class ReviewsService {
       id: row.id,
       rating: row.rating,
       comment: row.comment,
-      authorName: row.client.anonymizedAt ? ANONYMIZED_NAME : publicAuthorName(row.client.fullName),
+      // Público: el nombre de usuario, nunca el nombre real.
+      authorName: row.client.anonymizedAt ? ANONYMIZED_NAME : row.client.username,
       serviceName: row.booking.serviceNameSnapshot,
       barber: { id: row.barber.id, displayName: row.barber.displayName },
       createdAt: row.createdAt.toISOString(),

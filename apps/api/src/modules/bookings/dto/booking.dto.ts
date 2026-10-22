@@ -127,6 +127,12 @@ export class NamedRefDto {
 
 /** Cliente de una reserva, visto por la barbería: nombre y foto de perfil, nunca contacto. */
 export class ClientRefDto extends NamedRefDto {
+  @ApiProperty({
+    example: 'ana.perez',
+    description: 'Nombre de usuario (name es el nombre de pila).',
+  })
+  username!: string;
+
   @ApiProperty({ type: String, nullable: true, description: 'Foto de perfil; null si no tiene.' })
   photoUrl!: string | null;
 }

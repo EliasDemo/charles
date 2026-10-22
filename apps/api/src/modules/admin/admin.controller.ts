@@ -103,13 +103,15 @@ export class AdminUsersController {
   constructor(private readonly users: AdminUsersService) {}
 
   @Get()
-  @ApiOperation({ summary: 'RF-OPE-001: buscar una cuenta por correo exacto (datos mínimos)' })
+  @ApiOperation({
+    summary: 'RF-OPE-001: buscar una cuenta por correo o nombre de usuario exactos (datos mínimos)',
+  })
   @ApiOkResponse({ type: StaffUserDto })
   find(
     @CurrentStaff() staff: StaffActor,
     @Query() query: FindUserQueryDto,
   ): Promise<StaffUserView> {
-    return this.users.findByEmail(staff, query.email);
+    return this.users.find(staff, query);
   }
 
   @Get(':id')

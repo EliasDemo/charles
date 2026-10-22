@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { Role } from '../../../generated/prisma/enums';
 import { PHONE_PATTERN } from '../../users/dto/profile.dto';
+import { USERNAME_PATTERN } from '../../users/username';
 import {
   IsNotCommonPassword,
   PASSWORD_MAX_LENGTH,
@@ -25,7 +26,20 @@ const trim = ({ value }: { value: unknown }): unknown =>
 const CODE_PATTERN = /^\d{6}$/;
 
 export class RegisterDto {
-  @ApiProperty({ example: 'Ana Pérez' })
+  @ApiProperty({
+    example: 'ana.perez',
+    description:
+      'Nombre de usuario (público y para iniciar sesión): 3 a 20 caracteres, minúsculas, números, ' +
+      'punto y guion bajo, sin empezar ni terminar en punto o guion bajo ni dos seguidos.',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
+  @IsString()
+  @Matches(USERNAME_PATTERN)
+  username!: string;
+
+  @ApiProperty({ example: 'Ana Pérez', description: 'Nombre real: no se muestra en público.' })
   @Transform(trim)
   @IsString()
   @Length(2, 120)
@@ -67,11 +81,26 @@ export class RegisterDto {
 }
 
 export class LoginDto {
-  @ApiProperty({ example: 'ana@example.com' })
+  @ApiPropertyOptional({
+    example: 'ana.perez',
+    description: 'Nombre de usuario o correo (con "@" se toma como correo).',
+  })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @Length(1, 254)
+  login?: string;
+
+  @ApiPropertyOptional({
+    example: 'ana@example.com',
+    deprecated: true,
+    description: 'Obsoleto: usa `login`. Se acepta mientras la app se actualiza.',
+  })
+  @IsOptional()
   @Transform(trim)
   @IsEmail()
   @MaxLength(254)
-  email!: string;
+  email?: string;
 
   /** Sin la política de longitud: un error aquí no debe dar pistas sobre la cuenta. */
   @ApiProperty()
@@ -185,6 +214,9 @@ export class SessionUserDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
+  @ApiProperty({ example: 'ana.perez' })
+  username!: string;
+
   @ApiProperty()
   fullName!: string;
 
@@ -240,4 +272,23 @@ export class SupportAccessDto {
       'pendiente de eliminación (consultar o cancelar la eliminación).',
   })
   scope!: 'support' | 'deletion';
+}
+
+export class UsernameAvailabilityQueryDto {
+  @ApiProperty({ example: 'ana.perez' })
+  @IsString()
+  @Length(1, 40)
+  username!: string;
+}
+
+export class UsernameAvailabilityDto {
+  @ApiProperty()
+  available!: boolean;
+
+  @ApiProperty({
+    enum: ['INVALID', 'RESERVED', 'TAKEN'],
+    nullable: true,
+    description: 'Motivo cuando no está disponible.',
+  })
+  reason!: 'INVALID' | 'RESERVED' | 'TAKEN' | null;
 }

@@ -298,7 +298,7 @@ export class ProfileReviewDto {
   @ApiProperty({ type: String, nullable: true })
   comment!: string | null;
 
-  @ApiProperty({ description: 'Nombre del cliente (o "Cuenta eliminada").' })
+  @ApiProperty({ description: 'Nombre de usuario del cliente (o "Cuenta eliminada").' })
   clientName!: string;
 
   @ApiProperty()

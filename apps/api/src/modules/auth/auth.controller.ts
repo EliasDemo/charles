@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, Req } from '@nestjs/common';
 import {
   ApiAcceptedResponse,
   ApiBadRequestResponse,
@@ -33,6 +33,8 @@ import {
   RegisterDto,
   SupportAccessDto,
   TermsDto,
+  UsernameAvailabilityDto,
+  UsernameAvailabilityQueryDto,
 } from './dto/auth.dto';
 
 function contextOf(req: Request): RequestContext {
@@ -58,6 +60,16 @@ export class AuthController {
   }
 
   @Public()
+  @Get('username-available')
+  @ApiOperation({ summary: 'Comprobar si un nombre de usuario está libre (para el registro)' })
+  @ApiOkResponse({ type: UsernameAvailabilityDto })
+  usernameAvailable(
+    @Query() query: UsernameAvailabilityQueryDto,
+  ): Promise<UsernameAvailabilityDto> {
+    return this.auth.usernameAvailability(query.username);
+  }
+
+  @Public()
   @Post('register')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({
@@ -72,7 +84,7 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'RF-AUT-002: inicio de sesión con correo y contraseña' })
+  @ApiOperation({ summary: 'RF-AUT-002: inicio de sesión con usuario o correo y contraseña' })
   @ApiOkResponse({ type: AuthTokensDto })
   @ApiUnauthorizedResponse({ type: ErrorResponseDto })
   @ApiForbiddenResponse({ type: ErrorResponseDto, description: 'Cuenta deshabilitada' })

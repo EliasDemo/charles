@@ -20,6 +20,8 @@ describe('RF-CLI-001 / RF-CLI-002 Perfil del cliente (e2e)', () => {
     const res = await client.get(ME, tokens.accessToken).expect(200);
     expect(res.body).toEqual({
       id: tokens.user.id,
+      username: tokens.user.username,
+      usernameChangeableAt: null,
       fullName: 'Persona de Prueba',
       email,
       emailVerified: false,

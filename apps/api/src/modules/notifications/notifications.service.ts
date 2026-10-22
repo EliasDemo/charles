@@ -253,7 +253,7 @@ export class NotificationsService implements OnModuleInit {
                 barbershopReadAt: true,
                 userReadAt: true,
                 barbershop: { select: { name: true } },
-                user: { select: { fullName: true } },
+                user: { select: { username: true } },
               },
             },
           },
@@ -272,11 +272,7 @@ export class NotificationsService implements OnModuleInit {
           },
         });
         const from =
-          message.side === 'SYSTEM'
-            ? 'Charles'
-            : toShop
-              ? (c.user.fullName.split(/\s+/)[0] ?? 'Un usuario')
-              : c.barbershop.name;
+          message.side === 'SYSTEM' ? 'Charles' : toShop ? c.user.username : c.barbershop.name;
         return planNewMessage({
           recipientIds: recipients,
           conversationId: c.id,

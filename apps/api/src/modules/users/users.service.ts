@@ -11,6 +11,7 @@ import { NotificationChannel, type Role, type UserStatus } from '../../generated
 import { IMAGE_STORAGE, type ImageStorage } from '../images/image-storage';
 import { variantKeys, variantUrl } from '../images/image-variants';
 import type { ProfileDto, UpdateProfileDto } from './dto/profile.dto';
+import { normalizeUsername, USERNAME_CHANGE_DAYS, usernameProblem } from './username';
 
 /** Edad mínima para usar Charles (ADR 0003); también vale para la fecha de nacimiento. */
 const MIN_AGE_YEARS = 18;
@@ -18,7 +19,9 @@ const MIN_BIRTH_YEAR = 1900;
 
 /** Nombre y foto de un cliente, para la agenda de la barbería donde reservó. */
 export interface ClientCard {
+  /** Nombre de pila (la barbería lo necesita para llamar al cliente). */
   name: string;
+  username: string;
   photoUrl: string | null;
 }
 
@@ -31,6 +34,7 @@ export const DEFAULT_NOTIFICATION_CHANNELS: NotificationChannel[] = [
 
 export interface NewClient {
   fullName: string;
+  username: string;
   email: string;
   phone?: string | null;
   passwordHash: string;
@@ -40,6 +44,7 @@ export interface NewClient {
 /** Datos mínimos para autenticar. Nunca salen de los servicios de autenticación. */
 export interface UserCredentials {
   id: string;
+  username: string;
   passwordHash: string;
   status: UserStatus;
   isDeleted: boolean;
@@ -57,6 +62,7 @@ export const ANONYMIZED_NAME = 'Cuenta eliminada';
 
 export interface StaffUserView {
   id: string;
+  username: string;
   fullName: string;
   status: UserStatus;
   roles: Role[];
@@ -104,6 +110,7 @@ export class UsersService {
       return await this.prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
           data: {
+            username: normalizeUsername(data.username),
             emailEnc: this.encryption.encrypt(data.email, EncryptedField.USER_EMAIL),
             emailHash: this.emailHash(data.email),
             passwordHash: data.passwordHash,
@@ -131,10 +138,43 @@ export class UsersService {
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        // Carrera con otro registro: por el usuario se avisa (es público); por el correo, no.
+        if (JSON.stringify(error.meta?.target ?? null).includes('username')) throw usernameTaken();
         return null;
       }
       throw error;
     }
+  }
+
+  async findCredentialsByUsername(username: string): Promise<UserCredentials | null> {
+    return this.findCredentials({ username: normalizeUsername(username) });
+  }
+
+  /** Disponibilidad de un nombre de usuario (formato, reservado u ocupado). */
+  async usernameAvailability(
+    raw: string,
+  ): Promise<{ available: boolean; reason: 'INVALID' | 'RESERVED' | 'TAKEN' | null }> {
+    const username = normalizeUsername(raw);
+    const problem = usernameProblem(username);
+    if (problem) return { available: false, reason: problem };
+    const taken = await this.prisma.user.count({ where: { username } });
+    return taken ? { available: false, reason: 'TAKEN' } : { available: true, reason: null };
+  }
+
+  /** Lanza el error que corresponda si el usuario no se puede usar. */
+  async assertUsernameAvailable(raw: string): Promise<void> {
+    const { reason } = await this.usernameAvailability(raw);
+    if (reason === 'TAKEN') throw usernameTaken();
+    if (reason) throw invalidUsername(reason);
+  }
+
+  /** Nombres de usuario públicos (lo que ven otras personas en lugar del nombre real). */
+  async usernames(ids: string[]): Promise<Map<string, string>> {
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, username: true },
+    });
+    return new Map(users.map((u) => [u.id, u.username]));
   }
 
   async findCredentialsByEmailHash(
@@ -181,6 +221,7 @@ export class UsersService {
       where: { id },
       select: {
         id: true,
+        username: true,
         fullName: true,
         status: true,
         emailVerifiedAt: true,
@@ -192,6 +233,7 @@ export class UsersService {
     if (!user) return null;
     return {
       id: user.id,
+      username: user.username,
       fullName: user.fullName,
       status: user.status,
       roles: user.roles.map((r) => r.role),
@@ -227,10 +269,13 @@ export class UsersService {
   async anonymize(id: string, now: Date, tx: Tx = this.prisma): Promise<string[]> {
     const current = await tx.user.findUnique({ where: { id }, select: { photoVariants: true } });
     const placeholder = `eliminada+${id}@charles.invalid`;
+    // Usuario anónimo y único (libera el original).
+    const anonymousUsername = `eliminada_${id.replace(/-/g, '').slice(-10)}`;
     await tx.user.update({
       where: { id },
       data: {
         fullName: ANONYMIZED_NAME,
+        username: anonymousUsername,
         emailEnc: this.encryption.encrypt(placeholder, EncryptedField.USER_EMAIL),
         emailHash: this.emailHash(placeholder),
         passwordHash: '!',
@@ -296,12 +341,16 @@ export class UsersService {
   async clientCards(ids: string[]): Promise<Map<string, ClientCard>> {
     const users = await this.prisma.user.findMany({
       where: { id: { in: ids } },
-      select: { id: true, fullName: true, photoVariants: true },
+      select: { id: true, fullName: true, username: true, photoVariants: true },
     });
     return new Map(
       users.map((u) => [
         u.id,
-        { name: u.fullName, photoUrl: variantUrl(this.storage, u.photoVariants, 'square') },
+        {
+          name: u.fullName.trim().split(/\s+/)[0] ?? u.fullName,
+          username: u.username,
+          photoUrl: variantUrl(this.storage, u.photoVariants, 'square'),
+        },
       ]),
     );
   }
@@ -366,6 +415,8 @@ export class UsersService {
     if (!user) return null;
     return {
       id: user.id,
+      username: user.username,
+      usernameChangeableAt: usernameChangeableAt(user.usernameChangedAt),
       fullName: user.fullName,
       email: this.encryption.decrypt(user.emailEnc, EncryptedField.USER_EMAIL),
       emailVerified: user.emailVerifiedAt !== null,
@@ -397,6 +448,28 @@ export class UsersService {
 
     const data: Prisma.UserUpdateInput = {};
     const changed: string[] = [];
+    if (dto.username !== undefined) {
+      const username = normalizeUsername(dto.username);
+      const me = await this.prisma.user.findUniqueOrThrow({
+        where: { id },
+        select: { username: true, usernameChangedAt: true },
+      });
+      if (username !== me.username) {
+        const next = usernameChangeableAt(me.usernameChangedAt);
+        if (next && next.getTime() > this.clock.now()) {
+          throw new AppException(
+            ErrorCode.USERNAME_CHANGE_TOO_SOON,
+            `Solo puedes cambiar tu usuario una vez cada ${USERNAME_CHANGE_DAYS} días.`,
+            HttpStatus.CONFLICT,
+            [{ nextChangeAt: next.toISOString() }],
+          );
+        }
+        await this.assertUsernameAvailable(username);
+        data.username = username;
+        data.usernameChangedAt = new Date(this.clock.now());
+        changed.push('username');
+      }
+    }
     if (dto.fullName !== undefined) {
       data.fullName = dto.fullName;
       changed.push('fullName');
@@ -445,20 +518,27 @@ export class UsersService {
     }
 
     if (changed.length > 0) {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.user.update({ where: { id }, data });
-        await this.audit.record(
-          {
-            actorId: id,
-            action: 'user.profile_updated',
-            entityType: 'user',
-            entityId: id,
-            changes: { fields: changed },
-            ip,
-          },
-          tx,
-        );
-      });
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          await tx.user.update({ where: { id }, data });
+          await this.audit.record(
+            {
+              actorId: id,
+              action: 'user.profile_updated',
+              entityType: 'user',
+              entityId: id,
+              changes: { fields: changed },
+              ip,
+            },
+            tx,
+          );
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          throw usernameTaken();
+        }
+        throw error;
+      }
     }
     return this.getProfile(id);
   }
@@ -489,6 +569,7 @@ export class UsersService {
       where,
       select: {
         id: true,
+        username: true,
         passwordHash: true,
         status: true,
         deletedAt: true,
@@ -502,6 +583,7 @@ export class UsersService {
     return {
       pendingDeletion: user.deletionScheduledFor !== null,
       id: user.id,
+      username: user.username,
       passwordHash: user.passwordHash,
       status: user.status,
       isDeleted: user.deletedAt !== null,
@@ -521,6 +603,33 @@ const invalidBirthDate = (constraint: 'validDate' | 'minimumAge'): AppException 
     HttpStatus.BAD_REQUEST,
     [{ field: 'birthDate', constraints: [constraint] }],
   );
+
+const usernameTaken = (): AppException =>
+  new AppException(
+    ErrorCode.USERNAME_TAKEN,
+    'Ese nombre de usuario ya está en uso. Elige otro.',
+    HttpStatus.CONFLICT,
+  );
+
+const invalidUsername = (reason: 'INVALID' | 'RESERVED'): AppException =>
+  new AppException(
+    ErrorCode.VALIDATION_ERROR,
+    reason === 'RESERVED'
+      ? 'Ese nombre de usuario no está permitido.'
+      : 'El usuario debe tener de 3 a 20 caracteres: minúsculas, números, punto o guion bajo.',
+    HttpStatus.BAD_REQUEST,
+    [
+      {
+        field: 'username',
+        constraints: [reason === 'RESERVED' ? 'usernameReserved' : 'usernameFormat'],
+      },
+    ],
+  );
+
+/** Desde cuándo puede volver a cambiar el usuario (null: ya puede). */
+function usernameChangeableAt(changedAt: Date | null): Date | null {
+  return changedAt ? new Date(changedAt.getTime() + USERNAME_CHANGE_DAYS * 86_400_000) : null;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

@@ -1078,6 +1078,7 @@ export class BookingsService {
                 id: b.clientId,
                 name: clients.get(b.clientId)?.name ?? null,
                 photoUrl: clients.get(b.clientId)?.photoUrl ?? null,
+                username: clients.get(b.clientId)?.username ?? '',
               }
             : null,
         startAt: b.startAt,

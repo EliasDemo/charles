@@ -19,19 +19,6 @@ export const HiddenReason = {
 export type HiddenReason = (typeof HiddenReason)[keyof typeof HiddenReason];
 
 /**
- * Nombre público del autor: nombre e inicial del apellido ("Ana R."). Con una sola palabra, solo
- * esa. Nunca el nombre completo ni el contacto.
- */
-export function publicAuthorName(fullName: string): string {
-  const words = fullName.trim().split(/\s+/).filter(Boolean);
-  const first = words[0];
-  if (!first) return 'Cliente';
-  const last = words.length > 1 ? words[words.length - 1] : undefined;
-  const initial = last ? Array.from(last)[0] : undefined;
-  return initial ? `${first} ${initial.toLocaleUpperCase('es')}.` : first;
-}
-
-/**
  * Texto plano: recorta y colapsa los espacios de cada línea, conserva saltos de línea simples. No
  * interpreta HTML (se guarda tal cual y la app lo muestra como texto). Vacío → null.
  */

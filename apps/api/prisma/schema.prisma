@@ -293,6 +293,11 @@ model User {
   emailHash             Bytes      @unique @map("email_hash")
   passwordHash          String     @map("password_hash")
   fullName              String     @map("full_name")
+  /// Nombre de usuario público y para iniciar sesión (único, sin distinguir mayúsculas). Lo que
+  /// ven otras personas en lugar del nombre real.
+  username              String     @unique @db.Citext
+  /// Último cambio del nombre de usuario (se puede cambiar una vez cada 30 días).
+  usernameChangedAt     DateTime?  @map("username_changed_at") @db.Timestamptz(3)
   phoneEnc              String?    @map("phone_enc")
   phoneHash             Bytes?     @map("phone_hash")
   documentNumberEnc     String?    @map("document_number_enc")

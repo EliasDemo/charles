@@ -37,6 +37,7 @@ const conversationInclude = {
     select: {
       id: true,
       fullName: true,
+      username: true,
       photoVariants: true,
       barberProfile: {
         select: { id: true, displayName: true, photoVariants: true, deletedAt: true },
@@ -182,7 +183,7 @@ export class MessagingService {
       where: { conversationId, ...(query.cursor ? { id: { lt: query.cursor } } : {}) },
       orderBy: { id: 'desc' },
       take: limit + 1,
-      include: { sender: { select: { fullName: true } } },
+      include: { sender: { select: { fullName: true, username: true } } },
     });
     if (!query.cursor) await this.markRead(viewer, conversationId);
     const page = rows.slice(0, limit);
@@ -192,7 +193,13 @@ export class MessagingService {
         id: m.id,
         side: m.side,
         mine: m.side === viewer.side,
-        senderName: m.side === 'SYSTEM' ? 'Charles' : firstName(m.sender?.fullName ?? null),
+        // La persona firma con su usuario; la barbería, con el nombre de pila de quien escribe.
+        senderName:
+          m.side === 'SYSTEM'
+            ? 'Charles'
+            : m.side === 'USER'
+              ? (m.sender?.username ?? null)
+              : firstName(m.sender?.fullName ?? null),
         body: m.removedAt
           ? REMOVED_TEXT
           : this.encryption.decrypt(m.bodyEnc, EncryptedField.MESSAGE_BODY),
@@ -559,7 +566,10 @@ export class MessagingService {
                 }
               : {
                   id: r.user.id,
-                  name: professional ? profile.displayName : (firstName(r.user.fullName) ?? ''),
+                  // La barbería ve el usuario y el nombre de pila (para saber a quién atiende).
+                  name: professional
+                    ? profile.displayName
+                    : `${r.user.username} · ${firstName(r.user.fullName) ?? ''}`.trim(),
                   photoUrl: professional
                     ? variantUrl(this.storage, profile.photoVariants, 'square')
                     : variantUrl(this.storage, r.user.photoVariants, 'square'),
