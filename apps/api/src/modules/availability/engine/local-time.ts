@@ -14,6 +14,25 @@ export interface WeeklyWindow {
 const LOCAL_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /**
+ * Las conversiones de zona horaria de luxon son caras (cada una consulta Intl): el cálculo de
+ * turnos las repite miles de veces con las mismas entradas. Son funciones puras, así que se
+ * memorizan en una caché acotada que se vacía al llenarse.
+ */
+const CACHE_LIMIT = 20_000;
+function memo<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) => R {
+  const cache = new Map<string, R>();
+  return (...args: A) => {
+    const key = args.join('|');
+    const hit = cache.get(key);
+    if (hit !== undefined) return hit;
+    if (cache.size >= CACHE_LIMIT) cache.clear();
+    const value = fn(...args);
+    cache.set(key, value);
+    return value;
+  };
+}
+
+/**
  * Única conversión del día de la semana: luxon usa 1 = lunes … 7 = domingo; Charles usa
  * 0 = domingo … 6 = sábado. Toda conversión pasa por aquí.
  */
@@ -34,9 +53,9 @@ export function minutesOf(hhmm: string): number {
 }
 
 /** Día de la semana (convención de Charles) de una fecha local. */
-export function dayOfWeekOf(localDate: string, timezone: string): DayOfWeek {
-  return toDayOfWeek(DateTime.fromISO(localDate, { zone: timezone }).weekday);
-}
+export const dayOfWeekOf = memo((localDate: string, timezone: string): DayOfWeek =>
+  toDayOfWeek(DateTime.fromISO(localDate, { zone: timezone }).weekday),
+);
 
 /** Día de la semana local de un instante, en la zona de la barbería (no en UTC). */
 export function dayOfWeekAt(instant: number, timezone: string): DayOfWeek {
@@ -53,9 +72,16 @@ export function addDays(localDate: string, days: number): string {
 }
 
 /** El día local completo [00:00, 24:00) como intervalo UTC (dura 23 o 25 h en días de cambio de hora). */
-export function localDayBounds(localDate: string, timezone: string): Interval {
+const dayBounds = memo((localDate: string, timezone: string): Readonly<Interval> => {
   const start = DateTime.fromISO(localDate, { zone: timezone }).startOf('day');
-  return { start: start.toMillis(), end: start.plus({ days: 1 }).startOf('day').toMillis() };
+  return Object.freeze({
+    start: start.toMillis(),
+    end: start.plus({ days: 1 }).startOf('day').toMillis(),
+  });
+});
+
+export function localDayBounds(localDate: string, timezone: string): Interval {
+  return { ...dayBounds(localDate, timezone) };
 }
 
 /**
@@ -63,7 +89,24 @@ export function localDayBounds(localDate: string, timezone: string): Interval {
  * adelante) luxon la mueve al primer instante válido; si existe dos veces, usa la primera.
  * Devuelve también si la hora local existe tal cual.
  */
+const instantOf = memo(
+  (
+    localDate: string,
+    minutesFromMidnight: number,
+    timezone: string,
+  ): Readonly<{ instant: number; exists: boolean }> =>
+    Object.freeze(computeInstant(localDate, minutesFromMidnight, timezone)),
+);
+
 export function localInstant(
+  localDate: string,
+  minutesFromMidnight: number,
+  timezone: string,
+): { instant: number; exists: boolean } {
+  return { ...instantOf(localDate, minutesFromMidnight, timezone) };
+}
+
+function computeInstant(
   localDate: string,
   minutesFromMidnight: number,
   timezone: string,
