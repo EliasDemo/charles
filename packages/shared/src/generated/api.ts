@@ -2734,6 +2734,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** ADMIN o SUPPORT: búsqueda global (cuentas, barberías y reserva por código) */
+        get: operations["AdminInsightsController_search_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Solo ADMIN: reservas, ingresos, comisiones y cuentas por día */
+        get: operations["AdminInsightsController_metrics_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Solo ADMIN: salud del sistema (base, Redis, fotos, colas, pagos y avisos) */
+        get: operations["AdminInsightsController_health_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Solo ADMIN: auditoría (quién hizo qué y cuándo), más recientes primero */
+        get: operations["AdminInsightsController_audit_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/audit.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Solo ADMIN: auditoría en CSV (mismos filtros, hasta 5 000 filas) */
+        get: operations["AdminInsightsController_auditCsv_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Solo ADMIN: personal (ADMIN y SUPPORT), segundo factor, último acceso y actividad */
+        get: operations["AdminInsightsController_staff_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/devices": {
         parameters: {
             query?: never;
@@ -8285,6 +8387,136 @@ export interface components {
             bookingsToday: number;
             /** Format: date-time */
             generatedAt: string;
+        };
+        SearchUserDto: {
+            /** Format: uuid */
+            id: string;
+            fullName: string;
+            username: string;
+            email: string;
+            status: string;
+        };
+        SearchBarbershopDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            address: string;
+            status: string;
+        };
+        SearchBookingDto: {
+            /** Format: uuid */
+            id: string;
+            serviceName: string;
+            barbershopName: string;
+            status: string;
+            /** Format: date-time */
+            startAt: string;
+        };
+        AdminSearchDto: {
+            users: components["schemas"]["SearchUserDto"][];
+            barbershops: components["schemas"]["SearchBarbershopDto"][];
+            bookings: components["schemas"]["SearchBookingDto"][];
+        };
+        MetricsDayDto: {
+            /**
+             * @description Día en hora de Lima.
+             * @example 2026-10-20
+             */
+            date: string;
+            /** @description Reservas creadas. */
+            bookings: number;
+            /** @description Reservas atendidas. */
+            attended: number;
+            /** @description Cobrado en la app (céntimos). */
+            revenue: number;
+            /** @description Comisión de Charles (céntimos). */
+            commission: number;
+            /** @description Cuentas nuevas. */
+            newUsers: number;
+        };
+        MetricsPlanDto: {
+            plan: string;
+            count: number;
+        };
+        MetricsDto: {
+            days: number;
+            series: components["schemas"]["MetricsDayDto"][];
+            totalBookings: number;
+            totalRevenue: number;
+            totalCommission: number;
+            newUsers: number;
+            newBarbershops: number;
+            /** @description Barberías publicadas hoy. */
+            openBarbershops: number;
+            /** @description % de reservas canceladas o no atendidas en el periodo. */
+            lossRate: number;
+            /** @description Suscripciones vivas por plan. */
+            plans: components["schemas"]["MetricsPlanDto"][];
+        };
+        HealthCheckDto: {
+            name: string;
+            /** @enum {string} */
+            status: "OK" | "WARN" | "DOWN";
+            detail: string;
+            /** @description Tiempo de respuesta (ms). */
+            latencyMs: number | null;
+        };
+        QueueStatDto: {
+            name: string;
+            waiting: number;
+            active: number;
+            delayed: number;
+            failed: number;
+        };
+        SystemHealthDto: {
+            /** @enum {string} */
+            status: "OK" | "WARN" | "DOWN";
+            /** Format: date-time */
+            checkedAt: string;
+            version: string;
+            environment: string;
+            /** @description Segundos desde que arrancó este proceso. */
+            uptimeSeconds: number;
+            checks: components["schemas"]["HealthCheckDto"][];
+            queues: components["schemas"]["QueueStatDto"][];
+        };
+        AuditEntryDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            action: string;
+            entityType: string;
+            entityId: string | null;
+            /** @description Usuario de quien actuó (null: el sistema). */
+            actor: string | null;
+            /** @description Qué cambió (campos y valores no sensibles). */
+            changes: {
+                [key: string]: unknown;
+            } | null;
+            ip: string | null;
+        };
+        AuditPageDto: {
+            items: components["schemas"]["AuditEntryDto"][];
+            nextCursor: string | null;
+        };
+        StaffMemberDto: {
+            /** Format: uuid */
+            id: string;
+            fullName: string;
+            username: string;
+            email: string;
+            roles: string[];
+            status: string;
+            /** @description Tiene activado el segundo factor. */
+            mfaEnabled: boolean;
+            /**
+             * Format: date-time
+             * @description Último inicio de sesión.
+             */
+            lastLoginAt: string | null;
+            /** @description Acciones registradas en la auditoría en los últimos 30 días. */
+            actionsLast30d: number;
         };
         RegisterDeviceDto: {
             /** @example ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx] */
@@ -17674,6 +17906,198 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminDashboardDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminInsightsController_search_v1: {
+        parameters: {
+            query: {
+                /** @description Nombre, usuario, correo exacto, barbería o código de reserva. */
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSearchDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminInsightsController_metrics_v1: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricsDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminInsightsController_health_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemHealthDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminInsightsController_audit_v1: {
+        parameters: {
+            query?: {
+                /** @description Acción (contiene), p. ej. "refund" o "subscription.canceled". */
+                action?: string;
+                /** @description Usuario (nombre de usuario) de quien actuó. */
+                actor?: string;
+                /** @description Tipo de entidad: user, barbershop, booking, subscription… */
+                entityType?: string;
+                entityId?: string;
+                from?: string;
+                to?: string;
+                /** @description nextCursor de la página anterior. */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPageDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminInsightsController_auditCsv_v1: {
+        parameters: {
+            query?: {
+                /** @description Acción (contiene), p. ej. "refund" o "subscription.canceled". */
+                action?: string;
+                /** @description Usuario (nombre de usuario) de quien actuó. */
+                actor?: string;
+                /** @description Tipo de entidad: user, barbershop, booking, subscription… */
+                entityType?: string;
+                entityId?: string;
+                from?: string;
+                to?: string;
+                /** @description nextCursor de la página anterior. */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archivo CSV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminInsightsController_staff_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffMemberDto"][];
                 };
             };
             403: {

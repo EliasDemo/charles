@@ -66,6 +66,12 @@ const ADMIN_ENDPOINTS: Endpoint[] = [
   { method: 'put', path: '/admin/settings/legal.terms_version', body: {}, level: 'ADMIN' },
   { method: 'get', path: '/admin/service-categories', level: 'ADMIN' },
   { method: 'post', path: '/admin/service-categories', body: {}, level: 'ADMIN' },
+  { method: 'get', path: '/admin/search?q=zz', level: 'SUPPORT' },
+  { method: 'get', path: '/admin/metrics', level: 'ADMIN' },
+  { method: 'get', path: '/admin/system/health', level: 'ADMIN' },
+  { method: 'get', path: '/admin/audit', level: 'ADMIN' },
+  { method: 'get', path: '/admin/audit.csv', level: 'ADMIN' },
+  { method: 'get', path: '/admin/staff', level: 'ADMIN' },
   {
     method: 'patch',
     path: `/admin/service-categories/${ID}`,

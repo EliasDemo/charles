@@ -38,6 +38,9 @@ export const ADMIN_SECTIONS = {
     'plans',
     'subscriptions',
     'balances',
+    'system',
+    'audit',
+    'staff',
   ],
 } as const;
 

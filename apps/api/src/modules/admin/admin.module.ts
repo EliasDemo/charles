@@ -7,9 +7,11 @@ import { PaymentsModule } from '../payments/payments.module';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { ServicesModule } from '../services/services.module';
 import { SettingsModule } from '../settings/settings.module';
+import { ImageStorageModule } from '../images/image-storage.module';
 import { AdminAccessModule } from './admin-access.module';
 import { AdminBarbershopsService } from './admin-barbershops.service';
 import { AdminOperationsService } from './admin-operations.service';
+import { AdminInsightsController, AdminInsightsService } from './admin-insights';
 import { AdminOverviewController, AdminOverviewService } from './admin-overview';
 import { AdminSettingsService } from './admin-settings';
 import { AdminUsersService } from './admin-users.service';
@@ -32,6 +34,7 @@ import {
     ReviewsModule,
     ServicesModule,
     SettingsModule,
+    ImageStorageModule,
   ],
   controllers: [
     AdminUsersController,
@@ -39,6 +42,7 @@ import {
     AdminOperationsController,
     AdminConfigController,
     AdminOverviewController,
+    AdminInsightsController,
   ],
   providers: [
     AdminUsersService,
@@ -46,6 +50,7 @@ import {
     AdminOperationsService,
     AdminSettingsService,
     AdminOverviewService,
+    AdminInsightsService,
   ],
 })
 export class AdminModule {}
