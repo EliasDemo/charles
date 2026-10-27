@@ -1446,6 +1446,56 @@ void runDevTool(async (app) => {
   await prisma.postMedia.update({ where: { id: ym }, data: { postId: yeisonPost.id } });
   posts.push({ id: yeisonPost.id, ownerId: yeison.ownerId });
 
+  // Fotos de Comunidad bajadas de Openverse (CC0 / CC BY), solo para la demo y con su crédito.
+  const communityIndex = process.argv.indexOf('--community-photos');
+  const communityDir = communityIndex >= 0 ? process.argv[communityIndex + 1] : undefined;
+  if (communityDir) {
+    const credits = JSON.parse(await readFile(join(communityDir, 'credits.json'), 'utf8')) as {
+      file: string;
+      creator: string | null;
+      license: string;
+      source: string;
+    }[];
+    const BODIES: { type: 'WORK' | 'ANNOUNCEMENT' | 'PROMOTION'; text: string }[] = [
+      { type: 'WORK', text: 'Degradado limpio para empezar la semana. ¿Te animas?' },
+      { type: 'WORK', text: 'Corte clásico con tijera: el que nunca pasa de moda.' },
+      { type: 'ANNOUNCEMENT', text: 'Así luce nuestro local: te esperamos con cita o sin cita.' },
+      { type: 'WORK', text: 'Perfilado de barba y contorno. Reserva tu turno desde la app.' },
+      {
+        type: 'PROMOTION',
+        text: 'Esta semana: corte + lavado a precio especial reservando por Charles.',
+      },
+      { type: 'WORK', text: 'Textura arriba y laterales al ras. Pide este estilo.' },
+      { type: 'ANNOUNCEMENT', text: 'Renovamos sillones y herramientas para atenderte mejor.' },
+      { type: 'WORK', text: 'Fade alto con línea marcada. Trabajo del equipo.' },
+    ];
+    const authors = shops.filter((s) => s.def.type === 'BARBERSHOP');
+    for (const [i, credit] of credits.entries()) {
+      const s = authors[i % authors.length]!;
+      const b = BODIES[i % BODIES.length]!;
+      const variants = await images.storePostPhoto(await readFile(join(communityDir, credit.file)));
+      const created = new Date(now - (i % 12) * DAY - (3 + i) * 3_600_000);
+      const post = await prisma.post.create({
+        data: {
+          type: b.type,
+          barbershopId: s.id,
+          createdById: s.ownerId,
+          body: `${b.text}
+
+Foto de ejemplo: ${credit.creator ?? 'autor desconocido'} (${credit.license}) vía ${credit.source}.`,
+          promotionId: b.type === 'PROMOTION' ? (promoOf.get(s.id) ?? null) : null,
+          latitude: s.def.latitude,
+          longitude: s.def.longitude,
+          createdAt: created,
+        },
+      });
+      await prisma.postMedia.create({
+        data: { postId: post.id, uploadedById: s.ownerId, variants },
+      });
+      posts.push({ id: post.id, ownerId: s.ownerId });
+    }
+  }
+
   // Seguidores, me gusta, guardados y asistencia.
   const COMMENTS = [
     '¡Quedó increíble!',

@@ -32,7 +32,9 @@
     "overrides": {
       "mysql2": "3.24.5",
       "deepmerge-ts": "8.0.2",
-      "handlebars": "4.7.10"
+      "handlebars": "4.7.10",
+      "body-parser": "2.4.0",
+      "multer": "2.5.0"
     }
   }
 }
