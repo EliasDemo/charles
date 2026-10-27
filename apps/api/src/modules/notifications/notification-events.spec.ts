@@ -159,6 +159,41 @@ describe('NotificationsService: eventos de ofertas, planes, membresías y revisi
     ).toEqual([]);
   });
 
+  it('foros: avisa a quien preguntó y a quien dio la mejor respuesta; nunca a uno mismo', async () => {
+    const reply = (authorId: string) => ({
+      authorId,
+      body: 'Usa el peine en ángulo',
+      author: { username: 'helper' },
+      thread: { id: 't-1', authorId: 'asker', title: '¿Cómo hago un degradado?' },
+    });
+    const forum = (row: unknown, blocks: unknown[] = []) =>
+      build({
+        forumReply: { findUnique: jest.fn().mockResolvedValue(row) },
+        userBlock: { findMany: jest.fn().mockResolvedValue(blocks) },
+      });
+    const replied = await forum(reply('helper'))('forum.replied', { replyId: 'r-1' });
+    expect(replied[0]).toMatchObject({
+      userId: 'asker',
+      type: 'FORUM_REPLY',
+      resource: { type: 'forum_thread', id: 't-1' },
+    });
+    expect(replied[0]!.detail.body).toContain('@helper');
+    expect(await forum(reply('asker'))('forum.replied', { replyId: 'r-1' })).toEqual([]);
+    expect(await forum(null)('forum.replied', { replyId: 'r-1' })).toEqual([]);
+    expect(
+      await forum(reply('helper'), [{ blockerId: 'asker', blockedId: 'helper' }])('forum.replied', {
+        replyId: 'r-1',
+      }),
+    ).toEqual([]);
+
+    const solved = await forum({ authorId: 'helper', thread: { id: 't-1', title: 'Degradado' } })(
+      'forum.solved',
+      { replyId: 'r-1' },
+    );
+    expect(solved[0]).toMatchObject({ userId: 'helper', type: 'FORUM_SOLUTION' });
+    expect(await forum(null)('forum.solved', { replyId: 'r-1' })).toEqual([]);
+  });
+
   describe('Comunidad', () => {
     const blocks = (rows: { blockerId: string; blockedId: string }[] = []) => ({
       userBlock: { findMany: jest.fn().mockResolvedValue(rows) },

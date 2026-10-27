@@ -57,14 +57,14 @@ import { type VideoJob, VIDEOS_QUEUE, VideosService } from './videos.service';
 const uuid = new ParseUUIDPipe();
 
 /** Un archivo de video, en memoria, con el tope de 50 MB. */
-const VideoFile = (): MethodDecorator & ClassDecorator =>
+export const VideoFile = (): MethodDecorator & ClassDecorator =>
   UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: VIDEO_LIMITS.maxBytes, files: 1, fields: 5, parts: 7 },
     }),
   );
 
-const UPLOAD_NOTE =
+export const VIDEO_UPLOAD_NOTE =
   'multipart/form-data, campo `file`: MP4, MOV o WebM de hasta 30 s y 50 MB. Responde enseguida ' +
   'con status PROCESSING; consulta la lista hasta que esté READY (o FAILED con failureReason). Se ' +
   'comprime a 720p y se eliminan los metadatos (GPS incluido).';
@@ -109,7 +109,7 @@ export class VideosController {
   @ApiBody({ type: VideoUploadDto })
   @ApiOperation({
     summary: 'OWNER o MANAGER: subir un video del local (máximo 5)',
-    description: UPLOAD_NOTE,
+    description: VIDEO_UPLOAD_NOTE,
   })
   @ApiAcceptedResponse({ type: VideoDto })
   @HttpCode(HttpStatus.ACCEPTED)
@@ -136,7 +136,10 @@ export class VideosController {
   @VideoFile()
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: VideoUploadDto })
-  @ApiOperation({ summary: 'Subir un video de mis cortes (máximo 10)', description: UPLOAD_NOTE })
+  @ApiOperation({
+    summary: 'Subir un video de mis cortes (máximo 10)',
+    description: VIDEO_UPLOAD_NOTE,
+  })
   @ApiAcceptedResponse({ type: VideoDto })
   @HttpCode(HttpStatus.ACCEPTED)
   uploadMine(
@@ -222,5 +225,6 @@ export class VideosProcessor extends WorkerHost {
   ],
   controllers: [VideosController, VideosAdminController],
   providers: [VideosService, VideosProcessor],
+  exports: [VideosService],
 })
 export class VideosModule {}

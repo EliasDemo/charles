@@ -47,7 +47,9 @@ export type NotificationType =
   | 'COMMUNITY_MENTION'
   | 'COMMUNITY_LIKE'
   | 'COMMUNITY_NEW_POST'
-  | 'WAITLIST_SLOT_FREED';
+  | 'WAITLIST_SLOT_FREED'
+  | 'FORUM_REPLY'
+  | 'FORUM_SOLUTION';
 
 export type ResourceType =
   | 'booking'
@@ -60,7 +62,8 @@ export type ResourceType =
   | 'subscription'
   | 'membership'
   | 'job_offer'
-  | 'post';
+  | 'post'
+  | 'forum_thread';
 
 export interface Text {
   title: string;
@@ -968,6 +971,52 @@ export function planWaitlistSlotFreed(input: {
       push: { title: '¡Se liberó un turno!', body },
       detail: { title: 'Se liberó un turno', body },
       resource: { type: 'barbershop', id: input.barbershopId },
+    },
+  ];
+}
+
+// ───────────── Foros ─────────────
+
+/** A quien abrió el hilo: alguien respondió su pregunta. */
+export function planForumReply(input: {
+  userId: string;
+  threadId: string;
+  title: string;
+  author: string;
+  body: string;
+}): PlannedNotification[] {
+  const body = `@${input.author} respondió en «${clip(input.title)}»: «${clip(input.body)}»`;
+  return [
+    {
+      userId: input.userId,
+      type: 'FORUM_REPLY',
+      channels: COMMUNITY_CHANNELS,
+      mandatory: false,
+      urgent: false,
+      push: { title: 'Respondieron tu pregunta', body },
+      detail: { title: 'Nueva respuesta en el foro', body },
+      resource: { type: 'forum_thread', id: input.threadId },
+    },
+  ];
+}
+
+/** A quien escribió la respuesta: la marcaron como la mejor. */
+export function planForumSolution(input: {
+  userId: string;
+  threadId: string;
+  title: string;
+}): PlannedNotification[] {
+  const body = `Tu respuesta en «${clip(input.title)}» fue elegida como la mejor. ¡Gracias por ayudar!`;
+  return [
+    {
+      userId: input.userId,
+      type: 'FORUM_SOLUTION',
+      channels: COMMUNITY_CHANNELS,
+      mandatory: false,
+      urgent: false,
+      push: { title: 'Tu respuesta fue la mejor', body },
+      detail: { title: 'Mejor respuesta', body },
+      resource: { type: 'forum_thread', id: input.threadId },
     },
   ];
 }

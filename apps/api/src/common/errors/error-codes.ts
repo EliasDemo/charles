@@ -44,6 +44,9 @@ export const ErrorCode = {
   EVENT_FULL: 'EVENT_FULL',
   BLOCKED: 'BLOCKED',
   CONTENT_NOT_ALLOWED: 'CONTENT_NOT_ALLOWED',
+  /** Foros: hilo cerrado por soporte (409) o retirado u oculto en revisión (410). */
+  THREAD_LOCKED: 'THREAD_LOCKED',
+  THREAD_HIDDEN: 'THREAD_HIDDEN',
   NO_MEMBERSHIP_CREDITS: 'NO_MEMBERSHIP_CREDITS',
   MEMBERSHIP_NOT_APPLICABLE: 'MEMBERSHIP_NOT_APPLICABLE',
   /** Cambio de contraseña: la contraseña actual no es correcta (400, no cierra la sesión). */

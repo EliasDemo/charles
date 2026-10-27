@@ -53,6 +53,7 @@ import { ShopModule } from './modules/shop/shop.module';
 import { BalanceModule } from './modules/balance/balance';
 import { CommunityModule } from './modules/community/community.module';
 import { WaitlistModule } from './modules/waitlist/waitlist';
+import { ForumsModule } from './modules/forums/forums.module';
 import { LocationsModule } from './modules/locations/locations.module';
 
 @Module({
@@ -111,6 +112,7 @@ import { LocationsModule } from './modules/locations/locations.module';
     BalanceModule,
     CommunityModule,
     WaitlistModule,
+    ForumsModule,
     LocationsModule,
   ],
   providers: [

@@ -26,7 +26,10 @@ export interface VideoJob {
 }
 
 /** Videos activos por dueño (no borrados ni retirados). */
-export const VIDEO_MAX = { barbershop: 5, barberProfile: 10 } as const;
+export const VIDEO_MAX = { barbershop: 5, barberProfile: 10, sponsor: 5 } as const;
+
+/** Dueño de un video: exactamente uno (barbería, perfil de barbero o marca auspiciadora). */
+type VideoOwner = { barbershopId?: string; barberProfileId?: string; sponsorId?: string };
 
 interface VideoKeys {
   original?: string;
@@ -87,9 +90,20 @@ export class VideosService {
     return this.upload(userId, { barberProfileId: profile.id }, file, caption);
   }
 
+  /** ADMIN: video de una marca para la Tienda (máximo 5). */
+  async uploadForSponsor(
+    staffId: string,
+    sponsorId: string,
+    file: Buffer | undefined,
+    caption: string | undefined,
+  ): Promise<VideoDto> {
+    await this.requireSponsor(sponsorId);
+    return this.upload(staffId, { sponsorId }, file, caption);
+  }
+
   private async upload(
     userId: string,
-    owner: { barbershopId?: string; barberProfileId?: string },
+    owner: VideoOwner,
     file: Buffer | undefined,
     caption: string | undefined,
   ): Promise<VideoDto> {
@@ -109,7 +123,11 @@ export class VideosService {
         HttpStatus.PAYLOAD_TOO_LARGE,
       );
     }
-    const max = owner.barbershopId ? VIDEO_MAX.barbershop : VIDEO_MAX.barberProfile;
+    const max = owner.barbershopId
+      ? VIDEO_MAX.barbershop
+      : owner.sponsorId
+        ? VIDEO_MAX.sponsor
+        : VIDEO_MAX.barberProfile;
     if ((await this.countActive(this.prisma, owner)) >= max) throw limitReached(max);
 
     const key = `vid/${randomBytes(16).toString('base64url')}`;
@@ -125,6 +143,8 @@ export class VideosService {
         // Bloquea al dueño para que dos subidas a la vez no pasen el tope.
         if (owner.barbershopId) {
           await tx.$queryRaw`SELECT id FROM barbershops WHERE id = ${owner.barbershopId}::uuid FOR UPDATE`;
+        } else if (owner.sponsorId) {
+          await tx.$queryRaw`SELECT id FROM sponsors WHERE id = ${owner.sponsorId}::uuid FOR UPDATE`;
         } else {
           await tx.$queryRaw`SELECT id FROM barber_profiles WHERE id = ${owner.barberProfileId}::uuid FOR UPDATE`;
         }
@@ -133,6 +153,7 @@ export class VideosService {
           data: {
             barbershopId: owner.barbershopId ?? null,
             barberProfileId: owner.barberProfileId ?? null,
+            sponsorId: owner.sponsorId ?? null,
             uploadedById: userId,
             caption: caption ?? null,
             variants: { original },
@@ -249,6 +270,53 @@ export class VideosService {
     return this.manageList({ barberProfileId: profile.id });
   }
 
+  /** Videos visibles de una marca (la marca ya se validó). */
+  publicForSponsor(sponsorId: string): Promise<VideoDto[]> {
+    return this.publicList({ sponsorId });
+  }
+
+  /** ADMIN: todos los videos de una marca (también en proceso o fallidos). */
+  async manageForSponsor(sponsorId: string): Promise<VideoDto[]> {
+    await this.requireSponsor(sponsorId);
+    return this.manageList({ sponsorId });
+  }
+
+  /** Tienda: últimos videos listos de marcas activas, con su marca. */
+  async latestSponsorVideos(
+    limit: number,
+    sponsorWhere: Prisma.SponsorWhereInput,
+  ): Promise<(VideoDto & { sponsorId: string })[]> {
+    const threshold = await this.settings.positiveInt(
+      SettingKey.IMAGES_REPORT_HIDE_THRESHOLD,
+      IMAGE_DEFAULTS.reportHideThreshold,
+    );
+    const rows = await this.prisma.video.findMany({
+      where: {
+        sponsor: { is: sponsorWhere },
+        status: 'READY',
+        deletedAt: null,
+        removedAt: null,
+      },
+      include: { _count: { select: { reports: { where: { resolvedAt: null } } } } },
+      orderBy: { createdAt: 'desc' },
+      take: limit * 2,
+    });
+    return rows
+      .filter((r) => !isHiddenByReports(r._count.reports, threshold))
+      .slice(0, limit)
+      .map((r) => ({ ...this.toDto(r, false), sponsorId: r.sponsorId! }));
+  }
+
+  /** ADMIN: borra un video de una marca. */
+  async removeForSponsor(staffId: string, videoId: string): Promise<void> {
+    const video = await this.prisma.video.findFirst({
+      where: { id: videoId, deletedAt: null, sponsorId: { not: null } },
+      select: { variants: true },
+    });
+    if (!video) throw notFound();
+    await this.softDelete(staffId, videoId, video.variants);
+  }
+
   async remove(userId: string, videoId: string): Promise<void> {
     const video = await this.prisma.video.findFirst({
       where: { id: videoId, deletedAt: null },
@@ -259,17 +327,25 @@ export class VideosService {
       ? await this.access.isMember(video.barbershopId, userId)
       : video.barberProfile?.userId === userId;
     if (!allowed) throw notFound();
+    await this.softDelete(userId, videoId, video.variants);
+  }
+
+  private async softDelete(
+    actorId: string,
+    videoId: string,
+    variants: Prisma.JsonValue,
+  ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       await tx.video.update({
         where: { id: videoId },
         data: { deletedAt: new Date(this.clock.now()) },
       });
       await this.audit.record(
-        { actorId: userId, action: 'video.deleted', entityType: 'video', entityId: videoId },
+        { actorId, action: 'video.deleted', entityType: 'video', entityId: videoId },
         tx,
       );
     });
-    const keys = (video.variants ?? {}) as VideoKeys;
+    const keys = (variants ?? {}) as VideoKeys;
     await this.deleteFiles(
       [keys.original, keys.video, keys.poster].filter((k): k is string => !!k),
     );
@@ -316,13 +392,14 @@ export class VideosService {
         reports: { where: { resolvedAt: null }, select: { reason: true } },
         barbershop: { select: { name: true } },
         barberProfile: { select: { displayName: true } },
+        sponsor: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
     return rows.map((r) => ({
       ...this.toDto(r, false),
-      ownerName: r.barbershop?.name ?? r.barberProfile?.displayName ?? null,
+      ownerName: r.barbershop?.name ?? r.barberProfile?.displayName ?? r.sponsor?.name ?? null,
       openReports: r._count.reports,
       removed: r.removedAt !== null,
       reasons: [...new Set(r.reports.map((x) => x.reason))],
@@ -357,10 +434,7 @@ export class VideosService {
 
   // ───────────── Internos ─────────────
 
-  private async publicList(owner: {
-    barbershopId?: string;
-    barberProfileId?: string;
-  }): Promise<VideoDto[]> {
+  private async publicList(owner: VideoOwner): Promise<VideoDto[]> {
     const threshold = await this.settings.positiveInt(
       SettingKey.IMAGES_REPORT_HIDE_THRESHOLD,
       IMAGE_DEFAULTS.reportHideThreshold,
@@ -375,10 +449,7 @@ export class VideosService {
       .map((r) => this.toDto(r, false));
   }
 
-  private async manageList(owner: {
-    barbershopId?: string;
-    barberProfileId?: string;
-  }): Promise<VideoDto[]> {
+  private async manageList(owner: VideoOwner): Promise<VideoDto[]> {
     const rows = await this.prisma.video.findMany({
       where: { ...owner, deletedAt: null },
       include: { _count: { select: { reports: true } } },
@@ -387,13 +458,21 @@ export class VideosService {
     return rows.map((r) => this.toDto(r, true));
   }
 
-  private countActive(
-    db: Prisma.TransactionClient,
-    owner: { barbershopId?: string; barberProfileId?: string },
-  ): Promise<number> {
+  private countActive(db: Prisma.TransactionClient, owner: VideoOwner): Promise<number> {
     return db.video.count({
       where: { ...owner, deletedAt: null, removedAt: null, status: { not: 'FAILED' } },
     });
+  }
+
+  private async requireSponsor(sponsorId: string): Promise<void> {
+    const found = await this.prisma.sponsor.count({ where: { id: sponsorId, deletedAt: null } });
+    if (!found) {
+      throw new AppException(
+        ErrorCode.NOT_FOUND,
+        'El auspiciador no existe.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
   }
 
   private async ownProfile(userId: string): Promise<{ id: string }> {

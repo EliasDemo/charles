@@ -23,6 +23,6 @@ import { CommunityService } from './community.service';
     CommunityAdminController,
   ],
   providers: [CommunityService, CommunityModerationService, CommunityPolicy],
-  exports: [CommunityService],
+  exports: [CommunityService, CommunityPolicy],
 })
 export class CommunityModule {}

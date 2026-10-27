@@ -273,6 +273,16 @@ enum SponsorAudience {
   ALL
 }
 
+/// Rubro de la marca (filtros de la Tienda).
+enum SponsorCategory {
+  COSMETICS
+  TOOLS
+  FURNITURE
+  SUPPLIES
+  EDUCATION
+  OTHER
+}
+
 enum SponsorEventType {
   IMPRESSION
   CLICK
@@ -399,6 +409,10 @@ model User {
   contentReviewed ContentReport[]   @relation("ContentReportReviewer")
 
   waitlist WaitlistEntry[] @relation("WaitlistUser")
+
+  forumThreads ForumThread[]    @relation("ForumThreadAuthor")
+  forumReplies ForumReply[]     @relation("ForumReplyAuthor")
+  forumVotes   ForumReplyVote[] @relation("ForumReplyVoter")
 
   @@index([phoneHash])
   @@map("users")
@@ -1503,18 +1517,24 @@ model PromotionRedemption {
 }
 
 model Sponsor {
-  id         String    @id @default(uuid(7)) @db.Uuid
-  name       String
-  logoUrl    String?   @map("logo_url")
-  contactEnc String?   @map("contact_enc")
-  isActive   Boolean   @default(true) @map("is_active")
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  id          String          @id @default(uuid(7)) @db.Uuid
+  name        String
+  logoUrl     String?         @map("logo_url")
+  contactEnc  String?         @map("contact_enc")
+  /// Tienda: rubro, presentación, web y portada de la marca.
+  category    SponsorCategory @default(OTHER)
+  description String?
+  websiteUrl  String?         @map("website_url")
+  coverUrl    String?         @map("cover_url")
+  isActive    Boolean         @default(true) @map("is_active")
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime?       @map("deleted_at") @db.Timestamptz(3)
 
   campaigns        SponsorCampaign[]
   products         SponsorProduct[]
   packagePurchases SponsorPackagePurchase[]
+  videos           Video[]
 
   @@map("sponsors")
 }
@@ -1525,7 +1545,6 @@ model SponsorCampaign {
   name             String
   startsAt         DateTime              @map("starts_at") @db.Timestamptz(3)
   endsAt           DateTime              @map("ends_at") @db.Timestamptz(3)
-  target           Json                  @default("{}")
   /// Fase 13: a quién se muestra (clientes, barberías o ambos).
   audience         SponsorAudience       @default(ALL)
   status           SponsorCampaignStatus @default(DRAFT)
@@ -1586,23 +1605,52 @@ model SponsorEvent {
 
 /// Fase 13: catálogo de productos del auspiciador, con enlace externo. Charles no vende ni cobra.
 model SponsorProduct {
-  id          String    @id @default(uuid(7)) @db.Uuid
-  sponsorId   String    @map("sponsor_id") @db.Uuid
-  name        String
-  description String?
-  imageUrl    String?   @map("image_url")
-  actionUrl   String    @map("action_url")
-  priceText   String?   @map("price_text")
-  sortOrder   Int       @default(0) @map("sort_order")
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  id               String          @id @default(uuid(7)) @db.Uuid
+  sponsorId        String          @map("sponsor_id") @db.Uuid
+  name             String
+  description      String?
+  imageUrl         String?         @map("image_url")
+  actionUrl        String          @map("action_url")
+  /// Detalle libre del precio o la presentación (p. ej. "Frasco de 100 g").
+  priceText        String?         @map("price_text")
+  /// Tienda: a quién se muestra (cosmética para clientes, herramientas para barberías).
+  audience         SponsorAudience @default(ALL)
+  /// Precio normal y de oferta en céntimos (la oferta exige precio normal y es menor).
+  priceAmount      Int?            @map("price_amount")
+  offerPriceAmount Int?            @map("offer_price_amount")
+  currency         String          @default("PEN") @db.Char(3)
+  /// Cupón de la marca para su propia tienda (Charles no lo valida).
+  couponCode       String?         @map("coupon_code")
+  offerEndsAt      DateTime?       @map("offer_ends_at") @db.Timestamptz(3)
+  /// Clics a "Ver en la tienda" (uno por persona o dispositivo por hora).
+  clickCount       Int             @default(0) @map("click_count")
+  sortOrder        Int             @default(0) @map("sort_order")
+  isActive         Boolean         @default(true) @map("is_active")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz(3)
 
-  sponsor Sponsor @relation(fields: [sponsorId], references: [id])
+  sponsor Sponsor               @relation(fields: [sponsorId], references: [id])
+  clicks  SponsorProductClick[]
 
   @@index([sponsorId])
+  @@index([audience, isActive])
   @@map("sponsor_products")
+}
+
+/// Clic a la tienda de un producto: uno por persona (o dispositivo anónimo) por hora. Sin IP.
+model SponsorProductClick {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  productId  String   @map("product_id") @db.Uuid
+  viewerHash Bytes    @map("viewer_hash")
+  hourBucket DateTime @map("hour_bucket") @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  product SponsorProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, viewerHash, hourBucket])
+  @@map("sponsor_product_clicks")
 }
 
 model FeaturedListing {
@@ -1898,11 +1946,13 @@ enum VideoStatus {
   FAILED
 }
 
-/// Videos de 30 s: publicidad del local (barbería) o cortes del barbero (perfil).
+/// Videos de 30 s: publicidad del local (barbería), cortes del barbero (perfil) o de una marca
+/// auspiciadora (Tienda). Exactamente un dueño.
 model Video {
   id              String      @id @default(uuid(7)) @db.Uuid
   barbershopId    String?     @map("barbershop_id") @db.Uuid
   barberProfileId String?     @map("barber_profile_id") @db.Uuid
+  sponsorId       String?     @map("sponsor_id") @db.Uuid
   uploadedById    String      @map("uploaded_by") @db.Uuid
   status          VideoStatus @default(PROCESSING)
   caption         String?
@@ -1918,11 +1968,13 @@ model Video {
 
   barbershop    Barbershop?    @relation(fields: [barbershopId], references: [id])
   barberProfile BarberProfile? @relation(fields: [barberProfileId], references: [id])
+  sponsor       Sponsor?       @relation(fields: [sponsorId], references: [id], onDelete: Restrict)
   uploadedBy    User           @relation("VideoUploader", fields: [uploadedById], references: [id])
   reports       VideoReport[]
 
   @@index([barbershopId, createdAt])
   @@index([barberProfileId, createdAt])
+  @@index([sponsorId, createdAt])
   @@index([uploadedById])
   @@map("videos")
 }
@@ -2716,6 +2768,8 @@ enum ContentReportTarget {
   POST
   COMMENT
   USER
+  FORUM_THREAD
+  FORUM_REPLY
 }
 
 enum ContentReportReason {
@@ -3018,4 +3072,95 @@ model WaitlistEntry {
   @@index([serviceId])
   @@index([barberId])
   @@map("waitlist_entries")
+}
+
+// ───────────── Foros (preguntas y respuestas por tema) ─────────────
+
+/// Tema del foro (lo administra ADMIN). `threadCount` cuenta los hilos visibles.
+model ForumCategory {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  slug        String   @unique
+  name        String
+  description String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  threadCount Int      @default(0) @map("thread_count")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  threads ForumThread[]
+
+  @@map("forum_categories")
+}
+
+/// Hilo: una pregunta o conversación de cualquier cuenta. Quien lo abrió marca la mejor respuesta.
+model ForumThread {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  categoryId      String    @map("category_id") @db.Uuid
+  authorId        String    @map("author_id") @db.Uuid
+  title           String
+  body            String
+  solutionReplyId String?   @unique @map("solution_reply_id") @db.Uuid
+  replyCount      Int       @default(0) @map("reply_count")
+  lastActivityAt  DateTime  @map("last_activity_at") @db.Timestamptz(3)
+  /// Soporte: fijado arriba del tema o cerrado (no admite respuestas).
+  pinnedAt        DateTime? @map("pinned_at") @db.Timestamptz(3)
+  lockedAt        DateTime? @map("locked_at") @db.Timestamptz(3)
+  reportCount     Int       @default(0) @map("report_count")
+  hiddenAt        DateTime? @map("hidden_at") @db.Timestamptz(3)
+  removedAt       DateTime? @map("removed_at") @db.Timestamptz(3)
+  editedAt        DateTime? @map("edited_at") @db.Timestamptz(3)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  category      ForumCategory @relation(fields: [categoryId], references: [id])
+  author        User          @relation("ForumThreadAuthor", fields: [authorId], references: [id])
+  solutionReply ForumReply?   @relation("ForumThreadSolution", fields: [solutionReplyId], references: [id], onDelete: SetNull)
+  replies       ForumReply[]  @relation("ForumThreadReplies")
+
+  @@index([categoryId, lastActivityAt])
+  @@index([lastActivityAt])
+  @@index([authorId])
+  @@map("forum_threads")
+}
+
+model ForumReply {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  threadId     String    @map("thread_id") @db.Uuid
+  authorId     String    @map("author_id") @db.Uuid
+  body         String
+  /// Votos "me sirvió".
+  helpfulCount Int       @default(0) @map("helpful_count")
+  reportCount  Int       @default(0) @map("report_count")
+  hiddenAt     DateTime? @map("hidden_at") @db.Timestamptz(3)
+  removedAt    DateTime? @map("removed_at") @db.Timestamptz(3)
+  editedAt     DateTime? @map("edited_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  thread     ForumThread      @relation("ForumThreadReplies", fields: [threadId], references: [id], onDelete: Cascade)
+  author     User             @relation("ForumReplyAuthor", fields: [authorId], references: [id])
+  solutionOf ForumThread?     @relation("ForumThreadSolution")
+  votes      ForumReplyVote[]
+
+  @@index([threadId, createdAt])
+  @@index([authorId])
+  @@map("forum_replies")
+}
+
+model ForumReplyVote {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  replyId   String   @map("reply_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  reply ForumReply @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  user  User       @relation("ForumReplyVoter", fields: [userId], references: [id])
+
+  @@unique([replyId, userId])
+  @@index([userId])
+  @@map("forum_reply_votes")
 }

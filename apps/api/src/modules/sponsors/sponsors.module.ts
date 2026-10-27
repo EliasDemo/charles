@@ -15,7 +15,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiAcceptedResponse,
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNoContentResponse,
@@ -34,6 +37,9 @@ import { ImageUploadDto } from '../images/dto/image.dto';
 import { ImagesModule } from '../images/images.module';
 import { ImagesService } from '../images/images.service';
 import { SingleFile, UPLOAD_NOTE, UploadDocs, type UploadedImage } from '../images/upload';
+import { VideoDto, VideoUploadDto } from '../videos/dto/video.dto';
+import { VIDEO_UPLOAD_NOTE, VideoFile, VideosModule } from '../videos/videos.module';
+import { VideosService } from '../videos/videos.service';
 import {
   CampaignDto,
   CampaignMetricsDto,
@@ -43,17 +49,21 @@ import {
   CreateSponsorDto,
   PlacementEventDto,
   PlacementsQueryDto,
+  ProductClickDto,
   ProductDto,
   PublicPlacementDto,
   PublicSponsorDto,
   SponsorDto,
   SponsorMediaDto,
+  StoreDto,
+  StoreQueryDto,
   UpdateCampaignDto,
   UpdatePlacementDto,
   UpdateProductDto,
   UpdateSponsorDto,
 } from './dto/sponsor.dto';
 import { SponsorsService } from './sponsors.service';
+import { StoreService } from './store.service';
 import { SponsorPackagesService } from './sponsor-packages.service';
 import {
   CreatePackagePurchaseDto,
@@ -71,7 +81,10 @@ const uuid = new ParseUUIDPipe();
 @RateLimit('public')
 @Controller()
 export class SponsorsController {
-  constructor(private readonly sponsors: SponsorsService) {}
+  constructor(
+    private readonly sponsors: SponsorsService,
+    private readonly storefront: StoreService,
+  ) {}
 
   @Get('placements')
   @ApiOperation({
@@ -106,8 +119,37 @@ export class SponsorsController {
     });
   }
 
+  @Get('store')
+  @ApiOperation({
+    summary: 'Tienda: ofertas, productos, marcas por rubro, videos y descuentos',
+    description:
+      'Publicidad de marcas auspiciadoras (siempre etiquetada «Patrocinado»; nunca en la ' +
+      'Comunidad). Charles no vende: cada producto enlaza a la tienda de la marca. Registra ' +
+      'impresiones de `featured` como en /placements y los clics con /store/products/{id}/click.',
+  })
+  @ApiOkResponse({ type: StoreDto })
+  store(@Query() query: StoreQueryDto): Promise<StoreDto> {
+    return this.storefront.store(query);
+  }
+
+  @Post('store/products/:id/click')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Registrar un clic a "Ver en la tienda" de un producto',
+    description: 'Uno por persona (o instalación) por hora; los repetidos se ignoran (204 igual).',
+  })
+  @ApiNoContentResponse()
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  async productClick(
+    @OptionalUser() user: AuthUser | null,
+    @Param('id', uuid) id: string,
+    @Body() dto: ProductClickDto,
+  ): Promise<void> {
+    await this.storefront.productClick(id, { userId: user?.id ?? null, viewerKey: dto.viewerKey });
+  }
+
   @Get('sponsors/:id')
-  @ApiOperation({ summary: 'Auspiciador y su catálogo de productos (enlaces externos)' })
+  @ApiOperation({ summary: 'Marca auspiciadora: ficha, productos y videos (enlaces externos)' })
   @ApiOkResponse({ type: PublicSponsorDto })
   @ApiNotFoundResponse({ type: ErrorResponseDto })
   sponsor(@Param('id', uuid) id: string): Promise<PublicSponsorDto> {
@@ -127,6 +169,7 @@ export class SponsorsAdminController {
   constructor(
     private readonly sponsors: SponsorsService,
     private readonly images: ImagesService,
+    private readonly videos: VideosService,
   ) {}
 
   @Get('sponsors')
@@ -164,6 +207,43 @@ export class SponsorsAdminController {
   @ApiCreatedResponse({ type: SponsorMediaDto })
   media(@UploadedFile() file: UploadedImage | undefined): Promise<SponsorMediaDto> {
     return this.images.uploadSponsorAsset(file?.buffer);
+  }
+
+  @Get('sponsors/:id/videos')
+  @ApiOperation({ summary: 'Solo ADMIN: videos de la marca (también en proceso o fallidos)' })
+  @ApiOkResponse({ type: [VideoDto] })
+  sponsorVideos(@Param('id', uuid) id: string): Promise<VideoDto[]> {
+    return this.videos.manageForSponsor(id);
+  }
+
+  @Post('sponsors/:id/videos')
+  @VideoFile()
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ type: VideoUploadDto })
+  @ApiOperation({
+    summary: 'Solo ADMIN: subir un video de la marca para la Tienda (máximo 5)',
+    description: VIDEO_UPLOAD_NOTE,
+  })
+  @ApiAcceptedResponse({ type: VideoDto })
+  @HttpCode(HttpStatus.ACCEPTED)
+  uploadVideo(
+    @CurrentStaff() staff: StaffActor,
+    @Param('id', uuid) id: string,
+    @UploadedFile() file: UploadedImage | undefined,
+    @Body() dto: VideoUploadDto,
+  ): Promise<VideoDto> {
+    return this.videos.uploadForSponsor(staff.id, id, file?.buffer, dto.caption);
+  }
+
+  @Delete('sponsor-videos/:videoId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Solo ADMIN: borrar un video de una marca' })
+  @ApiNoContentResponse()
+  async removeVideo(
+    @CurrentStaff() staff: StaffActor,
+    @Param('videoId', uuid) videoId: string,
+  ): Promise<void> {
+    await this.videos.removeForSponsor(staff.id, videoId);
   }
 
   @Get('sponsors/:id/campaigns')
@@ -336,8 +416,8 @@ export class SponsorPackagesAdminController {
 }
 
 @Module({
-  imports: [AdminAccessModule, ImagesModule],
+  imports: [AdminAccessModule, ImagesModule, VideosModule],
   controllers: [SponsorsController, SponsorsAdminController, SponsorPackagesAdminController],
-  providers: [SponsorsService, SponsorPackagesService],
+  providers: [SponsorsService, SponsorPackagesService, StoreService],
 })
 export class SponsorsModule {}

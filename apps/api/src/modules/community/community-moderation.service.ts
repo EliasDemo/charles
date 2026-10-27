@@ -17,7 +17,13 @@ import type {
 } from './dto/community.dto';
 
 type Tx = Prisma.TransactionClient;
-const TARGET = { post: 'POST', comment: 'COMMENT', user: 'USER' } as const;
+const TARGET = {
+  post: 'POST',
+  comment: 'COMMENT',
+  user: 'USER',
+  forum_thread: 'FORUM_THREAD',
+  forum_reply: 'FORUM_REPLY',
+} as const;
 
 const notFound = (): AppException =>
   new AppException(ErrorCode.NOT_FOUND, 'El contenido reportado no existe.', HttpStatus.NOT_FOUND);
@@ -53,6 +59,12 @@ export class CommunityModerationService {
     } else if (targetType === 'POST') {
       if (!(await this.prisma.post.count({ where: { id: dto.targetId, deletedAt: null } })))
         throw notFound();
+    } else if (targetType === 'FORUM_THREAD') {
+      if (!(await this.prisma.forumThread.count({ where: { id: dto.targetId, deletedAt: null } })))
+        throw notFound();
+    } else if (targetType === 'FORUM_REPLY') {
+      if (!(await this.prisma.forumReply.count({ where: { id: dto.targetId, deletedAt: null } })))
+        throw notFound();
     } else if (
       !(await this.prisma.postComment.count({ where: { id: dto.targetId, deletedAt: null } }))
     ) {
@@ -77,7 +89,12 @@ export class CommunityModerationService {
         where: { targetType, targetId: dto.targetId, status: 'OPEN' },
       });
       const now = new Date(this.clock.now());
-      if (targetType === 'POST') {
+      const data = { reportCount: open, ...(open >= threshold ? { hiddenAt: now } : {}) };
+      if (targetType === 'FORUM_THREAD') {
+        await tx.forumThread.update({ where: { id: dto.targetId }, data });
+      } else if (targetType === 'FORUM_REPLY') {
+        await tx.forumReply.update({ where: { id: dto.targetId }, data });
+      } else if (targetType === 'POST') {
         await tx.post.update({
           where: { id: dto.targetId },
           data: { reportCount: open, ...(open >= threshold ? { hiddenAt: now } : {}) },
@@ -106,7 +123,7 @@ export class CommunityModerationService {
     const ids = (t: string) => [
       ...new Set(rows.filter((r) => r.targetType === t).map((r) => r.targetId)),
     ];
-    const [posts, comments, users, openCounts] = await Promise.all([
+    const [posts, comments, users, openCounts, threads, forumReplies] = await Promise.all([
       this.prisma.post.findMany({
         where: { id: { in: ids('POST') } },
         select: {
@@ -139,7 +156,33 @@ export class CommunityModerationService {
         where: { status: 'OPEN', targetId: { in: rows.map((r) => r.targetId) } },
         _count: { _all: true },
       }),
+      this.prisma.forumThread.findMany({
+        where: { id: { in: ids('FORUM_THREAD') } },
+        select: {
+          id: true,
+          title: true,
+          body: true,
+          hiddenAt: true,
+          removedAt: true,
+          deletedAt: true,
+          author: { select: { username: true } },
+        },
+      }),
+      this.prisma.forumReply.findMany({
+        where: { id: { in: ids('FORUM_REPLY') } },
+        select: {
+          id: true,
+          body: true,
+          hiddenAt: true,
+          removedAt: true,
+          deletedAt: true,
+          author: { select: { username: true } },
+          thread: { select: { title: true } },
+        },
+      }),
     ]);
+    const threadById = new Map(threads.map((t) => [t.id, t]));
+    const forumReplyById = new Map(forumReplies.map((t) => [t.id, t]));
     const postById = new Map(posts.map((p) => [p.id, p]));
     const commentById = new Map(comments.map((c) => [c.id, c]));
     const userById = new Map(users.map((u) => [u.id, u]));
@@ -172,6 +215,26 @@ export class CommunityModerationService {
             const url = variantUrl(this.storage, m.variants, 'thumb');
             return url ? [url] : [];
           }),
+        };
+      }
+      const thread = threadById.get(r.targetId);
+      if (r.targetType === 'FORUM_THREAD' && thread) {
+        return {
+          ...base,
+          preview: `Foro: ${thread.title}\n\n${thread.body}`.slice(0, 500),
+          targetAuthor: thread.author.username,
+          targetState: state(thread),
+          photos: [],
+        };
+      }
+      const forumReply = forumReplyById.get(r.targetId);
+      if (r.targetType === 'FORUM_REPLY' && forumReply) {
+        return {
+          ...base,
+          preview: `Respuesta en «${forumReply.thread.title}»: ${forumReply.body}`.slice(0, 500),
+          targetAuthor: forumReply.author.username,
+          targetState: state(forumReply),
+          photos: [],
         };
       }
       if (r.targetType === 'COMMENT' && comment) {
@@ -269,6 +332,57 @@ export class CommunityModerationService {
           ? { removedAt: null, hiddenAt: null, reportCount: 0 }
           : { hiddenAt: null, reportCount: 0 };
     if (targetType === 'POST') await tx.post.update({ where: { id: targetId }, data });
-    else await tx.postComment.update({ where: { id: targetId }, data });
+    else if (targetType === 'COMMENT')
+      await tx.postComment.update({ where: { id: targetId }, data });
+    else if (targetType === 'FORUM_REPLY') await this.moderateForumReply(tx, targetId, data);
+    else await this.moderateForumThread(tx, targetId, data);
+  }
+
+  /** Hilo del foro: al retirarlo o restaurarlo se ajusta el contador de su tema. */
+  private async moderateForumThread(
+    tx: Tx,
+    id: string,
+    data: { removedAt?: Date | null; hiddenAt?: null; reportCount?: number },
+  ): Promise<void> {
+    const before = await tx.forumThread.findUniqueOrThrow({
+      where: { id },
+      select: { removedAt: true, deletedAt: true, categoryId: true },
+    });
+    await tx.forumThread.update({ where: { id }, data });
+    if (before.deletedAt || data.removedAt === undefined) return;
+    const wasCounted = !before.removedAt;
+    const counted = data.removedAt === null;
+    if (wasCounted === counted) return;
+    await tx.forumCategory.updateMany({
+      where: { id: before.categoryId, ...(counted ? {} : { threadCount: { gt: 0 } }) },
+      data: { threadCount: counted ? { increment: 1 } : { decrement: 1 } },
+    });
+  }
+
+  /** Respuesta del foro: retirada deja de contar en el hilo y deja de ser la mejor respuesta. */
+  private async moderateForumReply(
+    tx: Tx,
+    id: string,
+    data: { removedAt?: Date | null; hiddenAt?: null; reportCount?: number },
+  ): Promise<void> {
+    const before = await tx.forumReply.findUniqueOrThrow({
+      where: { id },
+      select: { removedAt: true, deletedAt: true, threadId: true },
+    });
+    await tx.forumReply.update({ where: { id }, data });
+    if (before.deletedAt || data.removedAt === undefined) return;
+    const wasCounted = !before.removedAt;
+    const counted = data.removedAt === null;
+    if (wasCounted === counted) return;
+    await tx.forumThread.update({
+      where: { id: before.threadId },
+      data: { replyCount: counted ? { increment: 1 } : { decrement: 1 } },
+    });
+    if (!counted) {
+      await tx.forumThread.updateMany({
+        where: { id: before.threadId, solutionReplyId: id },
+        data: { solutionReplyId: null },
+      });
+    }
   }
 }

@@ -1,13 +1,18 @@
-import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import ffmpegPath from 'ffmpeg-static';
 import { BlindIndexKind, EncryptedField } from '../common/crypto/encryption-contexts';
 import { EncryptionService } from '../common/crypto/encryption.service';
 import { PasswordHasher } from '../common/crypto/password-hasher';
 import { PrismaService } from '../common/prisma/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import type { FaceShape } from '../generated/prisma/enums';
+import { IMAGE_STORAGE, type ImageStorage } from '../modules/images/image-storage';
 import { ImagesService } from '../modules/images/images.service';
+import { VideosService } from '../modules/videos/videos.service';
 import { RatingsVerifier } from '../modules/reviews/review-ratings';
 import { ShopClientsService } from '../modules/shop/shop-clients.service';
 import { BalanceService } from '../modules/balance/balance';
@@ -1006,100 +1011,475 @@ void runDevTool(async (app) => {
     });
   }
 
-  // ───────────── 12. Auspiciadores con paquetes ─────────────
-  const packages = new Map((await prisma.sponsorPackage.findMany()).map((p) => [p.code, p]));
-  const sponsorDefs = [
+  // ───────────── 12. Marcas auspiciadoras: Tienda, anuncios, paquetes y videos ─────────────
+  // Fotos de ejemplo de Pixabay (descargadas con su crédito, --sponsor-photos <carpeta>).
+  const sponsorIndex = process.argv.indexOf('--sponsor-photos');
+  const sponsorDir = sponsorIndex >= 0 ? process.argv[sponsorIndex + 1] : undefined;
+  const sponsorCredits = sponsorDir
+    ? (JSON.parse(await readFile(join(sponsorDir, 'credits.json'), 'utf8')) as {
+        file: string;
+        query: string;
+        creator: string | null;
+      }[])
+    : [];
+  const photosOf = (query: string) => sponsorCredits.filter((c) => c.query === query);
+  const assetCache = new Map<string, { url: string; thumbUrl: string }>();
+  async function sponsorAsset(file: string) {
+    if (!assetCache.has(file)) {
+      assetCache.set(
+        file,
+        await images.uploadSponsorAsset(await readFile(join(sponsorDir!, file))),
+      );
+    }
+    return assetCache.get(file)!;
+  }
+  const credit = (c: { creator: string | null } | undefined) =>
+    c ? ` Foto de ejemplo: ${c.creator ?? 'autor desconocido'} vía Pixabay.` : '';
+
+  type DemoProduct = {
+    name: string;
+    query: string;
+    photo: number;
+    audience: 'CLIENTS' | 'BARBERSHOPS' | 'ALL';
+    price: number;
+    offer?: number;
+    coupon?: string;
+    offerDays?: number;
+    detail?: string;
+    description: string;
+  };
+  const sponsorDefs: {
+    name: string;
+    category: 'COSMETICS' | 'TOOLS' | 'FURNITURE' | 'SUPPLIES' | 'EDUCATION';
+    description: string;
+    cover: string;
+    pkg: string | null;
+    audience: 'CLIENTS' | 'BARBERSHOPS' | 'ALL';
+    slots: { slot: string; title: string; query: string }[];
+    video?: { queries: string[]; caption: string };
+    products: DemoProduct[];
+  }[] = [
     {
       name: 'Cera Andina',
+      category: 'COSMETICS',
+      description:
+        'Ceras y pomadas para peinar con fijación todo el día. Hechas en Arequipa con ingredientes naturales.',
+      cover: 'hair pomade',
       pkg: 'crecimiento',
-      audience: 'CLIENTS' as const,
-      slots: ['home_banner', 'search_top'],
-      products: [
-        ['Cera mate Andina 100 g', 'S/ 25'],
-        ['Pomada brillo fuerte', 'S/ 28'],
+      audience: 'CLIENTS',
+      slots: [
+        {
+          slot: 'home_banner',
+          title: 'Tu fade dura todo el día con Cera Andina',
+          query: 'hair wax',
+        },
+        { slot: 'search_top', title: 'Pomada mate: 25 % menos esta semana', query: 'hair pomade' },
+        {
+          slot: 'store_featured',
+          title: 'Nueva línea mate: peinado natural',
+          query: 'hair pomade',
+        },
       ],
-    },
-    {
-      name: 'Navaja de Oro Pro',
-      pkg: 'destacado',
-      audience: 'BARBERSHOPS' as const,
-      slots: ['shop_dashboard'],
+      video: { queries: ['hair pomade', 'hair wax'], caption: 'Cómo peinar con pomada mate' },
       products: [
-        ['Máquina inalámbrica Pro', 'S/ 320'],
-        ['Set de peines de carbono', 'S/ 45'],
+        {
+          name: 'Pomada mate 100 g',
+          query: 'hair pomade',
+          photo: 0,
+          audience: 'CLIENTS',
+          price: 3500,
+          offer: 2625,
+          coupon: 'CHARLES25',
+          offerDays: 10,
+          detail: 'Frasco de 100 g',
+          description: 'Fijación media, acabado sin brillo. Se lava con agua.',
+        },
+        {
+          name: 'Cera brillo fuerte',
+          query: 'hair wax',
+          photo: 0,
+          audience: 'CLIENTS',
+          price: 2800,
+          detail: 'Lata de 90 g',
+          description: 'Para peinados clásicos y pompadour.',
+        },
+        {
+          name: 'Pomada a base de agua',
+          query: 'hair pomade',
+          photo: 1,
+          audience: 'ALL',
+          price: 3200,
+          offer: 2700,
+          offerDays: 20,
+          detail: 'Frasco de 120 g',
+          description: 'Brillo medio, no deja residuos. También en presentación para barberías.',
+        },
       ],
     },
     {
       name: 'Barba Fuerte',
+      category: 'COSMETICS',
+      description: 'Aceites y bálsamos para el cuidado de la barba. Aroma a eucalipto y muña.',
+      cover: 'beard oil',
       pkg: 'basico',
-      audience: 'ALL' as const,
-      slots: ['booking_success'],
-      products: [['Aceite para barba 30 ml', 'S/ 35']],
+      audience: 'CLIENTS',
+      slots: [
+        { slot: 'booking_success', title: 'Después del corte, cuida tu barba', query: 'beard oil' },
+      ],
+      video: { queries: ['beard oil'], caption: 'Rutina de barba en 30 segundos' },
+      products: [
+        {
+          name: 'Aceite para barba 30 ml',
+          query: 'beard oil',
+          photo: 0,
+          audience: 'CLIENTS',
+          price: 4500,
+          offer: 3150,
+          offerDays: 7,
+          detail: 'Gotero de 30 ml',
+          description: 'Suaviza y da brillo. Con aceite de argán.',
+        },
+        {
+          name: 'Bálsamo para barba',
+          query: 'beard oil',
+          photo: 1,
+          audience: 'CLIENTS',
+          price: 3800,
+          detail: 'Lata de 60 g',
+          description: 'Peina y controla el frizz.',
+        },
+        {
+          name: 'Kit de barba (aceite + peine)',
+          query: 'beard oil',
+          photo: 2,
+          audience: 'CLIENTS',
+          price: 7900,
+          offer: 5900,
+          coupon: 'BARBA20',
+          offerDays: 15,
+          description: 'Ideal para regalo.',
+        },
+      ],
+    },
+    {
+      name: 'Navaja de Oro Pro',
+      category: 'TOOLS',
+      description:
+        'Máquinas, navajas y tijeras profesionales con garantía de un año y servicio técnico en Juliaca.',
+      cover: 'hair clipper',
+      pkg: 'destacado',
+      audience: 'BARBERSHOPS',
+      slots: [
+        {
+          slot: 'shop_dashboard',
+          title: 'Renueva tus máquinas: cuotas sin intereses',
+          query: 'hair clipper',
+        },
+        {
+          slot: 'store_featured',
+          title: 'Máquina inalámbrica Pro: 15 % menos',
+          query: 'barber tools',
+        },
+      ],
+      video: {
+        queries: ['hair clipper', 'straight razor', 'barber scissors'],
+        caption: 'Conoce la nueva máquina inalámbrica',
+      },
+      products: [
+        {
+          name: 'Máquina inalámbrica Pro',
+          query: 'hair clipper',
+          photo: 0,
+          audience: 'BARBERSHOPS',
+          price: 38000,
+          offer: 32300,
+          offerDays: 30,
+          detail: 'Batería de 4 h',
+          description: 'Motor rotativo, cuchillas de acero, base de carga.',
+        },
+        {
+          name: 'Patillera de precisión',
+          query: 'hair clipper',
+          photo: 1,
+          audience: 'BARBERSHOPS',
+          price: 22000,
+          detail: 'Cuchilla en T',
+          description: 'Para contornos y diseños.',
+        },
+        {
+          name: 'Navaja clásica de acero',
+          query: 'straight razor',
+          photo: 0,
+          audience: 'BARBERSHOPS',
+          price: 9000,
+          offer: 7500,
+          coupon: 'NAVAJA15',
+          offerDays: 12,
+          description: 'Hoja intercambiable, mango de madera.',
+        },
+        {
+          name: 'Tijera de corte 6"',
+          query: 'barber scissors',
+          photo: 0,
+          audience: 'BARBERSHOPS',
+          price: 15000,
+          detail: 'Acero japonés',
+          description: 'Filo de navaja, tornillo de ajuste.',
+        },
+      ],
+    },
+    {
+      name: 'Sillones Titán',
+      category: 'FURNITURE',
+      description:
+        'Sillones hidráulicos y mobiliario para barberías. Entrega e instalación en Puno.',
+      cover: 'barber chair',
+      pkg: 'basico',
+      audience: 'BARBERSHOPS',
+      slots: [
+        { slot: 'store_featured', title: 'Sillón hidráulico con 12 cuotas', query: 'barber chair' },
+      ],
+      products: [
+        {
+          name: 'Sillón hidráulico clásico',
+          query: 'barber chair',
+          photo: 0,
+          audience: 'BARBERSHOPS',
+          price: 189000,
+          offer: 169000,
+          offerDays: 25,
+          description: 'Reclinable, giratorio, tapiz de cuero sintético.',
+        },
+        {
+          name: 'Sillón vintage',
+          query: 'barber chair',
+          photo: 1,
+          audience: 'BARBERSHOPS',
+          price: 245000,
+          description: 'Estilo clásico americano con reposapiés cromado.',
+        },
+      ],
+    },
+    {
+      name: 'Insumos Altiplano',
+      category: 'SUPPLIES',
+      description: 'Shampoo, capas, toallas y secadoras al por mayor y menor.',
+      cover: 'shampoo bottle',
+      pkg: null,
+      audience: 'ALL',
+      slots: [],
+      products: [
+        {
+          name: 'Shampoo profesional 1 L',
+          query: 'shampoo bottle',
+          photo: 0,
+          audience: 'ALL',
+          price: 3900,
+          offer: 2900,
+          offerDays: 9,
+          detail: 'Botella de 1 L',
+          description: 'Para todo tipo de cabello.',
+        },
+        {
+          name: 'Capa de corte impermeable',
+          query: 'barber cape',
+          photo: 0,
+          audience: 'BARBERSHOPS',
+          price: 4500,
+          description: 'Cierre a presión, tela que no retiene pelo.',
+        },
+        {
+          name: 'Secadora 2200 W',
+          query: 'hair dryer',
+          photo: 0,
+          audience: 'ALL',
+          price: 15900,
+          description: 'Dos velocidades, aire frío.',
+        },
+      ],
+    },
+    {
+      name: 'Academia Corte Fino',
+      category: 'EDUCATION',
+      description: 'Cursos de barbería con certificado: fades, diseños y atención al cliente.',
+      cover: 'barber course',
+      pkg: 'basico',
+      audience: 'BARBERSHOPS',
+      slots: [
+        {
+          slot: 'shop_dashboard',
+          title: 'Capacita a tu equipo: curso de fade',
+          query: 'barber course',
+        },
+      ],
+      products: [
+        {
+          name: 'Curso de fade (4 semanas)',
+          query: 'barber course',
+          photo: 0,
+          audience: 'ALL',
+          price: 45000,
+          offer: 35000,
+          coupon: 'FADE100',
+          offerDays: 14,
+          detail: 'Presencial en Juliaca',
+          description: 'Sábados y domingos. Incluye práctica con modelos.',
+        },
+        {
+          name: 'Taller de diseños',
+          query: 'barber course',
+          photo: 1,
+          audience: 'BARBERSHOPS',
+          price: 18000,
+          detail: '1 día',
+          description: 'Líneas, figuras y freestyle.',
+        },
+      ],
     },
   ];
+
+  /** Video corto de demostración: secuencia de 3 s por foto (1280×720), hecho con ffmpeg. */
+  async function slideshow(files: string[]): Promise<Buffer> {
+    const dir = await mkdtemp(join(tmpdir(), 'charles-demo-video-'));
+    try {
+      const out = join(dir, 'out.mp4');
+      const inputs = files.flatMap((f) => ['-loop', '1', '-t', '3', '-i', join(sponsorDir!, f)]);
+      const scaled = files
+        .map(
+          (_f, i) =>
+            `[${i}:v]scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,setsar=1,fps=25[v${i}]`,
+        )
+        .join(';');
+      const concat = `${files.map((_f, i) => `[v${i}]`).join('')}concat=n=${files.length}:v=1:a=0[out]`;
+      execFileSync(
+        ffmpegPath!,
+        [
+          '-y',
+          ...inputs,
+          '-filter_complex',
+          `${scaled};${concat}`,
+          '-map',
+          '[out]',
+          '-c:v',
+          'libx264',
+          '-pix_fmt',
+          'yuv420p',
+          out,
+        ],
+        { stdio: 'ignore' },
+      );
+      return await readFile(out);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }
+  const storage = app.get<ImageStorage>(IMAGE_STORAGE);
+  const videos = app.get(VideosService);
+
+  const packages = new Map((await prisma.sponsorPackage.findMany()).map((p) => [p.code, p]));
   for (const def of sponsorDefs) {
-    const pkg = packages.get(def.pkg)!;
+    const cover = photosOf(def.cover)[2] ?? photosOf(def.cover)[0];
+    const logo = photosOf(def.cover)[0];
     const sponsor = await prisma.sponsor.create({
       data: {
         name: def.name,
+        category: def.category,
+        description: def.description,
+        websiteUrl: `https://${ascii(def.name)}.example.com`,
+        logoUrl: logo ? (await sponsorAsset(logo.file)).thumbUrl : null,
+        coverUrl: cover ? (await sponsorAsset(cover.file)).url : null,
         contactEnc: enc.encrypt(
           `contacto@${ascii(def.name)}.example.com`,
           EncryptedField.SPONSOR_CONTACT,
         ),
-        products: {
-          create: def.products.map(([name, price], i) => ({
-            name: name!,
-            description: `${name} — producto de ${def.name} (ejemplo).`,
-            actionUrl: `https://example.com/${ascii(def.name)}/${i + 1}`,
-            priceText: price!,
-            sortOrder: i,
-          })),
+      },
+    });
+    for (const [i, item] of def.products.entries()) {
+      const photo = photosOf(item.query)[item.photo];
+      await prisma.sponsorProduct.create({
+        data: {
+          sponsorId: sponsor.id,
+          name: item.name,
+          description: `${item.description}${credit(photo)}`,
+          imageUrl: photo ? (await sponsorAsset(photo.file)).url : null,
+          actionUrl: `https://${ascii(def.name)}.example.com/producto/${i + 1}`,
+          priceText: item.detail ?? null,
+          audience: item.audience,
+          priceAmount: item.price,
+          offerPriceAmount: item.offer ?? null,
+          couponCode: item.coupon ?? null,
+          offerEndsAt: item.offerDays ? new Date(now + item.offerDays * DAY) : null,
+          clickCount: Math.floor(rand() * 60),
+          sortOrder: i,
         },
-      },
-    });
-    const campaign = await prisma.sponsorCampaign.create({
-      data: {
-        sponsorId: sponsor.id,
-        name: `${def.name} — campaña de lanzamiento`,
-        startsAt: new Date(now - 5 * DAY),
-        endsAt: new Date(now + pkg.durationDays * DAY),
-        audience: def.audience,
-        status: 'ACTIVE',
-        impressionsLimit: pkg.impressionsLimit,
-        placements: {
-          create: def.slots.map((slotKey, i) => ({
-            slotKey,
-            title: i === 0 ? `${def.name}: estilo que dura todo el día` : `Prueba ${def.name}`,
-            actionUrl: `https://example.com/${ascii(def.name)}`,
-            priority: 1,
-          })),
+      });
+    }
+    if (def.pkg) {
+      const pkg = packages.get(def.pkg)!;
+      const campaign = await prisma.sponsorCampaign.create({
+        data: {
+          sponsorId: sponsor.id,
+          name: `${def.name} — campaña de lanzamiento`,
+          startsAt: new Date(now - 5 * DAY),
+          endsAt: new Date(now + pkg.durationDays * DAY),
+          audience: def.audience,
+          status: 'ACTIVE',
+          impressionsLimit: pkg.impressionsLimit,
         },
-      },
-    });
-    const purchase = await prisma.sponsorPackagePurchase.create({
-      data: {
-        sponsorId: sponsor.id,
-        packageId: pkg.id,
-        campaignId: campaign.id,
-        priceAmount: pkg.priceAmount,
-        currency: pkg.currency,
-        status: 'PAID',
-        paidAt: new Date(now - 5 * DAY),
-        createdById: admin.id,
-      },
-    });
-    await prisma.billingCharge.create({
-      data: {
-        purpose: 'SPONSOR_PACKAGE',
-        sponsorPurchaseId: purchase.id,
-        amount: pkg.priceAmount,
-        currency: pkg.currency,
-        status: 'PAID',
-        provider: 'FAKE',
-        providerPaymentId: `demo-spk-${randomUUID()}`,
-        paidAt: new Date(now - 5 * DAY),
-      },
-    });
+      });
+      for (const [i, slot] of def.slots.slice(0, pkg.placementsLimit).entries()) {
+        const photo = photosOf(slot.query)[1] ?? photosOf(slot.query)[0];
+        await prisma.sponsorPlacement.create({
+          data: {
+            campaignId: campaign.id,
+            slotKey: slot.slot,
+            title: slot.title,
+            imageUrl: photo ? (await sponsorAsset(photo.file)).url : null,
+            actionUrl: `https://${ascii(def.name)}.example.com`,
+            priority: def.slots.length - i,
+          },
+        });
+      }
+      const purchase = await prisma.sponsorPackagePurchase.create({
+        data: {
+          sponsorId: sponsor.id,
+          packageId: pkg.id,
+          campaignId: campaign.id,
+          priceAmount: pkg.priceAmount,
+          currency: pkg.currency,
+          status: 'PAID',
+          paidAt: new Date(now - 5 * DAY),
+          createdById: admin.id,
+        },
+      });
+      await prisma.billingCharge.create({
+        data: {
+          purpose: 'SPONSOR_PACKAGE',
+          sponsorPurchaseId: purchase.id,
+          amount: pkg.priceAmount,
+          currency: pkg.currency,
+          status: 'PAID',
+          provider: 'FAKE',
+          providerPaymentId: `demo-spk-${randomUUID()}`,
+          paidAt: new Date(now - 5 * DAY),
+        },
+      });
+    }
+    // Video de la marca: se guarda el original y se procesa aquí mismo (sin pasar por la cola).
+    const frames = (def.video?.queries ?? []).flatMap((q) => photosOf(q).slice(0, 2));
+    if (def.video && frames.length > 0 && storage.enabled) {
+      const original = `vid/${randomBytes(16).toString('base64url')}/original`;
+      await storage.put(original, await slideshow(frames.map((f) => f.file)), 'video/mp4');
+      const video = await prisma.video.create({
+        data: {
+          sponsorId: sponsor.id,
+          uploadedById: admin.id,
+          caption: def.video.caption,
+          variants: { original },
+        },
+      });
+      await videos.process(video.id);
+    }
   }
 
   // ───────────── 13. Bolsa de trabajo y mensajes ─────────────
@@ -1601,6 +1981,203 @@ Foto de ejemplo: ${credit.creator ?? 'autor desconocido'} (${credit.license}) v�
     });
   }
 
+  // ───────────── 16. Foros: temas, preguntas, respuestas y mejores respuestas ─────────────
+  const forumCategories = [
+    ['tecnicas-de-corte', 'Técnicas de corte', 'Fades, tijera, navaja y diseños.'],
+    ['cuidado-personal', 'Cuidado del cabello y la barba', 'Productos, rutinas y consejos.'],
+    ['negocio', 'Negocio de la barbería', 'Precios, clientes, equipo y local.'],
+    ['herramientas', 'Herramientas y equipo', 'Máquinas, navajas, sillones y mantenimiento.'],
+    ['estilos', 'Estilos y tendencias', '¿Qué corte me queda? Ideas y fotos de referencia.'],
+  ] as const;
+  const forumCategory = new Map<string, string>();
+  for (const [i, [slug, name, description]] of forumCategories.entries()) {
+    const c = await prisma.forumCategory.create({
+      data: { slug, name, description, sortOrder: i },
+    });
+    forumCategory.set(slug, c.id);
+  }
+  const barberUsers = shops.flatMap((x) => x.barbers.map((b) => b.userId));
+  const ownerUsers = shops.map((x) => x.ownerId);
+  const threads: {
+    category: string;
+    author: string;
+    title: string;
+    body: string;
+    hoursAgo: number;
+    replies: { author: string; body: string; helpful: number }[];
+    solution?: number;
+    pinned?: boolean;
+  }[] = [
+    {
+      category: 'tecnicas-de-corte',
+      author: clients[2]!.id,
+      title: '¿Cómo pido un low fade para que no me lo dejen muy alto?',
+      body: 'Siempre que pido fade me lo suben casi hasta la coronilla. ¿Qué le tengo que decir al barbero?',
+      hoursAgo: 30,
+      replies: [
+        {
+          author: barberUsers[0]!,
+          body: 'Pide "low fade, que empiece encima de la oreja" y muéstrale una foto. El número de guarda también ayuda: 0 abajo y 2 arriba es lo clásico.',
+          helpful: 9,
+        },
+        {
+          author: barberUsers[3]!,
+          body: 'Dile dónde quieres la línea de transición tocándote la cabeza con el dedo. Así no hay confusión.',
+          helpful: 4,
+        },
+        {
+          author: clients[5]!.id,
+          body: 'A mí me sirvió guardar una foto en el celular y enseñarla antes de empezar.',
+          helpful: 2,
+        },
+      ],
+      solution: 0,
+    },
+    {
+      category: 'cuidado-personal',
+      author: clients[3]!.id,
+      title: '¿Cada cuánto debo usar aceite para la barba?',
+      body: 'Me está creciendo la barba y pica bastante. ¿Aceite todos los días o solo a veces?',
+      hoursAgo: 52,
+      replies: [
+        {
+          author: barberUsers[1]!,
+          body: 'Todos los días después de la ducha, 3 o 4 gotas. El picor de las primeras semanas pasa con hidratación.',
+          helpful: 7,
+        },
+        {
+          author: clients[6]!.id,
+          body: 'Yo lo uso en la noche y el bálsamo en la mañana para peinarla.',
+          helpful: 3,
+        },
+      ],
+      solution: 0,
+    },
+    {
+      category: 'negocio',
+      author: ownerUsers[1]!,
+      title: '¿Cómo manejan los clientes que no llegan a su cita?',
+      body: 'Este mes tuvimos varios no-show los sábados. ¿Cobran adelanto o qué hacen?',
+      hoursAgo: 20,
+      replies: [
+        {
+          author: ownerUsers[0]!,
+          body: 'Activamos el pago anticipado en la app para los sábados. Bajó muchísimo.',
+          helpful: 6,
+        },
+        {
+          author: ownerUsers[2]!,
+          body: 'Nosotros usamos la lista de espera: si alguien cancela, la app avisa y el turno se llena solo.',
+          helpful: 5,
+        },
+      ],
+    },
+    {
+      category: 'herramientas',
+      author: barberUsers[4]!,
+      title: '¿Qué máquina inalámbrica recomiendan que aguante todo el día?',
+      body: 'Trabajo 10 horas y la batería de la mía no llega a la tarde.',
+      hoursAgo: 9,
+      replies: [
+        {
+          author: barberUsers[2]!,
+          body: 'Busca una de motor rotativo con batería de 4 h o más y ten una de respaldo cargando.',
+          helpful: 3,
+        },
+      ],
+    },
+    {
+      category: 'estilos',
+      author: clients[7]!.id,
+      title: 'Cara redonda: ¿qué corte me favorece?',
+      body: 'Tengo la cara bastante redonda y no sé qué pedir. Me gustaría algo moderno.',
+      hoursAgo: 4,
+      replies: [],
+    },
+    {
+      category: 'tecnicas-de-corte',
+      author: ownerUsers[0]!,
+      title: 'Normas del foro: respeto y nada de publicidad',
+      body: 'Este espacio es para ayudarnos entre todos. Nada de insultos ni venta de productos; para eso está la Tienda. Reporta lo que no cumpla las normas.',
+      hoursAgo: 200,
+      replies: [],
+      pinned: true,
+    },
+  ];
+  for (const t of threads) {
+    const created = new Date(now - t.hoursAgo * 3_600_000);
+    const thread = await prisma.forumThread.create({
+      data: {
+        categoryId: forumCategory.get(t.category)!,
+        authorId: t.author,
+        title: t.title,
+        body: t.body,
+        createdAt: created,
+        lastActivityAt: created,
+        replyCount: t.replies.length,
+        pinnedAt: t.pinned ? created : null,
+        lockedAt: t.pinned ? created : null,
+      },
+    });
+    let last = created;
+    const replyIds: string[] = [];
+    for (const [i, r] of t.replies.entries()) {
+      last = new Date(created.getTime() + (i + 1) * 47 * 60_000);
+      const reply = await prisma.forumReply.create({
+        data: {
+          threadId: thread.id,
+          authorId: r.author,
+          body: r.body,
+          createdAt: last,
+          helpfulCount: Math.min(r.helpful, clients.length),
+        },
+      });
+      replyIds.push(reply.id);
+      const voters = clients.filter((c) => c.id !== r.author).slice(0, r.helpful);
+      await prisma.forumReplyVote.createMany({
+        data: voters.map((c) => ({ replyId: reply.id, userId: c.id })),
+      });
+    }
+    await prisma.forumThread.update({
+      where: { id: thread.id },
+      data: {
+        lastActivityAt: last,
+        solutionReplyId: t.solution !== undefined ? replyIds[t.solution]! : null,
+      },
+    });
+    await prisma.forumCategory.update({
+      where: { id: forumCategory.get(t.category)! },
+      data: { threadCount: { increment: 1 } },
+    });
+  }
+  // Un hilo con publicidad encubierta, reportado: queda para revisar en el panel.
+  const spam = await prisma.forumThread.create({
+    data: {
+      categoryId: forumCategory.get('herramientas')!,
+      authorId: clients[8]!.id,
+      title: 'Vendo máquinas baratas, escríbeme al privado',
+      body: 'Precios de remate, solo por hoy.',
+      lastActivityAt: new Date(now - 2 * 3_600_000),
+      createdAt: new Date(now - 2 * 3_600_000),
+      reportCount: 2,
+    },
+  });
+  await prisma.forumCategory.update({
+    where: { id: forumCategory.get('herramientas')! },
+    data: { threadCount: { increment: 1 } },
+  });
+  for (const c of [clients[0]!, clients[1]!]) {
+    await prisma.contentReport.create({
+      data: {
+        reporterId: c.id,
+        targetType: 'FORUM_THREAD',
+        targetId: spam.id,
+        reason: 'SPAM',
+        note: 'Publicidad en el foro',
+      },
+    });
+  }
+
   // ───────────── Resumen ─────────────
   const counts = await Promise.all([
     prisma.barbershop.count(),
@@ -1612,11 +2189,16 @@ Foto de ejemplo: ${credit.creator ?? 'autor desconocido'} (${credit.license}) v�
     prisma.shopClient.count(),
     prisma.membership.count(),
     prisma.post.count(),
+    prisma.sponsor.count(),
+    prisma.sponsorProduct.count(),
+    prisma.video.count({ where: { sponsorId: { not: null }, status: 'READY' } }),
+    prisma.forumThread.count(),
+    prisma.forumReply.count(),
   ]);
   console.warn(
     `Listo: ${counts[0]} barberías, ${counts[1]} cuentas, ${counts[2]} reservas, ${counts[3]} valoraciones, ` +
       `${counts[4]} fotos, ${counts[5]} ventas, ${counts[6]} clientes del panel, ${counts[7]} membresías, ` +
-      `${counts[8]} publicaciones.`,
+      `${counts[8]} publicaciones, ${counts[9]} marcas con ${counts[10]} productos y ${counts[11]} videos, ${counts[12]} hilos del foro con ${counts[13]} respuestas.`,
   );
   console.warn('CUENTAS:');
   for (const c of created) console.warn(`${c.role}\t${c.email}\t${c.username}\t${c.detail}`);

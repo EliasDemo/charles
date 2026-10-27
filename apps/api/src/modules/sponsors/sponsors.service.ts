@@ -7,6 +7,7 @@ import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { Prisma } from '../../generated/prisma/client';
+import { VideosService } from '../videos/videos.service';
 import type {
   CampaignDto,
   CampaignMetricsDto,
@@ -17,6 +18,7 @@ import type {
   PlacementDto,
   ProductDto,
   PublicPlacementDto,
+  PublicProductDto,
   PublicSponsorDto,
   SlotKey,
   SponsorDto,
@@ -29,7 +31,7 @@ import type {
 /** Anuncios por espacio y petición. */
 const PLACEMENTS_PER_SLOT = 3;
 const HOUR_MS = 3_600_000;
-/** Espacios de la pantalla de la barbería; los demás son de clientes. */
+/** Espacios de la pantalla de la barbería; los demás son de clientes (salvo `store_featured`). */
 const SHOP_SLOTS: ReadonlySet<SlotKey> = new Set(['shop_dashboard']);
 /** Transiciones de estado de una campaña (ENDED es definitivo). */
 const CAMPAIGN_TRANSITIONS: Record<string, string[]> = {
@@ -60,6 +62,7 @@ export class SponsorsService {
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
     private readonly audit: AuditService,
+    private readonly videos: VideosService,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
@@ -69,9 +72,13 @@ export class SponsorsService {
    * Anuncios vigentes de un espacio: campañas ACTIVE dentro de sus fechas, de auspiciadores
    * activos, para el público del espacio (clientes o barberías). Mayor prioridad primero.
    */
-  async placementsFor(slot: SlotKey): Promise<PublicPlacementDto[]> {
+  async placementsFor(
+    slot: SlotKey,
+    audience?: 'CLIENTS' | 'BARBERSHOPS',
+  ): Promise<PublicPlacementDto[]> {
     const now = new Date(this.clock.now());
-    const audiences = SHOP_SLOTS.has(slot) ? ['BARBERSHOPS', 'ALL'] : ['CLIENTS', 'ALL'];
+    const forShops = slot === 'store_featured' ? audience === 'BARBERSHOPS' : SHOP_SLOTS.has(slot);
+    const audiences = forShops ? ['BARBERSHOPS', 'ALL'] : ['CLIENTS', 'ALL'];
     const rows = await this.prisma.sponsorPlacement.findMany({
       where: {
         slotKey: slot,
@@ -160,11 +167,17 @@ export class SponsorsService {
       },
     });
     if (!sponsor) throw notFound('El auspiciador');
+    const now = this.clock.now();
     return {
       id: sponsor.id,
       name: sponsor.name,
       logoUrl: sponsor.logoUrl,
-      products: sponsor.products.map(toProduct),
+      category: sponsor.category,
+      description: sponsor.description,
+      websiteUrl: sponsor.websiteUrl,
+      coverUrl: sponsor.coverUrl,
+      products: sponsor.products.map((p) => toPublicProduct(p, now)),
+      videos: await this.videos.publicForSponsor(sponsor.id),
     };
   }
 
@@ -178,12 +191,15 @@ export class SponsorsService {
           select: {
             campaigns: { where: { deletedAt: null } },
             products: { where: { deletedAt: null } },
+            videos: { where: { deletedAt: null, status: { not: 'FAILED' } } },
           },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
-    return rows.map((s) => this.toSponsor(s, s._count.campaigns, s._count.products));
+    return rows.map((s) =>
+      this.toSponsor(s, s._count.campaigns, s._count.products, s._count.videos),
+    );
   }
 
   async createSponsor(actorId: string, dto: CreateSponsorDto): Promise<SponsorDto> {
@@ -193,12 +209,16 @@ export class SponsorsService {
           name: dto.name,
           logoUrl: dto.logoUrl ?? null,
           contactEnc: this.encryption.encryptNullable(dto.contact, EncryptedField.SPONSOR_CONTACT),
+          category: dto.category ?? 'OTHER',
+          description: dto.description ?? null,
+          websiteUrl: dto.websiteUrl ?? null,
+          coverUrl: dto.coverUrl ?? null,
         },
       });
       await this.record(tx, actorId, 'sponsor.created', 'sponsor', created.id);
       return created;
     });
-    return this.toSponsor(sponsor, 0, 0);
+    return this.toSponsor(sponsor, 0, 0, 0);
   }
 
   async updateSponsor(actorId: string, id: string, dto: UpdateSponsorDto): Promise<SponsorDto> {
@@ -207,6 +227,10 @@ export class SponsorsService {
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.logoUrl !== undefined) data.logoUrl = dto.logoUrl;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
+    if (dto.category !== undefined) data.category = dto.category;
+    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.websiteUrl !== undefined) data.websiteUrl = dto.websiteUrl;
+    if (dto.coverUrl !== undefined) data.coverUrl = dto.coverUrl;
     if (dto.contact !== undefined) {
       data.contactEnc = this.encryption.encryptNullable(
         dto.contact,
@@ -413,7 +437,8 @@ export class SponsorsService {
       where: { sponsorId, deletedAt: null },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
-    return rows.map(toProduct);
+    const now = this.clock.now();
+    return rows.map((p) => toProduct(p, now));
   }
 
   async createProduct(
@@ -422,6 +447,7 @@ export class SponsorsService {
     dto: CreateProductDto,
   ): Promise<ProductDto> {
     await this.requireSponsor(sponsorId);
+    assertOffer(dto.priceAmount ?? null, dto.offerPriceAmount ?? null);
     const product = await this.prisma.$transaction(async (tx) => {
       const created = await tx.sponsorProduct.create({
         data: {
@@ -432,12 +458,17 @@ export class SponsorsService {
           actionUrl: dto.actionUrl,
           priceText: dto.priceText ?? null,
           sortOrder: dto.sortOrder ?? 0,
+          audience: dto.audience ?? 'ALL',
+          priceAmount: dto.priceAmount ?? null,
+          offerPriceAmount: dto.offerPriceAmount ?? null,
+          couponCode: dto.couponCode ?? null,
+          offerEndsAt: dto.offerEndsAt ?? null,
         },
       });
       await this.record(tx, actorId, 'sponsor_product.created', 'sponsor_product', created.id);
       return created;
     });
-    return toProduct(product);
+    return toProduct(product, this.clock.now());
   }
 
   async updateProduct(
@@ -449,6 +480,10 @@ export class SponsorsService {
       where: { id: productId, deletedAt: null },
     });
     if (!current) throw notFound('El producto');
+    assertOffer(
+      dto.priceAmount !== undefined ? dto.priceAmount : current.priceAmount,
+      dto.offerPriceAmount !== undefined ? dto.offerPriceAmount : current.offerPriceAmount,
+    );
     const product = await this.prisma.$transaction(async (tx) => {
       const row = await tx.sponsorProduct.update({
         where: { id: productId },
@@ -459,7 +494,7 @@ export class SponsorsService {
       });
       return row;
     });
-    return toProduct(product);
+    return toProduct(product, this.clock.now());
   }
 
   // ───────────── Común ─────────────
@@ -499,20 +534,30 @@ export class SponsorsService {
       name: string;
       logoUrl: string | null;
       contactEnc: string | null;
+      category: SponsorDto['category'];
+      description: string | null;
+      websiteUrl: string | null;
+      coverUrl: string | null;
       isActive: boolean;
       createdAt: Date;
     },
     campaigns: number,
     products: number,
+    videos: number,
   ): SponsorDto {
     return {
       id: s.id,
       name: s.name,
       logoUrl: s.logoUrl,
       contact: this.encryption.decryptNullable(s.contactEnc, EncryptedField.SPONSOR_CONTACT),
+      category: s.category,
+      description: s.description,
+      websiteUrl: s.websiteUrl,
+      coverUrl: s.coverUrl,
       isActive: s.isActive,
       campaigns,
       products,
+      videos,
       createdAt: s.createdAt,
     };
   }
@@ -562,7 +607,7 @@ export class SponsorsService {
   }
 }
 
-function toProduct(p: {
+export type ProductRow = {
   id: string;
   sponsorId: string;
   name: string;
@@ -572,7 +617,64 @@ function toProduct(p: {
   priceText: string | null;
   sortOrder: number;
   isActive: boolean;
-}): ProductDto {
+  audience: 'CLIENTS' | 'BARBERSHOPS' | 'ALL';
+  priceAmount: number | null;
+  offerPriceAmount: number | null;
+  currency: string;
+  couponCode: string | null;
+  offerEndsAt: Date | null;
+  clickCount: number;
+};
+
+/** La oferta vale ahora: tiene precio de oferta y no venció. */
+export function offerActive(
+  p: Pick<ProductRow, 'priceAmount' | 'offerPriceAmount' | 'offerEndsAt'>,
+  now: number,
+): boolean {
+  return (
+    p.offerPriceAmount !== null &&
+    p.priceAmount !== null &&
+    (p.offerEndsAt === null || p.offerEndsAt.getTime() > now)
+  );
+}
+
+/** Descuento redondeado (1 a 99) de una oferta vigente; null sin oferta. */
+export function discountPercent(p: ProductRow, now: number): number | null {
+  if (!offerActive(p, now)) return null;
+  const pct = Math.round((1 - p.offerPriceAmount! / p.priceAmount!) * 100);
+  return Math.min(99, Math.max(1, pct));
+}
+
+/** Oferta coherente: exige precio normal y es menor (también lo garantiza la base). */
+function assertOffer(price: number | null, offer: number | null): void {
+  if (offer === null) return;
+  if (price === null) throw invalid('offerPriceAmount', 'requiresPriceAmount');
+  if (offer >= price) throw invalid('offerPriceAmount', 'lowerThanPriceAmount');
+}
+
+export function toPublicProduct(p: ProductRow, now: number): PublicProductDto {
+  const active = offerActive(p, now);
+  return {
+    id: p.id,
+    sponsorId: p.sponsorId,
+    name: p.name,
+    description: p.description,
+    imageUrl: p.imageUrl,
+    actionUrl: p.actionUrl,
+    priceText: p.priceText,
+    audience: p.audience,
+    priceAmount: p.priceAmount,
+    offerPriceAmount: active ? p.offerPriceAmount : null,
+    currency: p.currency,
+    discountPercent: discountPercent(p, now),
+    couponCode: active ? p.couponCode : null,
+    offerEndsAt: active ? p.offerEndsAt : null,
+    sortOrder: p.sortOrder,
+    isActive: p.isActive,
+  };
+}
+
+function toProduct(p: ProductRow, now: number): ProductDto {
   return {
     id: p.id,
     sponsorId: p.sponsorId,
@@ -583,6 +685,15 @@ function toProduct(p: {
     priceText: p.priceText,
     sortOrder: p.sortOrder,
     isActive: p.isActive,
+    audience: p.audience,
+    priceAmount: p.priceAmount,
+    offerPriceAmount: p.offerPriceAmount,
+    currency: p.currency,
+    couponCode: p.couponCode,
+    offerEndsAt: p.offerEndsAt,
+    offerActive: offerActive(p, now),
+    discountPercent: discountPercent(p, now),
+    clicks: p.clickCount,
   };
 }
 

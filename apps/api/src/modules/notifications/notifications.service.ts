@@ -25,6 +25,8 @@ import {
   planCommunityReply,
   planJobOfferAnswered,
   planWaitlistSlotFreed,
+  planForumReply,
+  planForumSolution,
   planJobOfferReceived,
   planMembershipNotice,
   planSubscriptionNotice,
@@ -78,6 +80,8 @@ export const NOTIFICATION_EVENTS = [
   'community.commented',
   'community.liked',
   'waitlist.slot_freed',
+  'forum.replied',
+  'forum.solved',
 ] as const;
 
 /** Avisos que recibe una cuenta aunque no esté activa (seguridad de la propia cuenta). */
@@ -316,6 +320,38 @@ export class NotificationsService implements OnModuleInit {
           postId: post.id,
           authorName: post.barbershop?.name ?? post.authorProfile?.displayName ?? 'Charles',
           type: post.type,
+        });
+      }
+      case 'forum.replied': {
+        const reply = await this.prisma.forumReply.findUnique({
+          where: { id: id('replyId') ?? '' },
+          select: {
+            authorId: true,
+            body: true,
+            author: { select: { username: true } },
+            thread: { select: { id: true, authorId: true, title: true } },
+          },
+        });
+        if (!reply || reply.thread.authorId === reply.authorId) return [];
+        if ((await this.blockedWith(reply.authorId)).has(reply.thread.authorId)) return [];
+        return planForumReply({
+          userId: reply.thread.authorId,
+          threadId: reply.thread.id,
+          title: reply.thread.title,
+          author: reply.author.username,
+          body: reply.body,
+        });
+      }
+      case 'forum.solved': {
+        const reply = await this.prisma.forumReply.findUnique({
+          where: { id: id('replyId') ?? '' },
+          select: { authorId: true, thread: { select: { id: true, title: true } } },
+        });
+        if (!reply) return [];
+        return planForumSolution({
+          userId: reply.authorId,
+          threadId: reply.thread.id,
+          title: reply.thread.title,
         });
       }
       case 'community.commented': {

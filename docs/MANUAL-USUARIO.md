@@ -153,6 +153,14 @@ La Comunidad es el espacio social de Charles, dentro de **Explorar**.
 
 ---
 
+## 5.1 Foros
+
+En **Foros** cualquiera puede preguntar: elige un tema (técnicas de corte, cuidado de la barba, el negocio, herramientas o estilos), escribe tu duda y la comunidad responde. Marca con **«Me sirvió»** las respuestas útiles y, si la pregunta es tuya, elige **la mejor respuesta**: quedará arriba con un ✓ y su autor recibirá un aviso. Te avisamos cuando alguien responde tu pregunta. Puedes reportar lo que no respete las normas; con varios reportes se oculta hasta que soporte lo revise.
+
+## 5.2 Tienda
+
+El ícono de **tienda** junto a la campana abre ofertas y productos de marcas que auspician Charles (cosmética, máquinas, insumos, cursos), sus videos y los descuentos vigentes para reservar. Todo lo que viene de una marca dice **«Patrocinado»**. Charles no vende esos productos: **«Ver en la tienda»** te lleva a la web de la marca, y si hay un cupón, úsalo allí. Si tienes una barbería, en la pantalla del local verás la Tienda para negocios: máquinas, mobiliario e insumos.
+
 ## 6. Tu cuenta y tu privacidad
 
 - Cambia tus datos, tu foto, tu nombre de usuario (una vez cada 30 días) y tu contraseña desde **Perfil**.

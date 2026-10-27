@@ -26,7 +26,7 @@ export const POST_TYPES = ['PROMOTION', 'EVENT', 'WORK', 'ANNOUNCEMENT'] as cons
 export type PostTypeValue = (typeof POST_TYPES)[number];
 export const FEED_TABS = ['forYou', 'nearby', 'following'] as const;
 export const ATTENDANCE = ['INTERESTED', 'GOING', 'NONE'] as const;
-export const REPORT_TARGETS = ['post', 'comment', 'user'] as const;
+export const REPORT_TARGETS = ['post', 'comment', 'user', 'forum_thread', 'forum_reply'] as const;
 export const REPORT_REASONS = [
   'SPAM',
   'OFFENSIVE',
@@ -365,10 +365,10 @@ export class AdminReportsQueryDto {
   @IsIn(['OPEN', 'DISMISSED', 'ACTIONED'])
   status?: 'OPEN' | 'DISMISSED' | 'ACTIONED';
 
-  @ApiPropertyOptional({ enum: ['POST', 'COMMENT', 'USER'] })
+  @ApiPropertyOptional({ enum: ['POST', 'COMMENT', 'USER', 'FORUM_THREAD', 'FORUM_REPLY'] })
   @IsOptional()
-  @IsIn(['POST', 'COMMENT', 'USER'])
-  targetType?: 'POST' | 'COMMENT' | 'USER';
+  @IsIn(['POST', 'COMMENT', 'USER', 'FORUM_THREAD', 'FORUM_REPLY'])
+  targetType?: 'POST' | 'COMMENT' | 'USER' | 'FORUM_THREAD' | 'FORUM_REPLY';
 }
 
 export class ResolveReportDto {
@@ -702,7 +702,7 @@ export class AdminContentReportDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
-  @ApiProperty({ enum: ['POST', 'COMMENT', 'USER'] })
+  @ApiProperty({ enum: ['POST', 'COMMENT', 'USER', 'FORUM_THREAD', 'FORUM_REPLY'] })
   targetType!: string;
 
   @ApiProperty({ format: 'uuid' })
