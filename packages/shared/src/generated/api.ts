@@ -2836,6 +2836,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/waitlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Solo ADMIN: demanda en lista de espera por barbería (esperando y avisos enviados) */
+        get: operations["AdminInsightsController_waitlist_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/devices": {
         parameters: {
             query?: never;
@@ -8572,6 +8589,23 @@ export interface components {
             /** @description Acciones registradas en la auditoría en los últimos 30 días. */
             actionsLast30d: number;
         };
+        WaitlistDemandShopDto: {
+            /** Format: uuid */
+            barbershopId: string;
+            barbershopName: string;
+            /** @description Clientes esperando un turno (hoy o después). */
+            waiting: number;
+            /** @description Avisos de turno libre enviados en los últimos 30 días. */
+            notifiedLast30d: number;
+            /** @description Servicio más pedido en espera. */
+            topService: string | null;
+        };
+        WaitlistDemandDto: {
+            totalWaiting: number;
+            totalNotifiedLast30d: number;
+            /** @description Las 50 barberías con más espera. */
+            shops: components["schemas"]["WaitlistDemandShopDto"][];
+        };
         RegisterDeviceDto: {
             /** @example ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx] */
             pushToken: string;
@@ -11018,6 +11052,11 @@ export interface components {
             /** Format: uuid */
             barbershopId: string;
             barbershopName: string;
+            /**
+             * @description Zona horaria IANA de la barbería: `date` y los minutos se leen en esta hora.
+             * @example America/Lima
+             */
+            timezone: string;
             /** Format: uuid */
             serviceId: string;
             serviceName: string;
@@ -18196,6 +18235,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StaffMemberDto"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminInsightsController_waitlist_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaitlistDemandDto"];
                 };
             };
             403: {

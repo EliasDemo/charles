@@ -254,6 +254,23 @@ export class StaffMemberDto {
   actionsLast30d!: number;
 }
 
+export class WaitlistDemandShopDto {
+  @ApiProperty({ format: 'uuid' }) barbershopId!: string;
+  @ApiProperty() barbershopName!: string;
+  @ApiProperty({ description: 'Clientes esperando un turno (hoy o después).' }) waiting!: number;
+  @ApiProperty({ description: 'Avisos de turno libre enviados en los últimos 30 días.' })
+  notifiedLast30d!: number;
+  @ApiProperty({ type: String, nullable: true, description: 'Servicio más pedido en espera.' })
+  topService!: string | null;
+}
+
+export class WaitlistDemandDto {
+  @ApiProperty() totalWaiting!: number;
+  @ApiProperty() totalNotifiedLast30d!: number;
+  @ApiProperty({ type: [WaitlistDemandShopDto], description: 'Las 50 barberías con más espera.' })
+  shops!: WaitlistDemandShopDto[];
+}
+
 // ───────────── Servicio ─────────────
 
 /** Gestión de TI del panel: búsqueda global, métricas, salud, auditoría y personal. */
@@ -656,6 +673,71 @@ export class AdminInsightsService {
       actionsLast30d: count.get(r.id) ?? 0,
     }));
   }
+
+  /** Demanda no atendida: quién espera turno y cuántos avisos de turno libre se enviaron. */
+  async waitlistDemand(): Promise<WaitlistDemandDto> {
+    const today = new Date(
+      `${new Date(this.clock.now()).toISOString().slice(0, 10)}T00:00:00.000Z`,
+    );
+    const since = new Date(Date.now() - 30 * DAY_MS);
+    const [waiting, notified, services] = await Promise.all([
+      this.prisma.waitlistEntry.groupBy({
+        by: ['barbershopId'],
+        where: { status: 'ACTIVE', date: { gte: today } },
+        _count: { _all: true },
+      }),
+      this.prisma.waitlistEntry.groupBy({
+        by: ['barbershopId'],
+        // notifiedAt es hora de la base: la ventana se mide con la hora real.
+        where: { status: 'NOTIFIED', notifiedAt: { gte: since } },
+        _count: { _all: true },
+      }),
+      this.prisma.waitlistEntry.groupBy({
+        by: ['barbershopId', 'serviceId'],
+        where: { status: 'ACTIVE', date: { gte: today } },
+        _count: { _all: true },
+      }),
+    ]);
+    const waitingBy = new Map(waiting.map((w) => [w.barbershopId, w._count._all]));
+    const notifiedBy = new Map(notified.map((n) => [n.barbershopId, n._count._all]));
+    const topServiceId = new Map<string, { id: string; n: number }>();
+    for (const s of services) {
+      const cur = topServiceId.get(s.barbershopId);
+      if (!cur || s._count._all > cur.n) {
+        topServiceId.set(s.barbershopId, { id: s.serviceId, n: s._count._all });
+      }
+    }
+    const shopIds = [...new Set([...waitingBy.keys(), ...notifiedBy.keys()])];
+    const [shops, serviceRows] = await Promise.all([
+      this.prisma.barbershop.findMany({
+        where: { id: { in: shopIds } },
+        select: { id: true, name: true },
+      }),
+      this.prisma.service.findMany({
+        where: { id: { in: [...topServiceId.values()].map((t) => t.id) } },
+        select: { id: true, name: true },
+      }),
+    ]);
+    const serviceName = new Map(serviceRows.map((r) => [r.id, r.name]));
+    const rows = shops
+      .map((shop) => {
+        const top = topServiceId.get(shop.id);
+        return {
+          barbershopId: shop.id,
+          barbershopName: shop.name,
+          waiting: waitingBy.get(shop.id) ?? 0,
+          notifiedLast30d: notifiedBy.get(shop.id) ?? 0,
+          topService: top ? (serviceName.get(top.id) ?? null) : null,
+        };
+      })
+      .sort((a, b) => b.waiting - a.waiting || b.notifiedLast30d - a.notifiedLast30d)
+      .slice(0, 50);
+    return {
+      totalWaiting: waiting.reduce((acc, w) => acc + w._count._all, 0),
+      totalNotifiedLast30d: notified.reduce((acc, n) => acc + n._count._all, 0),
+      shops: rows,
+    };
+  }
 }
 
 function csvCell(value: string): string {
@@ -733,5 +815,15 @@ export class AdminInsightsController {
   @ApiOkResponse({ type: [StaffMemberDto] })
   staff(): Promise<StaffMemberDto[]> {
     return this.insights.staff();
+  }
+
+  @Get('waitlist')
+  @AdminOnly()
+  @ApiOperation({
+    summary: 'Solo ADMIN: demanda en lista de espera por barbería (esperando y avisos enviados)',
+  })
+  @ApiOkResponse({ type: WaitlistDemandDto })
+  waitlist(): Promise<WaitlistDemandDto> {
+    return this.insights.waitlistDemand();
   }
 }

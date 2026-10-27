@@ -94,6 +94,11 @@ export class WaitlistEntryDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) barbershopId!: string;
   @ApiProperty() barbershopName!: string;
+  @ApiProperty({
+    example: 'America/Lima',
+    description: 'Zona horaria IANA de la barbería: `date` y los minutos se leen en esta hora.',
+  })
+  timezone!: string;
   @ApiProperty({ format: 'uuid' }) serviceId!: string;
   @ApiProperty() serviceName!: string;
   @ApiProperty({ type: String, nullable: true, format: 'uuid' }) barberId!: string | null;
@@ -111,7 +116,7 @@ export class WaitlistEntryDto {
 }
 
 const entryInclude = {
-  barbershop: { select: { name: true } },
+  barbershop: { select: { name: true, timezone: true } },
   service: { select: { name: true } },
   barber: { select: { displayName: true } },
 } as const;
@@ -127,7 +132,7 @@ type EntryRow = {
   status: string;
   notifiedAt: Date | null;
   createdAt: Date;
-  barbershop: { name: string };
+  barbershop: { name: string; timezone: string };
   service: { name: string };
   barber: { displayName: string } | null;
 };
@@ -136,6 +141,7 @@ const toDto = (r: EntryRow): WaitlistEntryDto => ({
   id: r.id,
   barbershopId: r.barbershopId,
   barbershopName: r.barbershop.name,
+  timezone: r.barbershop.timezone,
   serviceId: r.serviceId,
   serviceName: r.service.name,
   barberId: r.barberId,

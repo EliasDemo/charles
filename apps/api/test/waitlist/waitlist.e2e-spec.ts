@@ -39,6 +39,7 @@ describe('Lista de espera (e2e)', () => {
       status: 'ACTIVE',
       date: MONDAY,
       serviceName: 'Corte',
+      timezone: 'America/Lima',
       barberId: null,
     });
     const again = await ana.client.post(base, body, ana.token).expect(201);

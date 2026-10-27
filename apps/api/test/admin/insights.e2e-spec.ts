@@ -131,4 +131,25 @@ describe('Panel: búsqueda, métricas, salud, auditoría y personal (e2e)', () =
     expect(row.actionsLast30d).toBeGreaterThan(0);
     expect(row.lastLoginAt).not.toBeNull();
   });
+  it('demanda en lista de espera: esperando por barbería y servicio más pedido; solo ADMIN', async () => {
+    const shop = await kit.shopReady();
+    for (const from of [540, 840]) {
+      const c = await kit.verified();
+      await c.client
+        .post(
+          `${API}/barbershops/${shop.shopId}/waitlist`,
+          { serviceId: shop.serviceId, date: MONDAY, fromMinute: from, toMinute: from + 120 },
+          c.token,
+        )
+        .expect(201);
+    }
+    const res = await boss.client.get(`${API}/admin/waitlist`, boss.token).expect(200);
+    expect(res.body.totalWaiting).toBeGreaterThanOrEqual(2);
+    expect(
+      res.body.shops.find((x: { barbershopId: string }) => x.barbershopId === shop.shopId),
+    ).toMatchObject({ waiting: 2, notifiedLast30d: 0, topService: 'Corte' });
+
+    const plain = await kit.verified();
+    await plain.client.get(`${API}/admin/waitlist`, plain.token).expect(403);
+  });
 });

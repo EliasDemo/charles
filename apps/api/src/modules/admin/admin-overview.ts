@@ -41,6 +41,7 @@ export const ADMIN_SECTIONS = {
     'system',
     'audit',
     'staff',
+    'waitlist',
   ],
 } as const;
 

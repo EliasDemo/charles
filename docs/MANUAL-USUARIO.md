@@ -57,6 +57,10 @@ Entra con tu **correo o tu nombre de usuario** y tu contraseña. Si la olvidaste
 
 Si tienes una **membresía** con créditos en esa barbería, puedes pagar la reserva con un crédito en lugar de dinero.
 
+### Si no hay turno: lista de espera
+
+Cuando el día que quieres está lleno, toca **«Avisarme si se libera un turno»**. Elige la franja horaria y, si quieres, el barbero. Si alguien cancela y el turno cae en tu franja, te llega un aviso al instante para reservar antes que otros. Puedes estar en hasta 5 listas a la vez y verlas o salir de ellas en **Perfil → Mis listas de espera**.
+
 ### Antes y después de tu cita
 
 - Recibes un **recordatorio** antes de la hora.
