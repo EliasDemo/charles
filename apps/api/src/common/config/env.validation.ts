@@ -22,8 +22,10 @@ export enum NodeEnv {
 }
 
 export enum MailerDriver {
-  /** Simulado: guarda los correos en Redis. Prohibido en producción (proveedor real: Fase 10). */
+  /** Simulado: guarda los correos en Redis. Prohibido en producción. */
   Fake = 'fake',
+  /** Resend (API HTTP): exige RESEND_API_KEY y MAIL_FROM con un dominio verificado. */
+  Resend = 'resend',
 }
 
 /** Fase 10: envío de notificaciones push. */
@@ -166,6 +168,26 @@ export class EnvironmentVariables {
 
   @IsEnum(MailerDriver)
   MAILER_DRIVER: MailerDriver = MailerDriver.Fake;
+
+  /** Clave de la API de Resend (solo en el entorno, nunca en el repositorio). */
+  @IsOptional()
+  @IsString()
+  RESEND_API_KEY?: string;
+
+  /** Remitente, p. ej. `Charles <no-responder@charles.pe>` (dominio verificado en el proveedor). */
+  @IsOptional()
+  @IsString()
+  MAIL_FROM?: string;
+
+  /**
+   * true: la API, la base y Redis están en la misma red privada de contenedores (un solo servidor
+   * con Docker Compose). Solo entonces se admite la conexión sin TLS a hosts internos sin punto en
+   * el nombre (`postgres`, `redis`); cualquier otro host sigue exigiendo TLS.
+   */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  PRIVATE_NETWORK = false;
 
   @IsEnum(PushDriver)
   PUSH_DRIVER: PushDriver = PushDriver.Fake;
@@ -342,7 +364,7 @@ export interface AppConfig {
     refreshTokenTtlDays: number;
     refreshTokenGraceSeconds: number;
   };
-  mail: { driver: MailerDriver };
+  mail: { driver: MailerDriver; resendApiKey: string | null; from: string | null };
   push: { driver: PushDriver; expoAccessToken: string | null };
   scheduledJobsEnabled: boolean;
   web: { cookieDomain: string | null; cookieSecure: boolean };
@@ -448,13 +470,33 @@ export function parseTrustProxy(raw: string): Parsed<TrustProxySetting> {
   return { value: entries, errors: [] };
 }
 
+/**
+ * Host de un servicio de la red privada de contenedores (`postgres`, `redis`): solo con
+ * PRIVATE_NETWORK=true y un nombre sin punto (nunca una IP pública ni un dominio).
+ */
+function internalHost(env: EnvironmentVariables, url: string): boolean {
+  if (!env.PRIVATE_NETWORK) return false;
+  try {
+    const host = new URL(url).hostname;
+    return /^[a-z][a-z0-9-]*$/i.test(host) && host !== 'localhost';
+  } catch {
+    return false;
+  }
+}
+
 function productionErrors(env: EnvironmentVariables, corsOrigins: string[]): string[] {
   const errors: string[] = [];
-  if (!/[?&]sslmode=verify-full(&|$)/.test(env.DATABASE_URL)) {
+  if (
+    !/[?&]sslmode=verify-full(&|$)/.test(env.DATABASE_URL) &&
+    !internalHost(env, env.DATABASE_URL)
+  ) {
     errors.push('DATABASE_URL: en producción debe incluir sslmode=verify-full');
   }
-  if (!env.REDIS_URL.startsWith('rediss://')) {
+  if (!env.REDIS_URL.startsWith('rediss://') && !internalHost(env, env.REDIS_URL)) {
     errors.push('REDIS_URL: en producción debe usar TLS (rediss://)');
+  }
+  if (env.MAILER_DRIVER === MailerDriver.Resend && (!env.RESEND_API_KEY || !env.MAIL_FROM)) {
+    errors.push('MAILER_DRIVER=resend: exige RESEND_API_KEY y MAIL_FROM');
   }
   if (env.SWAGGER_ENABLED) {
     errors.push('SWAGGER_ENABLED: debe estar deshabilitado en producción');
@@ -615,7 +657,11 @@ export function validateEnv(raw: Record<string, unknown>): AppConfig {
       refreshTokenTtlDays: env.REFRESH_TOKEN_TTL_DAYS,
       refreshTokenGraceSeconds: env.REFRESH_TOKEN_GRACE_SECONDS,
     },
-    mail: { driver: env.MAILER_DRIVER },
+    mail: {
+      driver: env.MAILER_DRIVER,
+      resendApiKey: env.RESEND_API_KEY || null,
+      from: env.MAIL_FROM || null,
+    },
     push: { driver: env.PUSH_DRIVER, expoAccessToken: env.EXPO_ACCESS_TOKEN || null },
     web: { cookieDomain: env.COOKIE_DOMAIN || null, cookieSecure: env.COOKIE_SECURE },
     payments: {

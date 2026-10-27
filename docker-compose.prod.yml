@@ -1,0 +1,116 @@
+# Producción de Charles en un servidor con Docker (VPS). Guía: docs/DESPLIEGUE.md
+#
+# Estructura esperada en el servidor (los dos repositorios uno al lado del otro):
+#   /opt/charles/charles      ← este repositorio
+#   /opt/charles/charlesweb   ← el panel web
+#
+# Variables: copia docker/.env.production.example a .env.production y complétalo.
+# Arranque:  docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+
+name: charles-prod
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: charles
+      POSTGRES_USER: charles
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U charles -d charles']
+      interval: 10s
+      retries: 10
+    # Sin puertos publicados: solo la API llega a la base, por la red interna.
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--requirepass',
+        '${REDIS_PASSWORD:?Define REDIS_PASSWORD}',
+      ]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep PONG']
+      interval: 10s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DATABASE_URL: postgresql://charles:${POSTGRES_PASSWORD}@postgres:5432/charles?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      # Detrás de Caddy (una sola capa de proxy en la red interna).
+      TRUST_PROXY: '1'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ../charlesweb
+      dockerfile: Dockerfile
+      args:
+        CHARLES_API_URL: http://api:3000
+    restart: unless-stopped
+    environment:
+      CHARLES_API_URL: http://api:3000
+    depends_on:
+      - api
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?Define API_DOMAIN}
+      PANEL_DOMAIN: ${PANEL_DOMAIN:?Define PANEL_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?Define ACME_EMAIL}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - web
+
+  backup:
+    image: postgis/postgis:16-3.5
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./docker/backup.sh:/backup.sh:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    entrypoint: ['sh', '/backup.sh']
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

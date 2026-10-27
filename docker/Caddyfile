@@ -1,0 +1,25 @@
+# Caddy obtiene y renueva solo los certificados HTTPS (Let's Encrypt) para los dos dominios.
+{
+	email {$ACME_EMAIL}
+}
+
+# API pública (app móvil, webhooks de Mercado Pago, páginas para compartir).
+{$API_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy api:3000
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}
+
+# Panel de administración (solo personal). El panel reenvía /api/* a la API por la red interna.
+{$PANEL_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:3001
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+}

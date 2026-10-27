@@ -23601,6 +23601,152 @@
         ]
       }
     },
+    "/api/v1/barbershops/{id}/waitlist": {
+      "post": {
+        "description": "Si una reserva de ese día se cancela o vence, te avisamos (push y en la app). El aviso no aparta el turno: resérvalo apenas lo recibas. Idempotente por servicio y día.",
+        "operationId": "WaitlistController_join_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinWaitlistDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitlistEntryDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Límite de 5 listas activas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Anotarme en la lista de espera de un día",
+        "tags": [
+          "waitlist"
+        ]
+      }
+    },
+    "/api/v1/me/waitlist": {
+      "get": {
+        "operationId": "WaitlistController_mine_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WaitlistEntryDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mis listas de espera (activas y avisadas)",
+        "tags": [
+          "waitlist"
+        ]
+      }
+    },
+    "/api/v1/me/waitlist/{entryId}": {
+      "delete": {
+        "operationId": "WaitlistController_leave_v1",
+        "parameters": [
+          {
+            "name": "entryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Salir de una lista de espera",
+        "tags": [
+          "waitlist"
+        ]
+      }
+    },
     "/api/v1/locations/departments": {
       "get": {
         "operationId": "LocationsController_departments_v1",
@@ -40503,6 +40649,119 @@
         "required": [
           "action",
           "reason"
+        ]
+      },
+      "JoinWaitlistDto": {
+        "type": "object",
+        "properties": {
+          "serviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "date": {
+            "type": "string",
+            "example": "2026-11-05",
+            "description": "Día local de la barbería (hasta 30 días)."
+          },
+          "barberId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Solo con este barbero. Sin él: cualquiera."
+          },
+          "fromMinute": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1439,
+            "description": "Desde (minutos desde la medianoche, hora local)."
+          },
+          "toMinute": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 1440,
+            "description": "Hasta (minutos desde la medianoche, hora local)."
+          }
+        },
+        "required": [
+          "serviceId",
+          "date"
+        ]
+      },
+      "WaitlistEntryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barbershopId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barbershopName": {
+            "type": "string"
+          },
+          "serviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "serviceName": {
+            "type": "string"
+          },
+          "barberId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "barberName": {
+            "type": "string",
+            "nullable": true
+          },
+          "date": {
+            "type": "string",
+            "example": "2026-11-05"
+          },
+          "fromMinute": {
+            "type": "number",
+            "nullable": true
+          },
+          "toMinute": {
+            "type": "number",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "NOTIFIED",
+              "CANCELLED",
+              "EXPIRED"
+            ],
+            "description": "NOTIFIED: ya se le avisó de un turno libre (reserva normalmente desde la app)."
+          },
+          "notifiedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "barbershopId",
+          "barbershopName",
+          "serviceId",
+          "serviceName",
+          "barberId",
+          "barberName",
+          "date",
+          "fromMinute",
+          "toMinute",
+          "status",
+          "notifiedAt",
+          "createdAt"
         ]
       },
       "ProvinceDto": {

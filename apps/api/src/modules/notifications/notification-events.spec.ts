@@ -127,6 +127,38 @@ describe('NotificationsService: eventos de ofertas, planes, membresías y revisi
     expect(await build({})('user.disabled', {})).toEqual([]);
   });
 
+  it('lista de espera: aviso urgente con el servicio y la hora; sin inscripción, nada', async () => {
+    const entry = {
+      waitlistEntry: {
+        findUnique: jest.fn().mockResolvedValue({
+          userId: 'c-1',
+          barbershopId: 'sh-1',
+          barbershop: { name: 'Centro', timezone: 'America/Lima' },
+          service: { name: 'Corte' },
+        }),
+      },
+    };
+    const plans = await build(entry)('waitlist.slot_freed', {
+      entryId: 'w-1',
+      startAt: '2030-01-07T15:00:00.000Z',
+    });
+    expect(plans[0]).toMatchObject({
+      userId: 'c-1',
+      type: 'WAITLIST_SLOT_FREED',
+      urgent: true,
+      resource: { type: 'barbershop', id: 'sh-1' },
+    });
+    expect(plans[0]!.detail.body).toContain('Corte en Centro');
+    expect(plans[0]!.detail.body).toContain('10:00');
+    expect(await build(entry)('waitlist.slot_freed', { entryId: 'w-1' })).toEqual([]);
+    expect(
+      await build({ waitlistEntry: { findUnique: jest.fn().mockResolvedValue(null) } })(
+        'waitlist.slot_freed',
+        { entryId: 'w-1', startAt: '2030-01-07T15:00:00.000Z' },
+      ),
+    ).toEqual([]);
+  });
+
   describe('Comunidad', () => {
     const blocks = (rows: { blockerId: string; blockedId: string }[] = []) => ({
       userBlock: { findMany: jest.fn().mockResolvedValue(rows) },

@@ -24,6 +24,7 @@ import {
   planCommunityNewPost,
   planCommunityReply,
   planJobOfferAnswered,
+  planWaitlistSlotFreed,
   planJobOfferReceived,
   planMembershipNotice,
   planSubscriptionNotice,
@@ -76,6 +77,7 @@ export const NOTIFICATION_EVENTS = [
   'community.post_created',
   'community.commented',
   'community.liked',
+  'waitlist.slot_freed',
 ] as const;
 
 /** Avisos que recibe una cuenta aunque no esté activa (seguridad de la propia cuenta). */
@@ -253,6 +255,27 @@ export class NotificationsService implements OnModuleInit {
           barbershopName: shop.name,
           outcome: message.type === 'barbershop.review_approved' ? 'APPROVED' : 'CHANGES_REQUESTED',
           reason: shop.reviewNotes,
+        });
+      }
+      case 'waitlist.slot_freed': {
+        const entry = await this.prisma.waitlistEntry.findUnique({
+          where: { id: id('entryId') ?? '' },
+          select: {
+            userId: true,
+            barbershopId: true,
+            barbershop: { select: { name: true, timezone: true } },
+            service: { select: { name: true } },
+          },
+        });
+        const startAt = id('startAt');
+        if (!entry || !startAt) return [];
+        return planWaitlistSlotFreed({
+          userId: entry.userId,
+          barbershopId: entry.barbershopId,
+          barbershopName: entry.barbershop.name,
+          serviceName: entry.service.name,
+          startAt: new Date(startAt),
+          timezone: entry.barbershop.timezone,
         });
       }
       case 'community.post_created': {

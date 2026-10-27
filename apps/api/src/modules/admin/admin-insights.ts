@@ -504,7 +504,7 @@ export class AdminInsightsService {
             .llen(`${k}:wait`)
             .llen(`${k}:active`)
             .zcard(`${k}:delayed`)
-            .zcard(`${k}:failed`)
+            .zcount(`${k}:failed`, Date.now() - 86_400_000, '+inf')
             .exec(),
         );
         if (!r.ok || !r.value) continue;
@@ -518,8 +518,8 @@ export class AdminInsightsService {
         name: 'Colas de trabajo',
         status: failed.length ? 'WARN' : 'OK',
         detail: failed.length
-          ? `Trabajos fallidos en: ${failed.map((q) => `${q.name} (${q.failed})`).join(', ')}`
-          : 'Sin trabajos fallidos',
+          ? `Trabajos fallidos en las últimas 24 h: ${failed.map((q) => `${q.name} (${q.failed})`).join(', ')}`
+          : 'Sin trabajos fallidos en las últimas 24 h',
         latencyMs: null,
       });
     }

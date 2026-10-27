@@ -398,6 +398,8 @@ model User {
   contentReports  ContentReport[]   @relation("ContentReporter")
   contentReviewed ContentReport[]   @relation("ContentReportReviewer")
 
+  waitlist WaitlistEntry[] @relation("WaitlistUser")
+
   @@index([phoneHash])
   @@map("users")
 }
@@ -612,6 +614,8 @@ model Barbershop {
   posts     Post[]
   followers Follow[]
 
+  waitlist WaitlistEntry[]
+
   @@index([location], type: Gist)
   @@index([districtId])
   @@map("barbershops")
@@ -730,6 +734,8 @@ model Barber {
 
   barberProfile BarberProfile? @relation(fields: [barberProfileId], references: [id])
 
+  waitlist WaitlistEntry[]
+
   @@index([barberProfileId])
   @@index([barbershopId])
   @@index([userId])
@@ -765,6 +771,8 @@ model Service {
   membershipPlans MembershipPlanService[]
 
   posts Post[]
+
+  waitlist WaitlistEntry[]
 
   @@index([barbershopId])
   @@index([styleId])
@@ -2971,4 +2979,43 @@ model ContentReport {
   @@index([targetType, targetId])
   @@index([reviewedById])
   @@map("content_reports")
+}
+
+// ───────────── Lista de espera ─────────────
+
+enum WaitlistStatus {
+  ACTIVE
+  NOTIFIED
+  CANCELLED
+  EXPIRED
+}
+
+/// Cliente anotado para un día (y, si quiere, un barbero y una franja) en una barbería: se le avisa
+/// cuando una reserva de ese día se cancela o vence y el turno queda libre.
+model WaitlistEntry {
+  id           String         @id @default(uuid(7)) @db.Uuid
+  userId       String         @map("user_id") @db.Uuid
+  barbershopId String         @map("barbershop_id") @db.Uuid
+  serviceId    String         @map("service_id") @db.Uuid
+  barberId     String?        @map("barber_id") @db.Uuid
+  /// Día local de la barbería.
+  date         DateTime       @db.Date
+  /// Franja en minutos desde la medianoche local (null: todo el día).
+  fromMinute   Int?           @map("from_minute") @db.SmallInt
+  toMinute     Int?           @map("to_minute") @db.SmallInt
+  status       WaitlistStatus @default(ACTIVE)
+  notifiedAt   DateTime?      @map("notified_at") @db.Timestamptz(3)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user       User       @relation("WaitlistUser", fields: [userId], references: [id])
+  barbershop Barbershop @relation(fields: [barbershopId], references: [id])
+  service    Service    @relation(fields: [serviceId], references: [id])
+  barber     Barber?    @relation(fields: [barberId], references: [id])
+
+  @@index([barbershopId, date, status])
+  @@index([userId, status])
+  @@index([serviceId])
+  @@index([barberId])
+  @@map("waitlist_entries")
 }

@@ -8,10 +8,7 @@ export interface MailMessage {
   category: string;
 }
 
-/**
- * Envío de correos. Hoy solo existe `FakeMailer`; el proveedor real se elige en la Fase 10
- * y se implementa detrás de esta misma interfaz.
- */
+/** Envío de correos: `FakeMailer` (desarrollo y pruebas) o `ResendMailer` (producción). */
 export interface Mailer {
   send(message: MailMessage): Promise<void>;
 }

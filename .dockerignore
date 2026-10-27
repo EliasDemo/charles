@@ -1,0 +1,14 @@
+# Nunca dentro de la imagen: dependencias locales, compilados, secretos y datos.
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.test.example
+**/*.pem
+**/*.key
+**/*.log
+.git
+docs/negocio
+apps/api/src/generated

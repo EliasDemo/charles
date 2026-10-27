@@ -25,7 +25,7 @@ describe('AdminInsightsService.health', () => {
       [null, 2],
       [null, options.failedJobs ?? 0],
     ]);
-    const chain = { llen: () => chain, zcard: () => chain, exec };
+    const chain = { llen: () => chain, zcard: () => chain, zcount: () => chain, exec };
     const redis = {
       ping: jest.fn(() =>
         options.redis === 'down' ? Promise.reject(new Error('redis')) : Promise.resolve('PONG'),

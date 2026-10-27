@@ -52,6 +52,7 @@ import { MembershipsModule } from './modules/memberships/memberships.module';
 import { ShopModule } from './modules/shop/shop.module';
 import { BalanceModule } from './modules/balance/balance';
 import { CommunityModule } from './modules/community/community.module';
+import { WaitlistModule } from './modules/waitlist/waitlist';
 import { LocationsModule } from './modules/locations/locations.module';
 
 @Module({
@@ -109,6 +110,7 @@ import { LocationsModule } from './modules/locations/locations.module';
     ShopModule,
     BalanceModule,
     CommunityModule,
+    WaitlistModule,
     LocationsModule,
   ],
   providers: [

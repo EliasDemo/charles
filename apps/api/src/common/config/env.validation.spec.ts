@@ -91,6 +91,65 @@ describe('validateEnv', () => {
       ]);
     });
 
+    const problemsOf = (env: Record<string, string>): string[] => {
+      try {
+        validateEnv(env);
+        return [];
+      } catch (error) {
+        return (error as Error).message.split('\n').filter((line) => line.startsWith(' - '));
+      }
+    };
+
+    it('red privada: sin TLS solo hacia servicios internos sin punto en el nombre', () => {
+      const internal = {
+        ...production,
+        DATABASE_URL: 'postgresql://charles:x@postgres:5432/charles',
+        REDIS_URL: 'redis://:x@redis:6379/0',
+      };
+      expect(problemsOf(internal)).toEqual(
+        expect.arrayContaining([
+          ' - DATABASE_URL: en producción debe incluir sslmode=verify-full',
+          ' - REDIS_URL: en producción debe usar TLS (rediss://)',
+        ]),
+      );
+      const allowed = problemsOf({ ...internal, PRIVATE_NETWORK: 'true' });
+      expect(allowed.some((l) => l.includes('DATABASE_URL') || l.includes('REDIS_URL'))).toBe(
+        false,
+      );
+      const external = problemsOf({
+        ...internal,
+        PRIVATE_NETWORK: 'true',
+        DATABASE_URL: 'postgresql://u:p@db.example.com:5432/db',
+        REDIS_URL: 'redis://localhost:6379/0',
+      });
+      expect(external).toEqual(
+        expect.arrayContaining([
+          ' - DATABASE_URL: en producción debe incluir sslmode=verify-full',
+          ' - REDIS_URL: en producción debe usar TLS (rediss://)',
+        ]),
+      );
+    });
+
+    it('correo con Resend: exige la clave y el remitente', () => {
+      expect(problemsOf({ ...production, MAILER_DRIVER: 'resend' })).toContain(
+        ' - MAILER_DRIVER=resend: exige RESEND_API_KEY y MAIL_FROM',
+      );
+      const ok = problemsOf({
+        ...production,
+        MAILER_DRIVER: 'resend',
+        RESEND_API_KEY: 're_x',
+        MAIL_FROM: 'Charles <no-responder@charles.pe>',
+      });
+      expect(ok.some((l) => l.includes('MAILER'))).toBe(false);
+      const config = validateEnv({
+        ...base,
+        MAILER_DRIVER: 'resend',
+        RESEND_API_KEY: 're_x',
+        MAIL_FROM: 'a@b.pe',
+      });
+      expect(config.mail).toEqual({ driver: 'resend', resendApiKey: 're_x', from: 'a@b.pe' });
+    });
+
     describe('Mercado Pago', () => {
       const mp = {
         PAYMENTS_GATEWAY: 'mercadopago',

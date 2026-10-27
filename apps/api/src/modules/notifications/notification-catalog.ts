@@ -46,7 +46,8 @@ export type NotificationType =
   | 'COMMUNITY_REPLY'
   | 'COMMUNITY_MENTION'
   | 'COMMUNITY_LIKE'
-  | 'COMMUNITY_NEW_POST';
+  | 'COMMUNITY_NEW_POST'
+  | 'WAITLIST_SLOT_FREED';
 
 export type ResourceType =
   | 'booking'
@@ -935,4 +936,38 @@ export function planCommunityNewPost(input: {
     detail: { title: 'Nueva publicación', body },
     resource: { type: 'post' as const, id: input.postId },
   }));
+}
+
+// ───────────── Lista de espera ─────────────
+
+/** Al anotado: se liberó un turno en el día que esperaba (urgente: el turno es de quien reserve primero). */
+export function planWaitlistSlotFreed(input: {
+  userId: string;
+  barbershopId: string;
+  barbershopName: string;
+  serviceName: string;
+  startAt: Date;
+  timezone: string;
+}): PlannedNotification[] {
+  const when = new Intl.DateTimeFormat('es-PE', {
+    timeZone: input.timezone,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(input.startAt);
+  const body = `Se liberó un turno de ${input.serviceName} en ${input.barbershopName}: ${when}. Resérvalo antes de que lo tome otra persona.`;
+  return [
+    {
+      userId: input.userId,
+      type: 'WAITLIST_SLOT_FREED',
+      channels: ['PUSH', 'IN_APP'],
+      mandatory: false,
+      urgent: true,
+      push: { title: '¡Se liberó un turno!', body },
+      detail: { title: 'Se liberó un turno', body },
+      resource: { type: 'barbershop', id: input.barbershopId },
+    },
+  ];
 }

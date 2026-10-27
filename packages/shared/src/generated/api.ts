@@ -5575,6 +5575,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/barbershops/{id}/waitlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Anotarme en la lista de espera de un día
+         * @description Si una reserva de ese día se cancela o vence, te avisamos (push y en la app). El aviso no aparta el turno: resérvalo apenas lo recibas. Idempotente por servicio y día.
+         */
+        post: operations["WaitlistController_join_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/waitlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mis listas de espera (activas y avisadas) */
+        get: operations["WaitlistController_mine_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/waitlist/{entryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Salir de una lista de espera */
+        delete: operations["WaitlistController_leave_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/locations/departments": {
         parameters: {
             query?: never;
@@ -10939,6 +10993,50 @@ export interface components {
              */
             action: "DISMISS" | "REMOVE" | "RESTORE";
             reason: string;
+        };
+        JoinWaitlistDto: {
+            /** Format: uuid */
+            serviceId: string;
+            /**
+             * @description Día local de la barbería (hasta 30 días).
+             * @example 2026-11-05
+             */
+            date: string;
+            /**
+             * Format: uuid
+             * @description Solo con este barbero. Sin él: cualquiera.
+             */
+            barberId?: string;
+            /** @description Desde (minutos desde la medianoche, hora local). */
+            fromMinute?: number;
+            /** @description Hasta (minutos desde la medianoche, hora local). */
+            toMinute?: number;
+        };
+        WaitlistEntryDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            barbershopId: string;
+            barbershopName: string;
+            /** Format: uuid */
+            serviceId: string;
+            serviceName: string;
+            /** Format: uuid */
+            barberId: string | null;
+            barberName: string | null;
+            /** @example 2026-11-05 */
+            date: string;
+            fromMinute: number | null;
+            toMinute: number | null;
+            /**
+             * @description NOTIFIED: ya se le avisó de un turno libre (reserva normalmente desde la app).
+             * @enum {string}
+             */
+            status: "ACTIVE" | "NOTIFIED" | "CANCELLED" | "EXPIRED";
+            /** Format: date-time */
+            notifiedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
         };
         ProvinceDto: {
             /** @example Puno */
@@ -25695,6 +25793,102 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    WaitlistController_join_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoinWaitlistDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaitlistEntryDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description Límite de 5 listas activas. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    WaitlistController_mine_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaitlistEntryDto"][];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    WaitlistController_leave_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
